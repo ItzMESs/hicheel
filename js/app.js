@@ -10,27 +10,45 @@
   try { Object.assign(pick, JSON.parse(localStorage.getItem("hicheel_pick") || "{}")); } catch (e) { /* ignore */ }
   function savePick() { try { localStorage.setItem("hicheel_pick", JSON.stringify(pick)); } catch (e) { /* ignore */ } }
 
+  // Хэл (track): "zh" — Хятад, "en" — Англи. Сонгосон хэлнээс хамаарч бүх хуудас тохирох хичээлийг харуулна.
+  pick.levels = pick.levels || {};
+  const track = () => COURSES[pick.course].lang;
+  function setCourse(cid, level) {
+    pick.levels[pick.course] = pick.level;
+    pick.course = cid;
+    if (cid !== "ielts") pick.lastZh = cid;
+    const lv = COURSES[cid].data().levels;
+    pick.level = level && lv.includes(level) ? level : (pick.levels[cid] && lv.includes(pick.levels[cid]) ? pick.levels[cid] : lv[0]);
+    savePick();
+  }
+  function setTrack(lang) {
+    if (track() === lang) return;
+    setCourse(lang === "zh" ? (pick.lastZh || "hsk2") : "ielts");
+  }
+  const FLAG = { zh: `<span class="flag zh">中</span>`, en: `<span class="flag en">EN</span>` };
+
   function picker() {
     const c = COURSES[pick.course];
     if (!c.data().levels.includes(pick.level)) pick.level = c.data().levels[0];
+    const prog = Progress.get();
     return `
       <div class="picker">
-        <label>Хичээл
-          <select id="pk-course" class="input">
-            ${Object.values(COURSES).map((x) => `<option value="${x.id}" ${x.id === pick.course ? "selected" : ""}>${esc(x.title)}</option>`).join("")}
-          </select>
-        </label>
-        <label>Түвшин
-          <select id="pk-level" class="input">
-            ${c.data().levels.map((l) => `<option value="${l}" ${l === pick.level ? "selected" : ""}>${esc(c.levelLabel(l))}</option>`).join("")}
-          </select>
-        </label>
+        ${c.lang === "zh" ? `<div class="pk-tabs" id="pk-ver">
+          <button data-c="hsk2" class="${pick.course === "hsk2" ? "on" : ""}">Хуучин HSK</button>
+          <button data-c="hsk3" class="${pick.course === "hsk3" ? "on" : ""}">Шинэ HSK</button>
+        </div>` : `<div class="pk-tabs"><button class="on">IELTS · CEFR</button></div>`}
+        <div class="lv-pick" id="pk-lv">
+          ${c.data().levels.map((l) => {
+            const ws = getLevel(c.id, l).words;
+            const n = ws.filter((w) => prog.learned[w.id]).length;
+            return `<button data-l="${esc(l)}" class="${l === pick.level ? "on" : ""}"><b>${esc(c.levelLabel(l).replace("HSK ", "HSK"))}</b><small>${ws.length} үг</small>${n ? `<i class="pk-done">${n}✔</i>` : ""}</button>`;
+          }).join("")}
+        </div>
       </div>`;
   }
   function bindPicker(onChange) {
-    const c = document.getElementById("pk-course"), l = document.getElementById("pk-level");
-    c.onchange = () => { pick.course = c.value; pick.level = COURSES[c.value].data().levels[0]; savePick(); onChange(); };
-    l.onchange = () => { pick.level = l.value; savePick(); onChange(); };
+    document.querySelectorAll("#pk-ver button").forEach((b) => (b.onclick = () => { setCourse(b.dataset.c); onChange(); }));
+    document.querySelectorAll("#pk-lv button").forEach((b) => (b.onclick = () => { pick.level = b.dataset.l; savePick(); onChange(); }));
   }
 
   const pageHead = (title, sub) => `<header class="page-head"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</header>`;
@@ -58,8 +76,8 @@
         </div>
       </section>
       <section class="grid cards3">
-        ${feature("🇨🇳", "Хятад хэл (HSK)", "HSK 2.0 — 6 түвшин, HSK 3.0 — 9 түвшин. Пиньинь, утга, дуудлага, дүрэм.", "#/chinese")}
-        ${feature("🇬🇧", "Англи хэл (IELTS)", "CEFR A1–C1 түвшин, IELTS band оноотой харьцуулалт, унших дасгал.", "#/english")}
+        ${feature("中", "Хятад хэл (HSK)", "HSK 2.0 — 6 түвшин, HSK 3.0 — 9 түвшин. Пиньинь, утга, дуудлага, дүрэм.", "#/chinese")}
+        ${feature("EN", "Англи хэл (IELTS)", "CEFR A1–C1 түвшин, IELTS band оноотой харьцуулалт, унших дасгал.", "#/english")}
         ${feature("🎧", "Сонсгол", "Үг, өгүүлбэр сонсож таних, сонсоод бичих дасгал.", "#/listening")}
         ${feature("🎮", "8 төрлийн тоглоом", "Флаш карт, хос тааруулах, хурдны сорил, өгүүлбэр, аялгуу, үг угсрах, тоо, дуудлага.", "#/games")}
         ${feature("📝", "Тест шалгалт", "Түвшин тогтоох хугацаатай шалгалт, дүнгийн түүх.", "#/tests")}
@@ -133,7 +151,7 @@
     const u = Auth.current(), p = Progress.get();
     const learned = Object.keys(p.learned).length;
     const avg = p.tests.length ? Math.round(p.tests.reduce((s, t) => s + t.pct, 0) / p.tests.length) : 0;
-    const courseStats = Object.values(COURSES).map((c) => {
+    const courseStats = Object.values(COURSES).filter((c) => c.lang === track()).map((c) => {
       const lv = c.data().levels.map((l) => {
         const ws = getLevel(c.id, l).words;
         const n = ws.filter((w) => p.learned[w.id]).length;
@@ -144,8 +162,8 @@
     }).join("");
     // Өдрийн үг (огноогоор тогтмол)
     const uniq = Array.from(new Map(allWords().map((w) => [w.id, w])).values());
-    const seed = A.today().split("-").join("") % uniq.length;
-    const wotd = uniq[seed];
+    const pool = uniq.filter((w) => w.lang === track() && !w.noMn);
+    const wotd = pool[A.today().split("-").join("") % pool.length];
     const due = A.SRS.allDue();
     const done = p.activity[A.today()] || 0;
     const goalPct = Math.min(100, Math.round((done / p.goal) * 100));
@@ -178,7 +196,7 @@
       <div class="stats">
         ${stat("⭐", p.xp, "XP оноо")}
         ${stat("🔥", p.streak, "Дараалсан өдөр")}
-        ${stat("📚", learned + " / " + uniq.length, "Цээжилсэн үг")}
+        ${stat("📚", learned + "<small> / " + uniq.filter((w) => w.lang === track()).length + "</small>", "Цээжилсэн үг")}
         ${stat("📝", p.tests.length, "Өгсөн тест")}
         ${stat("🎯", avg + "%", "Тестийн дундаж")}
       </div>
@@ -191,9 +209,9 @@
         <div class="card">
           <h3>⚡ Шуурхай эхлэх</h3>
           <div class="quick-grid">
-            <a href="#/chinese">🇨🇳 HSK хичээл</a><a href="#/english">🇬🇧 IELTS хичээл</a>
-            <a href="#/games/flash">🃏 Флаш карт</a><a href="#/listening">🎧 Сонсгол</a>
-            <a href="#/ielts/writing">✍️ Writing</a><a href="#/tests">📝 Тест өгөх</a>
+            ${track() === "zh"
+              ? `<a href="#/chinese">${FLAG.zh} HSK хичээл</a><a href="#/grammar">✏️ Дүрэм</a><a href="#/games/flash">🃏 Флаш карт</a><a href="#/listening">🎧 Сонсгол</a><a href="#/games/tone">🎵 Аялгуу таах</a><a href="#/tests">📝 Тест өгөх</a>`
+              : `<a href="#/english">${FLAG.en} IELTS хичээл</a><a href="#/grammar">✏️ Дүрэм</a><a href="#/games/flash">🃏 Флаш карт</a><a href="#/listening">🎧 Сонсгол</a><a href="#/ielts/writing">✍️ Writing</a><a href="#/tests">📝 Тест өгөх</a>`}
           </div>
         </div>
       </div>
@@ -215,11 +233,12 @@
   /* ---------- Хятад хэл ---------- */
   Pages.chinese = function (ver, level) {
     if (ver && level) return levelPage(ver, decodeURIComponent(level));
-    ver = ver === "hsk3" ? "hsk3" : "hsk2";
+    ver = ver === "hsk3" || ver === "hsk2" ? ver : (pick.lastZh || "hsk2");
+    if (pick.course !== ver) setCourse(ver);
     const d = COURSES[ver].data();
     const p = Progress.get();
     view().innerHTML = `
-      ${pageHead("🇨🇳 Хятад хэл — HSK", "Хятад хэлний түвшин тогтоох олон улсын шалгалт")}
+      ${pageHead(FLAG.zh + " Хятад хэл — HSK", "Хятад хэлний түвшин тогтоох олон улсын шалгалт")}
       <div class="tabs" role="tablist">
         <a class="tab ${ver === "hsk2" ? "on" : ""}" href="#/chinese/hsk2">HSK 2.0 (хуучин)</a>
         <a class="tab ${ver === "hsk3" ? "on" : ""}" href="#/chinese/hsk3">HSK 3.0 (шинэ)</a>
@@ -265,10 +284,11 @@
   /* ---------- Англи хэл ---------- */
   Pages.english = function (level) {
     if (level) return levelPage("ielts", decodeURIComponent(level));
+    setTrack("en");
     const d = A.COURSES.ielts.data();
     const p = Progress.get();
     view().innerHTML = `
-      ${pageHead("🇬🇧 Англи хэл — IELTS", "CEFR A1–C1 түвшин ба IELTS бэлтгэл")}
+      ${pageHead(FLAG.en + " Англи хэл — IELTS", "CEFR A1–C1 түвшин ба IELTS бэлтгэл")}
       <div class="card info-box">
         <p><b>IELTS</b> (International English Language Testing System) нь 0–9 band оноогоор үнэлэгддэг. Доорх хүснэгтэд CEFR түвшин ба IELTS оноог ойролцоогоор харьцуулав.</p>
         <div class="table-wrap"><table class="table"><thead><tr><th>CEFR</th><th>IELTS band</th><th>Тайлбар</th></tr></thead><tbody>
@@ -296,6 +316,7 @@
   /* ---------- Түвшний хуудас (үг, дүрэм, өгүүлбэр, унших) ---------- */
   function levelPage(courseId, level) {
     if (!COURSES[courseId] || !COURSES[courseId].data().levels.includes(level)) return Pages.notfound();
+    if (pick.course !== courseId || pick.level !== level) setCourse(courseId, level);
     const L = getLevel(courseId, level);
     const lang = L.course.lang;
     const back = lang === "zh" ? "#/chinese/" + courseId : "#/english";
@@ -324,7 +345,7 @@
     function draw() {
       const c = document.getElementById("tabc");
       if (tab === "words") return wordsTab(c, L.words);
-      if (tab === "grammar") c.innerHTML = L.grammar.map((g, gi) => grammarCard(g, gi, lang)).join("");
+      if (tab === "grammar") c.innerHTML = `<p class="muted small">${L.grammar.length} дүрэм · <a href="#/grammar">Бүх дүрэм харах →</a></p>` + L.grammar.map((g, gi) => grammarCard(g, gi, lang, gi === 0)).join("");
       if (tab === "sent") c.innerHTML = `<div class="list">${L.sentences.map((s) => `
         <div class="card sent">
           ${speakBtn(s.text, lang)}
@@ -382,16 +403,16 @@
         </td></tr>`).join("")}</tbody></table></div>`;
   }
 
-  function grammarCard(g, gi, lang) {
-    return `<div class="card grammar">
-      <h3>${esc(g.title)}</h3>
+  function grammarCard(g, gi, lang, open) {
+    return `<details class="card grammar" ${open ? "open" : ""}>
+      <summary><span class="g-n">${gi + 1}</span><h3>${esc(g.title)}</h3></summary>
       <p>${esc(g.explain)}</p>
-      <ul class="examples">${g.examples.map((e) => `<li>${speakBtn(e[0], lang)}<span class="${lang}">${esc(e[0])}</span> — <span class="muted">${esc(e[1])}</span></li>`).join("")}</ul>
+      <ul class="examples">${g.examples.map((e) => `<li>${speakBtn(e[0], lang)}<div><span class="${lang} ex-t">${esc(e[0])}</span>${e[2] ? `<span class="ex-py">${esc(e[2])}</span>` : ""}<span class="muted">${esc(e[1])}</span></div></li>`).join("")}</ul>
       <div class="mini-quiz">
         <h4>Шалгах</h4>
         ${g.quiz.map((q, qi) => `<div class="mq" data-g="${gi}" data-q="${qi}"><p>${esc(q.q)}</p><div class="options small">${q.o.map((o, k) => `<button class="opt ${lang}" data-k="${k}">${esc(o)}</button>`).join("")}</div></div>`).join("")}
       </div>
-    </div>`;
+    </details>`;
   }
   function bindGrammar(c, L) {
     c.querySelectorAll(".mq[data-g]").forEach((m) => {
@@ -448,12 +469,12 @@
     view().innerHTML = `
       ${pageHead("🎧 Сонсгол", "Чихээ дадлагажуулж, дуудлагаа сайжруул")}
       ${!Speech.supported ? `<div class="card warn">⚠️ Таны хөтөч дуу унших (Speech Synthesis) боломжгүй байна. Chrome, Edge, Safari ашиглана уу.</div>` : ""}
-      ${picker()}
+      <div class="split"><aside class="lvl-side">${picker()}</aside><section class="split-main">
       <div class="row center">
         <label class="rate-ctl">Хурд <input type="range" id="rate" min="0.5" max="1.3" step="0.1" value="${Speech.rate}"><span id="rv">${Speech.rate}</span></label>
       </div>
       <div class="grid cards4">${modes.map((m) => `<button class="card mode" data-m="${m.id}"><h3>${m.t}</h3><p>${m.d}</p></button>`).join("")}</div>
-      <div id="lz"></div>`;
+      <div id="lz"></div></section></div>`;
     bindPicker(Pages.listening);
     const r = document.getElementById("rate");
     r.oninput = () => { Speech.rate = +r.value; document.getElementById("rv").textContent = r.value; };
@@ -481,9 +502,9 @@
     const g = Games.list.find((x) => x.id === id);
     view().innerHTML = `
       ${pageHead("🎮 Тоглоом", "Тоглонгоо сур!")}
-      ${picker()}
-      <div class="grid cards4">${Games.list.map((x) => { const off = x.lang && x.lang !== COURSES[pick.course].lang; return `<a class="card mode ${x.id === id ? "on" : ""} ${off ? "off" : ""}" href="#/games/${x.id}"><div class="f-icon">${x.icon}</div><h3>${x.title}</h3><p>${x.desc}</p>${x.lang ? `<span class="tag">${x.lang === "zh" ? "Зөвхөн HSK" : "Зөвхөн IELTS"}</span>` : ""}</a>`; }).join("")}</div>
-      <div id="gz"></div>`;
+      <div class="split"><aside class="lvl-side">${picker()}</aside><section class="split-main">
+      <div class="grid cards4">${Games.list.filter((x) => !x.lang || x.lang === track()).map((x) => { const off = false; return `<a class="card mode ${x.id === id ? "on" : ""} ${off ? "off" : ""}" href="#/games/${x.id}"><div class="f-icon">${x.icon}</div><h3>${x.title}</h3><p>${x.desc}</p></a>`; }).join("")}</div>
+      <div id="gz"></div></section></div>`;
     bindPicker(() => Pages.games(id));
     if (g) {
       const box = document.getElementById("gz");
@@ -498,7 +519,7 @@
     const c = COURSES[pick.course];
     view().innerHTML = `
       ${pageHead("📝 Тест шалгалт", "Түвшин бүрийн мэдлэгээ шалгаж, дүнгээ хадгал")}
-      ${picker()}
+      <div class="split"><aside class="lvl-side">${picker()}</aside><section class="split-main">
       <div class="card center test-intro">
         <h3>${esc(c.short)} · ${esc(c.levelLabel(pick.level))} шалгалт</h3>
         <ul class="facts inline">
@@ -509,7 +530,7 @@
       </div>
       <div id="tz"></div>
       <h2 class="section-title">Миний дүнгийн түүх</h2>
-      <div id="th">${testTable(p.tests.slice().reverse())}</div>`;
+      <div id="th">${testTable(p.tests.slice().reverse())}</div></section></div>`;
     bindPicker(Pages.tests);
     document.getElementById("start").onclick = begin;
     function begin() {
@@ -548,14 +569,14 @@
   /* ---------- Толь бичиг ---------- */
   Pages.dictionary = function () {
     const words = allWords();
-    let filter = "all", q = "", onlyFav = false;
+    let filter = track(), q = "", onlyFav = false;
     view().innerHTML = `
       ${pageHead("📖 Толь бичиг", `Хятад–Монгол–Англи · ${words.length} үг`)}
       <div class="dict-bar card">
         <input class="input big" id="dq" placeholder="Хайх: 茶, cha, tea, цай, hello..." autocomplete="off" />
         <div class="row">
           <div class="seg">
-            <button class="on" data-f="all">Бүгд</button><button data-f="zh">Хятад</button><button data-f="en">Англи</button>
+            <button data-f="all" class="${filter === "all" ? "on" : ""}">Бүгд</button><button data-f="zh" class="${filter === "zh" ? "on" : ""}">Хятад</button><button data-f="en" class="${filter === "en" ? "on" : ""}">Англи</button>
           </div>
           <label class="check"><input type="checkbox" id="fav" /> ★ Миний үгс</label>
         </div>
@@ -661,6 +682,50 @@
     document.getElementById("del").onclick = () => { if (confirm("Бүртгэлээ бүрмөсөн устгах уу?")) { Auth.deleteAccount(); go("#/"); } };
   };
 
+  /* ---------- Дүрэм (бүх түвшин) ---------- */
+  Pages.grammar = function () {
+    const c = COURSES[pick.course];
+    const L = getLevel(pick.course, pick.level);
+    const lang = c.lang;
+    const total = c.data().levels.reduce((n, l) => n + getLevel(c.id, l).grammar.length, 0);
+    view().innerHTML = `
+      ${pageHead("✏️ Дүрэм", `${esc(c.title)} · нийт ${total} дүрэм — тайлбар, жишээ, шалгах асуулттай`)}
+      <div class="split"><aside class="lvl-side">${picker()}</aside><section class="split-main">
+        <div class="row between">
+          <input class="input grow" id="gq" placeholder="${lang === "zh" ? "Дүрэм хайх: 了, 把, 比, 虽然..." : "Дүрэм хайх: present perfect, passive, conditional..."}" autocomplete="off">
+          <button class="btn ghost small" id="gall">Бүгдийг дэлгэх</button>
+        </div>
+        <div id="gl"></div>
+      </section></div>`;
+    bindPicker(Pages.grammar);
+    const box = document.getElementById("gl"), inp = document.getElementById("gq");
+    function draw() {
+      const q = inp.value.trim().toLowerCase();
+      if (!q) {
+        box.innerHTML = `<h2 class="section-title first">${esc(L.label)} · ${L.grammar.length} дүрэм</h2>` + L.grammar.map((g, gi) => grammarCard(g, gi, lang, gi === 0)).join("");
+        bindCommon(box); bindGrammar(box, L);
+        return;
+      }
+      box.innerHTML = "";
+      let found = 0;
+      c.data().levels.forEach((lv) => {
+        const LL = getLevel(c.id, lv);
+        const hits = LL.grammar.map((g, gi) => [g, gi]).filter(([g]) => [g.title, g.explain, ...g.examples.map((e) => e.join(" "))].join(" ").toLowerCase().includes(q));
+        if (!hits.length) return;
+        found += hits.length;
+        const sec = document.createElement("div");
+        sec.innerHTML = `<h2 class="section-title">${esc(LL.label)}</h2>` + hits.map(([g, gi]) => grammarCard(g, gi, lang, true)).join("");
+        box.appendChild(sec);
+        bindCommon(sec); bindGrammar(sec, LL);
+      });
+      if (!found) box.innerHTML = `<p class="muted center">Дүрэм олдсонгүй.</p>`;
+    }
+    let t;
+    inp.oninput = () => { clearTimeout(t); t = setTimeout(draw, 150); };
+    document.getElementById("gall").onclick = () => box.querySelectorAll("details.grammar").forEach((d) => (d.open = true));
+    draw();
+  };
+
   /* ---------- Давталт (Anki маягийн SRS) ---------- */
   function customWords() {
     return (Progress.get().custom || []).map((c) => ({ id: c.id, lang: c.lang, course: "custom", level: "", term: c.term, reading: c.reading || "", gloss: "", meaning: c.meaning, example: c.example || "" }));
@@ -685,6 +750,14 @@
     const st = A.SRS.stats(ids);
     view().innerHTML = `
       ${pageHead("🗂️ Давталт", "Anki маягийн зайтай давталт — мартах гэж байхад тань сануулна")}
+      <div class="split"><aside class="lvl-side">
+      <div class="side-src" id="src">
+        <button data-m="level" class="${reviewSrc.mode === "level" ? "on" : ""}">📚 Түвшнээр</button>
+        <button data-m="all" class="${reviewSrc.mode === "all" ? "on" : ""}">♻️ Бүх давтах карт</button>
+        <button data-m="custom" class="${reviewSrc.mode === "custom" ? "on" : ""}">✏️ Миний картууд</button>
+      </div>
+      ${reviewSrc.mode === "level" ? picker() : ""}
+      </aside><section class="split-main">
       <div class="goal card">
         <div class="goal-ring" style="--p:${goalPct}"><span>${doneToday}<small>/${p.goal}</small></span></div>
         <div class="goal-txt">
@@ -693,12 +766,6 @@
           <label class="inline">Өдөрт <input class="input tiny" type="number" id="goal" min="5" max="300" value="${p.goal}"> карт</label>
         </div>
       </div>
-      <div class="seg wide" id="src">
-        <button data-m="level" class="${reviewSrc.mode === "level" ? "on" : ""}">📚 Түвшнээр</button>
-        <button data-m="all" class="${reviewSrc.mode === "all" ? "on" : ""}">♻️ Бүх давтах карт</button>
-        <button data-m="custom" class="${reviewSrc.mode === "custom" ? "on" : ""}">✏️ Миний картууд</button>
-      </div>
-      ${reviewSrc.mode === "level" ? picker() : ""}
       ${reviewSrc.mode === "custom" ? `<p><a class="btn small ghost" href="#/review/cards">＋ Карт нэмэх / засах (${customWords().length})</a></p>` : ""}
       <div class="srs-stats">
         <div class="ss new"><b>${reviewSrc.mode === "all" ? "—" : st.fresh}</b><span>Шинэ</span></div>
@@ -714,7 +781,7 @@
       <details class="card help"><summary>Давталт хэрхэн ажилладаг вэ?</summary>
         <p>Карт бүрийг харсны дараа хэр сайн санаж байснаа үнэлнэ: <b>Дахин</b> (мартсан — 10 минутын дараа дахин), <b>Хэцүү</b>, <b>Сайн</b>, <b>Амархан</b>. Сайн санасан карт улам урт хугацааны дараа (1 → 3 → 8 → 20 өдөр...) дахин гарч ирнэ. 21+ өдрийн интервалтай карт «цээжилсэн» гэж тооцогдоно.</p>
         <p>Товчлуур: <kbd>Space</kbd> — хариу харах, <kbd>1</kbd>–<kbd>4</kbd> — үнэлэх.</p>
-      </details>`;
+      </details></section></div>`;
     if (reviewSrc.mode === "level") bindPicker(() => Pages.review());
     view().querySelectorAll("#src button").forEach((b) => (b.onclick = () => { reviewSrc.mode = b.dataset.m; Pages.review(); }));
     document.getElementById("goal").onchange = (e) => { Progress.setGoal(e.target.value); Pages.review(); };
@@ -726,7 +793,8 @@
       const fresh = reviewSrc.mode === "all" ? [] : shuffle(ids.filter((id) => !s[id])).slice(0, reviewSrc.newLimit);
       const queue = shuffle(due).concat(fresh);
       if (!queue.length) { UI.toast("Одоогоор давтах карт алга. Шинэ түвшин сонгох эсвэл дараа ирээрэй!", "ok"); return; }
-      document.querySelectorAll(".srs-stats, #src, .picker, .row.center, .goal").forEach((x) => (x.hidden = true));
+      document.querySelectorAll(".srs-stats, .lvl-side, .split-main > .row.center, .goal, .help").forEach((x) => (x.hidden = true));
+      document.querySelector(".split").classList.add("solo");
       runReview(document.getElementById("rv"), queue);
     };
   };
@@ -1007,13 +1075,17 @@
     renderNav();
     window.scrollTo(0, 0);
     document.body.classList.remove("menu-open");
+    const m = document.getElementById("pmenu");
+    if (m) m.hidden = true;
   }
 
-  const NAV = [
-    ["Суралцах", [["dashboard", "🏠", "Самбар"], ["chinese", "🇨🇳", "Хятад хэл"], ["english", "🇬🇧", "Англи хэл"], ["review", "🗂️", "Давталт"]]],
-    ["Дадлага", [["listening", "🎧", "Сонсгол"], ["games", "🎮", "Тоглоом"], ["ielts", "🎯", "IELTS дадлага"], ["tests", "📝", "Тест"]]],
-    ["Хэрэгсэл", [["dictionary", "📖", "Толь бичиг"], ["profile", "👤", "Профайл"]]]
-  ];
+  function navFor(lang) {
+    return [
+      ["Суралцах", [["dashboard", "🏠", "Самбар"], [lang === "zh" ? "chinese" : "english", "📚", lang === "zh" ? "HSK хичээл" : "IELTS хичээл"], ["grammar", "✏️", "Дүрэм"], ["review", "🗂️", "Давталт"]]],
+      ["Дадлага", [["listening", "🎧", "Сонсгол"], ["games", "🎮", "Тоглоом"], ["tests", "📝", "Тест"]].concat(lang === "en" ? [["ielts", "🎯", "Writing & Speaking"]] : [])],
+      ["Хэрэгсэл", [["dictionary", "📖", "Толь бичиг"], ["profile", "👤", "Профайл"]]]
+    ];
+  }
   const THEME_ICON = { system: "🖥️", light: "☀️", dark: "🌙" };
 
   function renderNav() {
@@ -1021,18 +1093,28 @@
     const cur = (location.hash.replace(/^#\/?/, "").split("/")[0]) || "home";
     document.body.classList.toggle("authed", !!u);
     const due = u ? A.SRS.allDue() : 0;
-    document.getElementById("side-nav").innerHTML = u ? NAV.map(([g, items]) => `
-      <div class="nav-group"><div class="nav-label">${g}</div>
-        ${items.map(([h, i, t]) => `<a href="#/${h}" class="${cur === h ? "on" : ""}"><span class="ni">${i}</span>${t}${h === "review" && due ? `<span class="nbadge">${due}</span>` : ""}</a>`).join("")}
-      </div>`).join("") : "";
-    document.getElementById("side-user").innerHTML = u ? `
-      <div class="su-avatar">${esc(u.name.slice(0, 1).toUpperCase())}</div>
-      <div class="su-info"><b>${esc(u.name)}</b><span>⭐ ${Progress.get().xp} XP · 🔥 ${Progress.get().streak}</span></div>
-      <button class="icon-btn" id="logout" title="Гарах">⏻</button>` : "";
+    const lang = track();
+    const items = navFor(lang).flatMap((g) => g[1]).filter(([h]) => h !== "profile");
+    document.getElementById("top-nav").innerHTML = u ? items.map(([h, i, t]) =>
+      `<a href="#/${h}" class="${cur === h ? "on" : ""}"><span class="ni">${i}</span><span>${t}</span>${h === "review" && due ? `<span class="nbadge">${due}</span>` : ""}</a>`).join("") : "";
+    const pr = u ? Progress.get() : null;
     document.getElementById("top-actions").innerHTML = (u
-      ? `<a class="due-pill ${due ? "has" : ""}" href="#/review" title="Давтах карт">🗂️ ${due} давтах</a>`
-      : `<a href="#/login" class="btn small ghost">Нэвтрэх</a><a href="#/register" class="btn small">Бүртгүүлэх</a>`) +
-      `<button class="icon-btn theme" id="theme" title="Өнгөний горим">${THEME_ICON[A.Theme.get()]}</button>`;
+      ? `<div class="track-sw" role="group" aria-label="Хэл сонгох">
+          <button data-t="zh" class="${lang === "zh" ? "on" : ""}" title="Хятад хэл">${FLAG.zh}<span class="tw">Хятад</span></button>
+          <button data-t="en" class="${lang === "en" ? "on" : ""}" title="Англи хэл">${FLAG.en}<span class="tw">Англи</span></button>
+        </div>
+        <button class="icon-btn theme" id="theme" title="Өнгөний горим">${THEME_ICON[A.Theme.get()]}</button>
+        <div class="pwrap">
+          <button class="avatar-btn" id="avatar" aria-haspopup="true" aria-expanded="false" title="${esc(u.name)}">${esc(u.name.slice(0, 1).toUpperCase())}</button>
+          <div class="pmenu card" id="pmenu" hidden>
+            <div class="pm-head"><div class="su-avatar">${esc(u.name.slice(0, 1).toUpperCase())}</div><div><b>${esc(u.name)}</b><span class="muted small">${esc(u.email)}</span></div></div>
+            <div class="pm-stats"><span>⭐ ${pr.xp} XP</span><span>🔥 ${pr.streak} өдөр</span><span>🗂️ ${due} давтах</span></div>
+            <a href="#/profile">👤 Профайл</a>
+            <a href="#/review/cards">✏️ Миний картууд</a>
+            <button id="logout">⏻ Гарах</button>
+          </div>
+        </div>`
+      : `<button class="icon-btn theme" id="theme" title="Өнгөний горим">${THEME_ICON[A.Theme.get()]}</button><a href="#/login" class="btn small ghost">Нэвтрэх</a><a href="#/register" class="btn small">Бүртгүүлэх</a>`);
     document.getElementById("theme").onclick = () => {
       const order = ["system", "light", "dark"];
       const nx = order[(order.indexOf(A.Theme.get()) + 1) % 3];
@@ -1040,14 +1122,33 @@
       UI.toast({ system: "Системийн горим", light: "Цайвар горим", dark: "Бараан горим" }[nx]);
       renderNav();
     };
+    document.querySelectorAll(".track-sw button").forEach((b) => (b.onclick = () => {
+      const t = b.dataset.t;
+      if (t === track()) return;
+      setTrack(t);
+      UI.toast(t === "zh" ? "中 Хятад хэл сонгогдлоо" : "EN Англи хэл сонгогдлоо");
+      if (cur === "chinese" || cur === "english") go(t === "zh" ? "#/chinese" : "#/english");
+      else if (cur === "ielts" && t === "zh") go("#/listening");
+      else route();
+    }));
+    const av = document.getElementById("avatar");
+    if (av) av.onclick = (e) => {
+      e.stopPropagation();
+      const m = document.getElementById("pmenu");
+      m.hidden = !m.hidden;
+      av.setAttribute("aria-expanded", String(!m.hidden));
+    };
     const lo = document.getElementById("logout");
     if (lo) lo.onclick = () => { Auth.logout(); UI.toast("Системээс гарлаа"); go("#/"); };
   }
 
   window.addEventListener("hashchange", route);
+  document.addEventListener("click", (e) => {
+    const m = document.getElementById("pmenu");
+    if (m && !m.hidden && !e.target.closest(".pwrap")) m.hidden = true;
+  });
   document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("burger").onclick = () => document.body.classList.toggle("menu-open");
-    document.getElementById("scrim").onclick = () => document.body.classList.remove("menu-open");
     route();
   });
 })();
