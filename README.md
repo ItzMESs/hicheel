@@ -49,23 +49,49 @@ js/core.js                Бүртгэл, хадгалалт, дуу хооло�
 js/quiz.js                Асуулт үүсгэгч
 js/games.js               Тоглоомууд
 js/app.js                 Хуудсууд, чиглүүлэгч
+js/data/grammar-zh.js     HSK дүрэм (1–6, 7–9)
+js/data/grammar-en.js     IELTS дүрэм (A1–C1)
+js/data/ielts-more.js     IELTS нэмэлт үгс
+js/data/reading-zh.js     Хятад унших эх
+api/index.js              Сервер API (Vercel)
+prisma/schema.prisma      Мэдээллийн сангийн бүтэц
+scripts/dev.js            Локал сервер
 ```
 
 Шинэ үг нэмэхдээ `js/data/` доторх файлын тохирох түвшинд мөр нэмнэ үү.
 
 ## Анхаарах зүйл
 
-- Бүртгэл болон ахиц **хөтчийн localStorage**-д хадгалагдана (сервергүй). Өөр төхөөрөмж дээр
-  нэвтрэхэд мэдээлэл дамжихгүй. Олон хэрэглэгчтэй бодит сайт болгохын тулд backend
-  (жишээ нь Firebase, Supabase) холбох шаардлагатай.
+- Сервергүй горимд бүртгэл, ахиц зөвхөн тухайн хөтөч дээр хадгалагдана (доорх Vercel хэсгийг үз).
 - Дуудлагыг хөтчийн Web Speech API уншина. Chrome / Edge / Safari-д хятад, англи дуу хоолой байдаг.
 - HSK 2.0 (1–6) болон HSK 3.0 (1–6, 7–9) бүх түвшний албан ёсны бүрэн үгийн жагсаалттай
   (эх сурвалж: github.com/drkameleon/complete-hsk-vocabulary, MIT; монгол орчуулга hytd төслөөс).
   Монгол орчуулгагүй ~10 700 үгийг англи утгаар нь харуулна (`js/data/hsk-official.js`-ийн 4 дэх талбарт монгол утга нэмж болно).
 - Зурааны дараалал болон фонт нь CDN-ээс ачаалагддаг тул интернэт шаардлагатай.
 
-## Vercel дээр байршуулах
+## Vercel + Prisma + Postgres дээр байршуулах
 
-1. https://vercel.com → **Add New… → Project** → `hicheel` repo-г **Import**.
-2. **Framework Preset: Other**, Build Command болон Output Directory хоосон.
-3. **Deploy**. Статик сайт тул өөр тохиргоо хэрэггүй.
+Сайт хоёр горимтой:
+- **Сервертэй (Vercel):** бүртгэл, ахиц, профайлын зураг Postgres санд хадгалагдана. Ямар ч төхөөрөмжөөс нэвтэрч болно. Тэргүүлэгчид, найз, чат, сошиал ажиллана.
+- **Сервергүй (GitHub Pages, файлаар нээх):** бүгд хөтчийн localStorage-д хадгалагдана. Найз, чат, сошиал ажиллахгүй.
+
+### Алхмууд
+1. https://vercel.com/new руу орж `hicheel` repo-г **Import** хийнэ. Framework Preset нь **Other**, Build Command болон Output Directory-г хоосон үлдээнэ.
+2. **Storage** (эсвэл Deploy-ийн өмнөх *Integrations*) хэсгээс **Prisma Postgres** (эсвэл Neon) сан үүсгээд төсөлдөө **Connect** хийнэ. `DATABASE_URL` автоматаар нэмэгдэнэ.
+3. **Settings → Environment Variables** хэсэгт `AUTH_SECRET` нэмнэ. Утга нь 32+ тэмдэгттэй санамсаргүй мөр байна, жишээ нь `openssl rand -base64 32`-ийн гаралт.
+4. **Deployments → Redeploy** дарна. `npm install` хийх үед `prisma generate` болон `prisma db push` өөрөө ажиллаж хүснэгтүүдийг үүсгэнэ.
+5. `https://<таны-төсөл>.vercel.app/api/health` нь `{"ok":true}` гэж буцаавал бэлэн.
+
+### Локал дээр сервертэй ажиллуулах
+```bash
+npm install
+# .env файл үүсгэнэ:
+# DATABASE_URL="postgresql://user:pass@localhost:5432/hicheel"
+# AUTH_SECRET="урт-санамсаргүй-мөр"
+npx prisma db push
+npm run dev        # http://localhost:3000
+```
+
+### API (`api/index.js`, нэг серверлэс функц)
+`auth/register|login|logout|me`, `progress`, `profile` (нэр, тухай, зураг), `avatar`, `leaderboard`,
+`users`, `friends/*`, `chat`, `posts/*` (реакц, сэтгэгдэл), `notifications`.

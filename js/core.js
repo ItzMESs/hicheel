@@ -50,12 +50,89 @@
   const randomSalt = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
   const normEmail = (e) => String(e || "").trim().toLowerCase();
 
+  /* ---------- Сервер (Vercel + Postgres) ----------
+     /api/health хариу өгвөл бүх бүртгэл, ахиц серверт хадгалагдана.
+     Сервергүй (жишээ нь GitHub Pages, файлаар нээх) үед хөтчийн localStorage ашиглана. */
+  const Remote = {
+    on: false,
+    async call(method, path, body) {
+      const opt = { method, credentials: "same-origin", headers: {} };
+      if (body !== undefined) { opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+      let r;
+      try { r = await fetch("/api/" + path, opt); } catch (e) { throw new Error("Сервертэй холбогдож чадсангүй."); }
+      let d = {};
+      try { d = await r.json(); } catch (e) { /* ignore */ }
+      if (!r.ok) { const err = new Error(d.error || "Алдаа гарлаа (" + r.status + ")"); err.status = r.status; throw err; }
+      return d;
+    },
+    async init() {
+      if (location.protocol === "file:") return;
+      try {
+        const ctl = new AbortController();
+        const t = setTimeout(() => ctl.abort(), 4000);
+        const r = await fetch("/api/health", { signal: ctl.signal, credentials: "same-origin" });
+        clearTimeout(t);
+        this.on = r.ok;
+      } catch (e) { this.on = false; }
+      if (!this.on) return;
+      try {
+        const { user } = await this.call("GET", "auth/me");
+        adopt(user);
+        await this.pull(user);
+      } catch (e) {
+        if (e.status === 401) { const db = load(); db.session = null; save(db); }
+      }
+    },
+    async pull(user) {
+      const { data } = await this.call("GET", "progress");
+      const db = load();
+      if (data) { db.progress[user.email] = data; save(db); }
+      else this.pushNow();
+    },
+    timer: null,
+    pushSoon() {
+      if (!this.on) return;
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => this.pushNow(), 1200);
+    },
+    pushNow(keepalive) {
+      if (!this.on) return;
+      clearTimeout(this.timer);
+      const db = load();
+      if (!db.session) return;
+      const body = JSON.stringify({ data: db.progress[db.session] || newProgress(), track: (window.App.track && window.App.track()) || "zh" });
+      fetch("/api/progress", { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body, keepalive: !!keepalive }).catch(() => {});
+    }
+  };
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && Remote.timer) Remote.pushNow(true); });
+
+  // Серверээс ирсэн хэрэглэгчийг локал кэшэд хадгалах
+  function adopt(user) {
+    const db = load();
+    const old = db.users[user.email] || {};
+    db.users[user.email] = Object.assign({}, old, { id: user.id, name: user.name, email: user.email, bio: user.bio || "", avatarUrl: user.avatarUrl || null, created: user.created ? new Date(user.created).getTime() : old.created || Date.now(), remote: true });
+    db.session = user.email;
+    if (!db.progress[user.email]) db.progress[user.email] = newProgress();
+    save(db);
+    return db.users[user.email];
+  }
+
   const Auth = {
     current() {
       const db = load();
       return db.session && db.users[db.session] ? db.users[db.session] : null;
     },
+    avatar(u) { return u ? u.avatarUrl || u.avatar || null : null; },
     async register({ name, email, password }) {
+      if (Remote.on) {
+        const { user } = await Remote.call("POST", "auth/register", { name, email, password });
+        const u = adopt(user);
+        const db = load();
+        db.progress[user.email] = newProgress();
+        save(db);
+        Remote.pushNow();
+        return u;
+      }
       email = normEmail(email);
       name = String(name || "").trim();
       if (name.length < 2) throw new Error("Нэр хамгийн багадаа 2 тэмдэгт байна.");
@@ -64,34 +141,54 @@
       const db = load();
       if (db.users[email]) throw new Error("Энэ имэйлээр бүртгэл үүссэн байна.");
       const salt = randomSalt();
-      db.users[email] = { name, email, salt, pass: await hash(password, salt), created: Date.now() };
+      db.users[email] = { id: "local:" + email, name, email, salt, pass: await hash(password, salt), created: Date.now(), bio: "" };
       db.progress[email] = newProgress();
       db.session = email;
       save(db);
       return db.users[email];
     },
     async login({ email, password }) {
+      if (Remote.on) {
+        const { user } = await Remote.call("POST", "auth/login", { email, password });
+        const u = adopt(user);
+        await Remote.pull(user);
+        return u;
+      }
       email = normEmail(email);
       const db = load();
       const u = db.users[email];
-      if (!u || (await hash(password, u.salt)) !== u.pass) throw new Error("Имэйл эсвэл нууц үг буруу байна.");
+      if (!u || !u.pass || (await hash(password, u.salt)) !== u.pass) throw new Error("Имэйл эсвэл нууц үг буруу байна.");
       db.session = email;
       save(db);
       return u;
     },
-    logout() {
+    async logout() {
+      if (Remote.on) { Remote.pushNow(true); try { await Remote.call("POST", "auth/logout", {}); } catch (e) { /* ignore */ } }
       const db = load();
       db.session = null;
       save(db);
     },
-    updateName(name) {
-      name = String(name || "").trim();
-      if (name.length < 2) throw new Error("Нэр хамгийн багадаа 2 тэмдэгт байна.");
+    async updateProfile({ name, bio, avatar }) {
+      if (name !== undefined && String(name).trim().length < 2) throw new Error("Нэр хамгийн багадаа 2 тэмдэгт байна.");
+      if (Remote.on) {
+        const payload = {};
+        if (name !== undefined) payload.name = name;
+        if (bio !== undefined) payload.bio = bio;
+        if (avatar !== undefined) payload.avatar = avatar;
+        const { user } = await Remote.call("PUT", "profile", payload);
+        return adopt(user);
+      }
       const db = load();
-      db.users[db.session].name = name;
+      const u = db.users[db.session];
+      if (name !== undefined) u.name = String(name).trim().slice(0, 40);
+      if (bio !== undefined) u.bio = String(bio).slice(0, 300);
+      if (avatar !== undefined) u.avatar = avatar;
       save(db);
+      return u;
     },
+    updateName(name) { return this.updateProfile({ name }); },
     async changePassword(oldPass, newPass) {
+      if (Remote.on) { await Remote.call("POST", "profile/password", { old: oldPass, new: newPass }); return; }
       const db = load();
       const u = db.users[db.session];
       if ((await hash(oldPass, u.salt)) !== u.pass) throw new Error("Одоогийн нууц үг буруу байна.");
@@ -100,12 +197,21 @@
       u.pass = await hash(newPass, u.salt);
       save(db);
     },
-    deleteAccount() {
+    async deleteAccount() {
+      if (Remote.on) await Remote.call("DELETE", "profile");
       const db = load();
       delete db.users[db.session];
       delete db.progress[db.session];
       db.session = null;
       save(db);
+    },
+    // Локал горимд: энэ төхөөрөмжийн бүх бүртгэлээр тэргүүлэгчдийн жагсаалт
+    localBoard() {
+      const db = load();
+      return Object.values(db.users).map((u) => {
+        const p = db.progress[u.email] || {};
+        return { id: u.id || u.email, name: u.name, avatarUrl: u.avatarUrl || u.avatar || null, xp: p.xp || 0, streak: p.streak || 0, learned: Object.keys(p.learned || {}).length, me: u.email === db.session };
+      }).sort((a, b) => b.xp - a.xp).map((x, i) => Object.assign(x, { rank: i + 1 }));
     }
   };
 
@@ -133,6 +239,7 @@
       }
       db.progress[db.session] = p;
       save(db);
+      Remote.pushSoon();
     },
     addXP(n) { this.update((p) => { p.xp += n; }); },
     toggleLearned(id) {
@@ -328,5 +435,5 @@
   // Пиньинийн аялгуу тэмдгийг арилгах (харьцуулахад)
   const stripTones = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ü/g, "v").toLowerCase().replace(/[^a-z0-9一-鿿]/g, "");
 
-  window.App = Object.assign(window.App || {}, { esc, shuffle, sample, today, dayKey, SRS, Theme, Auth, Progress, COURSES, getLevel, allWords, Speech, UI, stripTones });
+  window.App = Object.assign(window.App || {}, { Remote, esc, shuffle, sample, today, dayKey, SRS, Theme, Auth, Progress, COURSES, getLevel, allWords, Speech, UI, stripTones });
 })();

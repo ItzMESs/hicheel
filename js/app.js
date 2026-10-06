@@ -130,7 +130,7 @@
           <button class="btn full">Бүртгүүлэх</button>
         </form>
         <p class="muted center">Бүртгэлтэй юу? <a href="#/login">Нэвтрэх</a></p>
-        <p class="note">ℹ️ Таны бүртгэл болон ахиц энэ төхөөрөмжийн хөтөч дээр хадгалагдана.</p>
+        <p class="note">${A.Remote.on ? "🔒 Бүртгэл, ахиц тань серверт найдвартай хадгалагдах тул аль ч төхөөрөмжөөс нэвтэрч болно." : "ℹ️ Сервер холбогдоогүй тул бүртгэл, ахиц энэ хөтөч дээр хадгалагдана."}</p>
       </div>`;
     document.getElementById("f").onsubmit = async (e) => {
       e.preventDefault();
@@ -631,16 +631,74 @@
   };
 
   /* ---------- Профайл ---------- */
+  /* ---------- Аватар ---------- */
+  function avatarHtml(u, size) {
+    size = size || 40;
+    const url = u && (u.avatarUrl || u.avatar);
+    const letter = esc(((u && u.name) || "?").slice(0, 1).toUpperCase());
+    return url
+      ? `<img class="av" src="${esc(url)}" alt="" style="width:${size}px;height:${size}px" loading="lazy">`
+      : `<span class="av av-letter" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.42)}px">${letter}</span>`;
+  }
+  // Зургийг canvas-аар жижигрүүлж JPEG data URL болгох
+  function resizeImage(file, max, quality) {
+    return new Promise((resolve, reject) => {
+      if (!file || !/^image\//.test(file.type)) return reject(new Error("Зөвхөн зураг сонгоно уу."));
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        const crop = max.square;
+        const c = document.createElement("canvas");
+        if (crop) {
+          const side = Math.min(w, h);
+          c.width = c.height = max.size;
+          c.getContext("2d").drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, max.size, max.size);
+        } else {
+          const k = Math.min(1, max.size / Math.max(w, h));
+          c.width = Math.round(w * k); c.height = Math.round(h * k);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        }
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL("image/jpeg", quality || 0.85));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Зургийг уншиж чадсангүй.")); };
+      img.src = url;
+    });
+  }
+
+  /* ---------- Профайл ---------- */
   Pages.profile = function () {
     const u = Auth.current(), p = Progress.get();
     view().innerHTML = `
-      ${pageHead("👤 Миний профайл")}
+      <div class="profile-hero card">
+        <div class="ph-avatar">
+          ${avatarHtml(u, 112)}
+          <label class="ph-upload" title="Зураг солих">📷<input type="file" id="avf" accept="image/*" hidden></label>
+        </div>
+        <div class="ph-info">
+          <h1>${esc(u.name)}</h1>
+          <p class="muted">${esc(u.email)} · ${new Date(u.created).toLocaleDateString("mn-MN")}-нд нэгдсэн</p>
+          ${u.bio ? `<p>${esc(u.bio)}</p>` : ""}
+          <div class="ph-stats">
+            <span><b>${p.xp}</b> XP</span><span><b>${p.streak}</b> өдөр 🔥</span><span><b>${Object.keys(p.learned).length}</b> үг</span><span><b>${p.tests.length}</b> тест</span>
+          </div>
+          <div class="row">
+            ${Auth.avatar(u) ? `<button class="btn ghost small" id="avdel">Зураг устгах</button>` : ""}
+            <a class="btn ghost small" href="#/leaderboard">🏆 Тэргүүлэгчид</a>
+            ${A.Remote.on ? `<a class="btn ghost small" href="#/friends">👥 Найзууд</a>` : ""}
+          </div>
+        </div>
+      </div>
+      ${A.Remote.on ? "" : `<div class="card note-card">ℹ️ Сервер холбогдоогүй тул бүртгэл энэ хөтөч дээр хадгалагдаж байна. Vercel + Postgres дээр байршуулбал бүх төхөөрөмжөөс нэвтэрч, найз, чат ашиглах боломжтой болно.</div>`}
       <div class="grid cards2">
         <div class="card">
           <h3>Хувийн мэдээлэл</h3>
-          <p><b>Имэйл:</b> ${esc(u.email)}</p>
-          <p><b>Бүртгүүлсэн:</b> ${new Date(u.created).toLocaleDateString("mn-MN")}</p>
-          <form id="fn"><label>Нэр<input class="input" name="name" value="${esc(u.name)}" required /></label><button class="btn">Хадгалах</button></form>
+          <form id="fn">
+            <label>Нэр<input class="input" name="name" value="${esc(u.name)}" required maxlength="40" /></label>
+            <label>Миний тухай<textarea class="input" name="bio" maxlength="300" rows="3" placeholder="Жишээ: HSK 4-т бэлдэж байна 📚">${esc(u.bio || "")}</textarea></label>
+            <button class="btn">Хадгалах</button>
+          </form>
         </div>
         <div class="card">
           <h3>Нууц үг солих</h3>
@@ -654,8 +712,8 @@
         <div class="card">
           <h3>Статистик</h3>
           <ul class="facts">
-            <li>⭐ XP: <b>${p.xp}</b></li>
             <li>📚 Цээжилсэн үг: <b>${Object.keys(p.learned).length}</b></li>
+            <li>🃏 Флаш картын түүх: <b>${Object.keys(p.srs).length}</b> карт</li>
             <li>★ Хадгалсан үг: <b>${p.favorites.length}</b></li>
             <li>📝 Тест: <b>${p.tests.length}</b> · 🎮 Тоглоом: <b>${p.games}</b> · 🎧 Сонсгол: <b>${p.listening}</b></li>
           </ul>
@@ -668,9 +726,20 @@
           </div>
         </div>
       </div>`;
-    document.getElementById("fn").onsubmit = (e) => {
+    document.getElementById("avf").onchange = async (e) => {
+      try {
+        const data = await resizeImage(e.target.files[0], { size: 256, square: true }, 0.85);
+        await Auth.updateProfile({ avatar: data });
+        UI.toast("Профайлын зураг шинэчлэгдлээ", "ok");
+        Pages.profile(); renderNav();
+      } catch (ex) { UI.toast(ex.message, "warn"); }
+    };
+    const avdel = document.getElementById("avdel");
+    if (avdel) avdel.onclick = async () => { try { await Auth.updateProfile({ avatar: null }); Pages.profile(); renderNav(); } catch (ex) { UI.toast(ex.message, "warn"); } };
+    document.getElementById("fn").onsubmit = async (e) => {
       e.preventDefault();
-      try { Auth.updateName(new FormData(e.target).get("name")); UI.toast("Хадгалагдлаа", "ok"); renderNav(); } catch (ex) { UI.toast(ex.message, "warn"); }
+      const fd = new FormData(e.target);
+      try { await Auth.updateProfile({ name: fd.get("name"), bio: fd.get("bio") }); UI.toast("Хадгалагдлаа", "ok"); Pages.profile(); renderNav(); } catch (ex) { UI.toast(ex.message, "warn"); }
     };
     document.getElementById("fp").onsubmit = async (e) => {
       e.preventDefault();
@@ -679,8 +748,340 @@
       catch (ex) { document.getElementById("perr").textContent = ex.message; }
     };
     document.getElementById("reset").onclick = () => { if (confirm("Бүх ахиц, тестийн дүн устах болно. Итгэлтэй байна уу?")) { Progress.reset(); UI.toast("Ахиц тэглэгдлээ"); Pages.profile(); } };
-    document.getElementById("del").onclick = () => { if (confirm("Бүртгэлээ бүрмөсөн устгах уу?")) { Auth.deleteAccount(); go("#/"); } };
+    document.getElementById("del").onclick = async () => {
+      if (!confirm("Бүртгэлээ бүрмөсөн устгах уу?")) return;
+      try { await Auth.deleteAccount(); go("#/"); } catch (ex) { UI.toast(ex.message, "warn"); }
+    };
   };
+
+  /* ---------- Тэргүүлэгчид ---------- */
+  Pages.leaderboard = async function (scope) {
+    scope = scope === "zh" || scope === "en" ? scope : "all";
+    view().innerHTML = `
+      ${pageHead("🏆 Тэргүүлэгчид", "XP оноогоор эрэмбэлсэн шилдэг суралцагчид")}
+      <div class="seg wide">
+        <a href="#/leaderboard" class="${scope === "all" ? "on" : ""}">Бүгд</a>
+        <a href="#/leaderboard/zh" class="${scope === "zh" ? "on" : ""}">${FLAG.zh} HSK</a>
+        <a href="#/leaderboard/en" class="${scope === "en" ? "on" : ""}">${FLAG.en} IELTS</a>
+      </div>
+      <div id="lb"><p class="muted">Ачаалж байна...</p></div>`;
+    let list, mine = null;
+    if (A.Remote.on) {
+      try { ({ list, mine } = await A.Remote.call("GET", "leaderboard" + (scope === "all" ? "" : "?track=" + scope))); }
+      catch (e) { document.getElementById("lb").innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+    } else list = Auth.localBoard();
+    const box = document.getElementById("lb");
+    if (!box) return;
+    if (!list.length) { box.innerHTML = `<p class="muted center">Одоогоор хэн ч алга. Хичээл хийж XP цуглуулаарай!</p>`; return; }
+    const top = list.slice(0, 3), rest = list.slice(3);
+    const medal = ["🥇", "🥈", "🥉"];
+    box.innerHTML = `
+      <div class="podium">${[1, 0, 2].filter((i) => top[i]).map((i) => `
+        <a class="pod p${i + 1} card ${top[i].me ? "me" : ""}" href="${A.Remote.on ? "#/u/" + top[i].id : "#/profile"}">
+          <div class="pod-medal">${medal[i]}</div>${avatarHtml(top[i], i === 0 ? 76 : 60)}
+          <b>${esc(top[i].name)}${top[i].me ? " (Та)" : ""}</b><span class="pod-xp">${top[i].xp} XP</span><span class="muted small">🔥 ${top[i].streak} · 📚 ${top[i].learned}</span>
+        </a>`).join("")}</div>
+      ${rest.length || mine ? `<div class="lb-list card">${rest.concat(mine ? [mine] : []).map((r) => `
+        <a class="lb-row ${r.me ? "me" : ""}" href="${A.Remote.on ? "#/u/" + r.id : "#/profile"}">
+          <span class="lb-rank">${r.rank}</span>${avatarHtml(r, 36)}<span class="lb-name">${esc(r.name)}${r.me ? " (Та)" : ""}</span>
+          <span class="muted small">🔥 ${r.streak}</span><span class="muted small hide-sm">📚 ${r.learned}</span><b>${r.xp} XP</b>
+        </a>`).join("")}</div>` : ""}
+      ${A.Remote.on ? "" : `<p class="muted small center">Локал горим: зөвхөн энэ төхөөрөмж дээрх бүртгэлүүд харагдана.</p>`}`;
+  };
+
+  /* ---------- Сервер шаардлагатай хуудсууд ---------- */
+  function needServer() {
+    if (A.Remote.on) return false;
+    view().innerHTML = `<div class="card center empty"><div class="f-icon">🌐</div><h2>Сервер шаардлагатай</h2><p class="muted">Найз, чат, сошиал хэсэг нь Vercel + Postgres дээр байршуулсан үед ажиллана.<br>Одоо сайт локал (хөтөч дээрх) горимоор ажиллаж байна.</p><a class="btn" href="#/dashboard">Самбар руу буцах</a></div>`;
+    return true;
+  }
+  const timeAgo = (d) => {
+    const s = Math.max(1, (Date.now() - new Date(d).getTime()) / 1000);
+    if (s < 60) return "дөнгөж сая";
+    if (s < 3600) return Math.floor(s / 60) + " мин өмнө";
+    if (s < 86400) return Math.floor(s / 3600) + " цагийн өмнө";
+    if (s < 604800) return Math.floor(s / 86400) + " өдрийн өмнө";
+    return new Date(d).toLocaleDateString("mn-MN");
+  };
+  const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>').replace(/\n/g, "<br>");
+
+  /* ---------- Хэрэглэгчийн профайл ---------- */
+  Pages.u = async function (id) {
+    if (needServer()) return;
+    view().innerHTML = `<p class="muted">Ачаалж байна...</p>`;
+    let d;
+    try { d = await A.Remote.call("GET", "users/" + encodeURIComponent(id)); } catch (e) { view().innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+    const u = d.user;
+    const btn = d.self ? `<a class="btn ghost" href="#/profile">✏️ Профайл засах</a>`
+      : d.friend === "friends" ? `<a class="btn" href="#/chat/dm/${esc(u.id)}">💬 Зурвас бичих</a><button class="btn ghost" data-fr="remove">Найзаас хасах</button>`
+      : d.friend === "sent" ? `<button class="btn ghost" data-fr="remove">Хүсэлт цуцлах</button>`
+      : d.friend === "received" ? `<button class="btn" data-fr="accept">✔ Найзын хүсэлт зөвшөөрөх</button>`
+      : `<button class="btn" data-fr="request">＋ Найз болох</button>`;
+    view().innerHTML = `
+      <div class="profile-hero card">
+        <div class="ph-avatar">${avatarHtml(u, 112)}</div>
+        <div class="ph-info">
+          <h1>${esc(u.name)}</h1>
+          <p class="muted">${new Date(u.created).toLocaleDateString("mn-MN")}-нд нэгдсэн</p>
+          ${u.bio ? `<p>${esc(u.bio)}</p>` : ""}
+          <div class="ph-stats"><span><b>${u.xp}</b> XP</span><span><b>${u.streak}</b> өдөр 🔥</span><span><b>${u.learned}</b> үг</span><span><b>${u.posts}</b> пост</span></div>
+          <div class="row">${btn}</div>
+        </div>
+      </div>
+      <h2 class="section-title">Постууд</h2><div id="uposts"></div>`;
+    view().querySelectorAll("[data-fr]").forEach((b) => (b.onclick = async () => {
+      try { await A.Remote.call("POST", "friends/" + b.dataset.fr, { id: u.id }); Pages.u(id); refreshBadges(); } catch (e) { UI.toast(e.message, "warn"); }
+    }));
+    feed(document.getElementById("uposts"), u.id);
+  };
+
+  /* ---------- Найзууд ---------- */
+  Pages.friends = async function () {
+    if (needServer()) return;
+    view().innerHTML = `
+      ${pageHead("👥 Найзууд", "Хамт суралцах найзаа олоорой")}
+      <div class="grid cards2 friends-grid">
+        <div class="card">
+          <h3>🔎 Найз хайх</h3>
+          <input class="input" id="fq" placeholder="Нэрээр нь хайх..." autocomplete="off">
+          <div id="fres" class="ulist"></div>
+        </div>
+        <div class="card"><h3>📨 Ирсэн хүсэлт</h3><div id="finc" class="ulist"></div><h3 class="mt">⏳ Илгээсэн хүсэлт</h3><div id="fout" class="ulist"></div></div>
+      </div>
+      <h2 class="section-title">Миний найзууд</h2>
+      <div id="fall" class="friend-cards"></div>`;
+    const row = (u, actions) => `<div class="urow">${avatarHtml(u, 40)}<a href="#/u/${esc(u.id)}" class="uname">${esc(u.name)}</a><span class="uact">${actions}</span></div>`;
+    async function load() {
+      const d = await A.Remote.call("GET", "friends");
+      const fb = document.getElementById("fbadge");
+      if (fb) { fb.textContent = d.incoming.length; fb.hidden = !d.incoming.length; }
+      document.getElementById("finc").innerHTML = d.incoming.map((u) => row(u, `<button class="btn small" data-a="accept" data-id="${esc(u.id)}">Зөвшөөрөх</button><button class="icon-btn" data-a="remove" data-id="${esc(u.id)}" title="Татгалзах">✕</button>`)).join("") || `<p class="muted small">Хүсэлт алга.</p>`;
+      document.getElementById("fout").innerHTML = d.outgoing.map((u) => row(u, `<button class="btn ghost small" data-a="remove" data-id="${esc(u.id)}">Цуцлах</button>`)).join("") || `<p class="muted small">Алга.</p>`;
+      document.getElementById("fall").innerHTML = d.friends.map((u) => `<div class="card fcard">${avatarHtml(u, 64)}<a href="#/u/${esc(u.id)}"><b>${esc(u.name)}</b></a><a class="btn small" href="#/chat/dm/${esc(u.id)}">💬 Чат</a></div>`).join("") || `<p class="muted">Одоогоор найз алга. Дээрээс хайж нэмээрэй.</p>`;
+      bindActs(view());
+    }
+    function bindActs(root) {
+      root.querySelectorAll("[data-a]").forEach((b) => (b.onclick = async () => {
+        try { await A.Remote.call("POST", "friends/" + b.dataset.a, { id: b.dataset.id }); UI.toast("Амжилттай", "ok"); await load(); refreshBadges(); doSearch(); } catch (e) { UI.toast(e.message, "warn"); }
+      }));
+    }
+    const q = document.getElementById("fq");
+    let t;
+    async function doSearch() {
+      const v = q.value.trim();
+      const box = document.getElementById("fres");
+      if (!v) { box.innerHTML = `<p class="muted small">Нэр бичиж хайна уу.</p>`; return; }
+      const d = await A.Remote.call("GET", "users?q=" + encodeURIComponent(v));
+      box.innerHTML = d.users.map((u) => row(u, `<button class="btn small" data-a="request" data-id="${esc(u.id)}">＋ Нэмэх</button>`)).join("") || `<p class="muted small">Олдсонгүй.</p>`;
+      bindActs(box);
+    }
+    q.oninput = () => { clearTimeout(t); t = setTimeout(doSearch, 300); };
+    doSearch();
+    try { await load(); } catch (e) { UI.toast(e.message, "warn"); }
+  };
+
+  /* ---------- Чат ---------- */
+  Pages.chat = async function (kind, otherId) {
+    if (needServer()) return;
+    const me = Auth.current();
+    let room = kind === "dm" && otherId ? "dm:" + otherId : kind === "zh" || kind === "en" ? kind : "public";
+    view().innerHTML = `
+      <div class="chat-shell">
+        <aside class="chat-side card">
+          <h3>💬 Чат</h3>
+          <a class="croom ${room === "public" ? "on" : ""}" href="#/chat"><span class="ci">🌐</span>Нийтийн чат</a>
+          <a class="croom ${room === "zh" ? "on" : ""}" href="#/chat/zh"><span class="ci">${FLAG.zh}</span>Хятадаар чатлъя</a>
+          <a class="croom ${room === "en" ? "on" : ""}" href="#/chat/en"><span class="ci">${FLAG.en}</span>English chat</a>
+          <div class="nav-label">Хувийн</div>
+          <div id="dms"><p class="muted small">Ачаалж байна...</p></div>
+        </aside>
+        <section class="chat-main card">
+          <div class="chat-head" id="chead">${room === "public" ? "🌐 Нийтийн чат" : room === "zh" ? "中 Хятадаар чатлъя — 用中文聊天吧！" : room === "en" ? "EN English chat — let's practise!" : "💬 Хувийн чат"}</div>
+          <div class="chat-msgs" id="msgs"><p class="muted center">Ачаалж байна...</p></div>
+          <form class="chat-form" id="cf"><input class="input" id="ct" maxlength="1000" placeholder="Зурвас бичих..." autocomplete="off"><button class="btn">Илгээх</button></form>
+        </section>
+      </div>`;
+    A.Remote.call("GET", "chat/rooms").then((d) => {
+      const box = document.getElementById("dms");
+      if (!box) return;
+      box.innerHTML = d.friends.map((f) => `<a class="croom ${room === "dm:" + f.id ? "on" : ""}" href="#/chat/dm/${esc(f.id)}">${avatarHtml(f, 26)}${esc(f.name)}</a>`).join("") || `<p class="muted small">Найз нэмээд хувийн чат бичээрэй. <a href="#/friends">Найз хайх →</a></p>`;
+      const cur = d.friends.find((f) => "dm:" + f.id === room);
+      if (cur) document.getElementById("chead").innerHTML = `${avatarHtml(cur, 28)} ${esc(cur.name)}`;
+    }).catch(() => {});
+    const msgs = document.getElementById("msgs");
+    let last = null, seen = new Set();
+    async function poll() {
+      if (!document.body.contains(msgs)) return clearInterval(iv);
+      try {
+        const d = await A.Remote.call("GET", "chat?room=" + encodeURIComponent(room) + (last ? "&after=" + encodeURIComponent(last) : ""));
+        if (!last) msgs.innerHTML = "";
+        const atBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80;
+        d.messages.forEach((m) => {
+          if (seen.has(m.id)) return;
+          seen.add(m.id);
+          last = m.createdAt;
+          msgs.insertAdjacentHTML("beforeend", `<div class="msg ${m.mine ? "mine" : ""}">${m.mine ? "" : `<a href="#/u/${esc(m.user.id)}">${avatarHtml(m.user, 32)}</a>`}<div class="bubble-msg"><div class="mh">${m.mine ? "" : `<b>${esc(m.user.name)}</b>`}<span>${timeAgo(m.createdAt)}</span></div><div>${linkify(m.text)}</div></div></div>`);
+        });
+        if (!seen.size) msgs.innerHTML = `<p class="muted center empty-chat">Одоогоор зурвас алга. Анхны зурвасаа бичээрэй! 👋</p>`;
+        if (atBottom || d.messages.length) msgs.scrollTop = msgs.scrollHeight;
+      } catch (e) {
+        msgs.innerHTML = `<p class="error center">${esc(e.message)}</p>`;
+        clearInterval(iv);
+      }
+    }
+    const iv = setInterval(poll, 4000);
+    await poll();
+    document.getElementById("cf").onsubmit = async (e) => {
+      e.preventDefault();
+      const inp = document.getElementById("ct");
+      const text = inp.value.trim();
+      if (!text) return;
+      inp.value = "";
+      try { await A.Remote.call("POST", "chat", { room, text }); const pe = msgs.querySelector(".empty-chat"); if (pe) pe.remove(); await poll(); } catch (ex) { UI.toast(ex.message, "warn"); inp.value = text; }
+    };
+    void me;
+  };
+
+  /* ---------- Сошиал (пост) ---------- */
+  Pages.social = function () {
+    if (needServer()) return;
+    const me = Auth.current();
+    view().innerHTML = `
+      <div class="social-wrap">
+        ${pageHead("📰 Сошиал", "Сурсан зүйлээ хуваалцаж, бусдаас санаа аваарай. Хятад, англиар бичвэл хэлний чадвар тань сайжирна!")}
+        <form class="card composer" id="pf">
+          <div class="row top">${avatarHtml(me, 44)}<textarea class="input" id="ptext" rows="3" maxlength="2000" placeholder="Юу сурч байна? 今天学了什么？ What did you learn today?"></textarea></div>
+          <div id="pimg-prev"></div>
+          <div class="row between">
+            <label class="btn ghost small">📷 Зураг<input type="file" id="pimg" accept="image/*" hidden></label>
+            <button class="btn">Постлох</button>
+          </div>
+        </form>
+        <div id="feed"></div>
+      </div>`;
+    let img = null;
+    document.getElementById("pimg").onchange = async (e) => {
+      try {
+        img = await resizeImage(e.target.files[0], { size: 1080 }, 0.8);
+        document.getElementById("pimg-prev").innerHTML = `<div class="img-prev"><img src="${img}" alt=""><button type="button" class="icon-btn" id="pimg-x">✕</button></div>`;
+        document.getElementById("pimg-x").onclick = () => { img = null; document.getElementById("pimg-prev").innerHTML = ""; };
+      } catch (ex) { UI.toast(ex.message, "warn"); }
+    };
+    document.getElementById("pf").onsubmit = async (e) => {
+      e.preventDefault();
+      const text = document.getElementById("ptext").value.trim();
+      if (!text && !img) return UI.toast("Пост хоосон байна.", "warn");
+      try {
+        await A.Remote.call("POST", "posts", { text, image: img });
+        document.getElementById("ptext").value = ""; img = null; document.getElementById("pimg-prev").innerHTML = "";
+        UI.toast("Постлогдлоо", "ok");
+        feed(document.getElementById("feed"));
+      } catch (ex) { UI.toast(ex.message, "warn"); }
+    };
+    feed(document.getElementById("feed"));
+  };
+
+  const RE = { like: "👍", love: "❤️", wow: "😮" };
+  async function feed(box, userId) {
+    box.innerHTML = `<p class="muted">Ачаалж байна...</p>`;
+    let before = null;
+    async function more(append) {
+      const d = await A.Remote.call("GET", "posts?" + (userId ? "user=" + encodeURIComponent(userId) + "&" : "") + (before ? "before=" + encodeURIComponent(before) : ""));
+      if (!append) box.innerHTML = "";
+      const mb = box.querySelector(".more-posts");
+      if (mb) mb.remove();
+      if (!d.posts.length && !append) { box.innerHTML = `<p class="muted center">Пост алга.</p>`; return; }
+      d.posts.forEach((p) => { box.insertAdjacentHTML("beforeend", postHtml(p)); bindPost(box.lastElementChild, p); before = p.createdAt; });
+      if (d.posts.length === 15) {
+        box.insertAdjacentHTML("beforeend", `<div class="row center more-posts"><button class="btn ghost">Цааш үзэх</button></div>`);
+        box.querySelector(".more-posts button").onclick = () => more(true);
+      }
+    }
+    try { await more(false); } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
+  }
+  function postHtml(p) {
+    return `<article class="card post">
+      <header class="post-head">
+        <a href="#/u/${esc(p.user.id)}">${avatarHtml(p.user, 44)}</a>
+        <div><a href="#/u/${esc(p.user.id)}"><b>${esc(p.user.name)}</b></a><div class="muted small">${timeAgo(p.createdAt)}</div></div>
+        ${p.mine ? `<button class="icon-btn post-del" title="Устгах">🗑</button>` : ""}
+      </header>
+      ${p.text ? `<div class="post-text">${linkify(p.text)}</div>` : ""}
+      ${p.image ? `<img class="post-img" src="${esc(p.image)}" alt="" loading="lazy">` : ""}
+      <footer class="post-foot">
+        ${Object.keys(RE).map((k) => `<button class="react ${p.myReactions.includes(k) ? "on" : ""}" data-k="${k}">${RE[k]} <span>${p.reactions[k] || ""}</span></button>`).join("")}
+        <button class="react cm-toggle">💬 <span>${p.comments || ""}</span></button>
+      </footer>
+      <div class="comments" hidden></div>
+    </article>`;
+  }
+  function bindPost(el, p) {
+    el.querySelectorAll(".react[data-k]").forEach((b) => (b.onclick = async () => {
+      try {
+        const r = await A.Remote.call("POST", "posts/" + p.id + "/react", { kind: b.dataset.k });
+        const sp = b.querySelector("span");
+        const n = (parseInt(sp.textContent, 10) || 0) + (r.on ? 1 : -1);
+        sp.textContent = n > 0 ? n : "";
+        b.classList.toggle("on", r.on);
+      } catch (e) { UI.toast(e.message, "warn"); }
+    }));
+    const del = el.querySelector(".post-del");
+    if (del) del.onclick = async () => {
+      if (!confirm("Постоо устгах уу?")) return;
+      try { await A.Remote.call("DELETE", "posts/" + p.id); el.remove(); } catch (e) { UI.toast(e.message, "warn"); }
+    };
+    const cbox = el.querySelector(".comments");
+    el.querySelector(".cm-toggle").onclick = async () => {
+      cbox.hidden = !cbox.hidden;
+      if (!cbox.hidden) loadComments();
+    };
+    async function loadComments() {
+      cbox.innerHTML = `<p class="muted small">Ачаалж байна...</p>`;
+      const d = await A.Remote.call("GET", "posts/" + p.id + "/comments");
+      cbox.innerHTML = d.comments.map((c) => `<div class="cmt">${avatarHtml(c.user, 30)}<div class="cmt-b"><a href="#/u/${esc(c.user.id)}"><b>${esc(c.user.name)}</b></a> <span class="muted small">${timeAgo(c.createdAt)}</span><div>${linkify(c.text)}</div></div></div>`).join("") +
+        `<form class="cmt-form"><input class="input" maxlength="1000" placeholder="Сэтгэгдэл бичих..."><button class="btn small">Илгээх</button></form>`;
+      cbox.querySelector("form").onsubmit = async (e) => {
+        e.preventDefault();
+        const inp = e.target.querySelector("input");
+        const text = inp.value.trim();
+        if (!text) return;
+        try {
+          await A.Remote.call("POST", "posts/" + p.id + "/comments", { text });
+          const sp = el.querySelector(".cm-toggle span");
+          sp.textContent = (parseInt(sp.textContent, 10) || 0) + 1;
+          loadComments();
+        } catch (ex) { UI.toast(ex.message, "warn"); }
+      };
+    }
+  }
+
+  /* ---------- Мэдэгдэл ---------- */
+  const badges = { unread: 0, incoming: 0 };
+  let lastBadge = 0;
+  async function refreshBadges(force) {
+    if (!A.Remote.on || !Auth.current()) return;
+    if (force === "nav" && Date.now() - lastBadge < 8000) return;
+    lastBadge = Date.now();
+    try {
+      const d = await A.Remote.call("GET", "notifications");
+      badges.unread = d.unread; badges.incoming = d.incoming; badges.list = d.list;
+      const nb = document.getElementById("nbadge"), fb = document.getElementById("fbadge");
+      if (nb) { nb.textContent = d.unread; nb.hidden = !d.unread; }
+      if (fb) { fb.textContent = d.incoming; fb.hidden = !d.incoming; }
+    } catch (e) { /* ignore */ }
+  }
+  setInterval(refreshBadges, 60000);
+  function notifMenu() {
+    const box = document.getElementById("nmenu");
+    const list = badges.list || [];
+    box.innerHTML = `<div class="nm-head"><b>Мэдэгдэл</b>${list.length ? `<button class="icon-btn" id="nclear" title="Цэвэрлэх">🧹</button>` : ""}</div>` +
+      (list.length ? list.map((n) => `<a class="nm-item ${n.read ? "" : "unread"}" href="${esc(n.link || "#/dashboard")}"><span>${esc(n.text)}</span><small class="muted">${timeAgo(n.createdAt)}</small></a>`).join("") : `<p class="muted small center">Мэдэгдэл алга.</p>`);
+    const c = document.getElementById("nclear");
+    if (c) c.onclick = async (e) => { e.preventDefault(); e.stopPropagation(); await A.Remote.call("DELETE", "notifications"); badges.list = []; badges.unread = 0; notifMenu(); refreshBadges(); };
+    if (badges.unread) A.Remote.call("POST", "notifications/read", {}).then(() => { badges.unread = 0; const nb = document.getElementById("nbadge"); if (nb) nb.hidden = true; }).catch(() => {});
+  }
+
+
 
   /* ---------- Үгсийн сан ---------- */
   Pages.vocab = function () {
@@ -1180,6 +1581,9 @@
     document.body.classList.remove("menu-open");
     const m = document.getElementById("pmenu");
     if (m) m.hidden = true;
+    const nm = document.getElementById("nmenu");
+    if (nm) nm.hidden = true;
+    refreshBadges("nav");
   }
 
   // Дээд цэс: [зам, идэвхжих хэсэг, дүрс, нэр]
@@ -1213,14 +1617,23 @@
           <button data-t="zh" class="${lang === "zh" ? "on" : ""}" title="Хятад хэл">${FLAG.zh}<span class="tw">Хятад</span></button>
           <button data-t="en" class="${lang === "en" ? "on" : ""}" title="Англи хэл">${FLAG.en}<span class="tw">Англи</span></button>
         </div>
-        <button class="icon-btn theme" id="theme" title="Өнгөний горим">${THEME_ICON[A.Theme.get()]}</button>
+        <div class="icon-bar">
+          <a class="ibtn" href="#/leaderboard" title="Тэргүүлэгчид">🏆</a>
+          ${A.Remote.on ? `<a class="ibtn" href="#/social" title="Сошиал">📰</a>
+          <a class="ibtn" href="#/chat" title="Чат">💬</a>
+          <a class="ibtn" href="#/friends" title="Найзууд">👥<span class="ibadge" id="fbadge" ${badges.incoming ? "" : "hidden"}>${badges.incoming}</span></a>
+          <div class="nwrap"><button class="ibtn" id="nbell" title="Мэдэгдэл">🔔<span class="ibadge" id="nbadge" ${badges.unread ? "" : "hidden"}>${badges.unread}</span></button><div class="nmenu card" id="nmenu" hidden></div></div>` : ""}
+          <button class="ibtn" id="theme" title="Өнгөний горим">${THEME_ICON[A.Theme.get()]}</button>
+        </div>
         <div class="pwrap">
-          <button class="avatar-btn" id="avatar" aria-haspopup="true" aria-expanded="false" title="${esc(u.name)}">${esc(u.name.slice(0, 1).toUpperCase())}</button>
+          <button class="avatar-btn" id="avatar" aria-haspopup="true" aria-expanded="false" title="${esc(u.name)}">${avatarHtml(u, 40)}</button>
           <div class="pmenu card" id="pmenu" hidden>
-            <div class="pm-head"><div class="su-avatar">${esc(u.name.slice(0, 1).toUpperCase())}</div><div><b>${esc(u.name)}</b><span class="muted small">${esc(u.email)}</span></div></div>
+            <div class="pm-head">${avatarHtml(u, 42)}<div><b>${esc(u.name)}</b><span class="muted small">${esc(u.email)}</span></div></div>
             <div class="pm-stats"><span>⭐ ${pr.xp} XP</span><span>🔥 ${pr.streak} өдөр</span><span>🗂️ ${due} давтах</span></div>
             <a href="#/dashboard">🏠 Хянах самбар</a>
             <a href="#/profile">👤 Миний профайл</a>
+            <a href="#/leaderboard">🏆 Тэргүүлэгчид</a>
+            ${A.Remote.on ? `<a href="#/friends">👥 Миний найзууд</a><a href="#/social">📰 Сошиал</a><a href="#/chat">💬 Чат</a>` : ""}
             <a href="#/${lang === "zh" ? "chinese" : "english"}">🎓 ${lang === "zh" ? "HSK түвшнүүд" : "IELTS түвшнүүд"}</a>
             <a href="#/dictionary">🔎 Толь бичиг</a>
             <a href="#/review/cards">✏️ Миний картууд</a>
@@ -1246,6 +1659,13 @@
       else if (cur === "writing" && t === "en") go("#/ielts/writing");
       else route();
     }));
+    const bell = document.getElementById("nbell");
+    if (bell) bell.onclick = (e) => {
+      e.stopPropagation();
+      const m = document.getElementById("nmenu");
+      m.hidden = !m.hidden;
+      if (!m.hidden) { notifMenu(); refreshBadges().then(() => { if (!m.hidden) notifMenu(); }); }
+    };
     const av = document.getElementById("avatar");
     if (av) av.onclick = (e) => {
       e.stopPropagation();
@@ -1254,16 +1674,20 @@
       av.setAttribute("aria-expanded", String(!m.hidden));
     };
     const lo = document.getElementById("logout");
-    if (lo) lo.onclick = () => { Auth.logout(); UI.toast("Системээс гарлаа"); go("#/"); };
+    if (lo) lo.onclick = async () => { await Auth.logout(); UI.toast("Системээс гарлаа"); go("#/"); };
   }
 
   window.addEventListener("hashchange", route);
   document.addEventListener("click", (e) => {
     const m = document.getElementById("pmenu");
     if (m && !m.hidden && !e.target.closest(".pwrap")) m.hidden = true;
+    const n = document.getElementById("nmenu");
+    if (n && !n.hidden && !e.target.closest(".nwrap")) n.hidden = true;
   });
   document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("burger").onclick = () => document.body.classList.toggle("menu-open");
-    route();
+    view().innerHTML = `<div class="boot"><div class="logo-mark">学</div><p class="muted">Ачаалж байна...</p></div>`;
+    A.track = track;
+    A.Remote.init().finally(() => { route(); refreshBadges(); });
   });
 })();

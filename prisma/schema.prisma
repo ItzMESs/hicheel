@@ -1,0 +1,115 @@
+// Vercel дээр Postgres (Prisma Postgres, Neon, Supabase ...) холбоход DATABASE_URL автоматаар нэмэгдэнэ.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  bio          String   @default("")
+  avatar       String?  // жижигрүүлсэн JPEG data URL
+  avatarAt     DateTime?
+  createdAt    DateTime @default(now())
+
+  progress      Progress?
+  posts         Post[]
+  comments      Comment[]
+  reactions     Reaction[]
+  messages      ChatMessage[]
+  sentRequests  Friend[]       @relation("FriendFrom")
+  gotRequests   Friend[]       @relation("FriendTo")
+  notifications Notification[]
+}
+
+// Хэрэглэгчийн бүх ахиц JSON хэлбэрээр; тэргүүлэгчдэд зориулж xp/streak/learned тусдаа багана
+model Progress {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Json
+  xp        Int      @default(0)
+  streak    Int      @default(0)
+  learned   Int      @default(0)
+  track     String   @default("zh")
+  updatedAt DateTime @updatedAt
+
+  @@index([xp])
+}
+
+model Post {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String
+  image     String?
+  createdAt DateTime   @default(now())
+  comments  Comment[]
+  reactions Reaction[]
+
+  @@index([createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([postId, createdAt])
+}
+
+model Reaction {
+  id     String @id @default(cuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind   String // like | love | wow
+
+  @@unique([postId, userId, kind])
+}
+
+// room: "public" | "zh" | "en" | "dm:<id1>:<id2>"
+model ChatMessage {
+  id        String   @id @default(cuid())
+  room      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([room, createdAt])
+}
+
+model Friend {
+  id        String   @id @default(cuid())
+  fromId    String
+  from      User     @relation("FriendFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  toId      String
+  to        User     @relation("FriendTo", fields: [toId], references: [id], onDelete: Cascade)
+  status    String   @default("pending") // pending | accepted
+  createdAt DateTime @default(now())
+
+  @@unique([fromId, toId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String
+  link      String   @default("")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
