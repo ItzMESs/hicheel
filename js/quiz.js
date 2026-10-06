@@ -14,7 +14,9 @@
   function options(correct, pool, key) {
     const seen = new Set([correct[key]]);
     const out = [correct[key]];
-    for (const w of shuffle(pool.own).concat(shuffle(pool.rest))) {
+    // Монгол/англи утгыг холихгүй (хариултыг илчлэхгүйн тулд)
+    const same = (w) => key !== "meaning" || !!w.noMn === !!correct.noMn;
+    for (const w of shuffle(pool.own.filter(same)).concat(shuffle(pool.rest.filter(same)), shuffle(pool.own))) {
       if (out.length >= 4) break;
       if (!seen.has(w[key])) { seen.add(w[key]); out.push(w[key]); }
     }

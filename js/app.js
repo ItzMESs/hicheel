@@ -323,7 +323,7 @@
     }));
     function draw() {
       const c = document.getElementById("tabc");
-      if (tab === "words") c.innerHTML = wordTable(L.words);
+      if (tab === "words") return wordsTab(c, L.words);
       if (tab === "grammar") c.innerHTML = L.grammar.map((g, gi) => grammarCard(g, gi, lang)).join("");
       if (tab === "sent") c.innerHTML = `<div class="list">${L.sentences.map((s) => `
         <div class="card sent">
@@ -339,6 +339,32 @@
     draw();
   }
 
+  // Түвшний үгс: хайлт + хуудаслалт (том жагсаалтад)
+  function wordsTab(c, words) {
+    const PAGE = 200;
+    let limit = PAGE, q = "";
+    const noMn = words.filter((w) => w.noMn).length;
+    c.innerHTML = `
+      <div class="row between">
+        <input class="input grow" id="wq" placeholder="Энэ түвшнээс хайх: ханз, пиньинь, утга..." autocomplete="off">
+        <span class="muted small">${words.length} үг${noMn ? ` · ${noMn} үгийн монгол орчуулга байхгүй тул англиар харуулав` : ""}</span>
+      </div>
+      <div id="wt"></div>`;
+    const inp = c.querySelector("#wq");
+    function draw() {
+      const nq = q.trim().toLowerCase(), sq = A.stripTones(q);
+      const list = nq ? words.filter((w) => [w.term, w.meaning, w.gloss, w.example].join(" ").toLowerCase().includes(nq) || (sq && A.stripTones(w.reading).includes(sq))) : words;
+      const box = c.querySelector("#wt");
+      box.innerHTML = wordTable(list.slice(0, limit)) + (list.length > limit ? `<div class="row center"><button class="btn ghost" id="more">Цааш үзэх (${list.length - limit} үлдсэн)</button></div>` : "");
+      bindCommon(box);
+      const m = box.querySelector("#more");
+      if (m) m.onclick = () => { limit += PAGE; draw(); };
+    }
+    let t = null;
+    inp.oninput = () => { clearTimeout(t); t = setTimeout(() => { q = inp.value; limit = PAGE; draw(); }, 150); };
+    draw();
+  }
+
   function wordTable(words) {
     const p = Progress.get();
     if (!words.length) return `<p class="muted">Үг олдсонгүй.</p>`;
@@ -348,7 +374,7 @@
         <td class="nowrap">${speakBtn(w.term, w.lang)}${w.lang === "zh" ? strokeBtn(w) : ""}</td>
         <td class="w-term ${w.lang}">${esc(w.term)}</td>
         <td class="w-read">${esc(w.reading)}</td>
-        <td>${esc(w.meaning)}</td>
+        <td>${w.noMn ? `<span class="tag">EN</span> ` : ""}${esc(w.meaning)}</td>
         <td class="hide-sm muted">${esc(w.gloss || w.example)}</td>
         <td class="nowrap">
           <button class="icon-btn ${p.learned[w.id] ? "on" : ""}" data-learn="${esc(w.id)}" title="Цээжилсэн">✔</button>

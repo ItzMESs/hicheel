@@ -238,7 +238,8 @@
   function wordObj(courseId, level, w) {
     const c = COURSES[courseId];
     if (c.lang === "zh") {
-      return { id: "zh:" + w[0], lang: "zh", course: courseId, level, term: w[0], reading: w[1], gloss: w[2], meaning: w[3], example: "" };
+      // Монгол орчуулга байхгүй бол англи утгыг харуулна
+      return { id: "zh:" + w[0], lang: "zh", course: courseId, level, term: w[0], reading: w[1], gloss: w[3] ? w[2] : "", meaning: w[3] || w[2], noMn: !w[3], example: "" };
     }
     return { id: "en:" + w[0], lang: "en", course: courseId, level, term: w[0], reading: w[4] ? w[1] + " " + w[4] : w[1], gloss: "", meaning: w[2], example: w[3] };
   }
