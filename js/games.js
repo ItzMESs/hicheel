@@ -8,13 +8,250 @@
       { id: "flash", icon: "🃏", title: "Картаар цээжлэх", desc: "Картыг эргүүлж үгийн утгыг шалга, мэдсэн үгээ тэмдэглэ." },
       { id: "match", icon: "🧩", title: "Хос тааруулах", desc: "Үгийг утгатай нь аль болох хурдан хослуул." },
       { id: "speed", icon: "⚡", title: "Хурдны сорил", desc: "60 секундэд аль болох олон асуултад зөв хариул." },
-      { id: "build", icon: "🧱", title: "Өгүүлбэр байгуулах", desc: "Холилдсон үгсийг зөв дараалалд оруул." }
+      { id: "build", icon: "🧱", title: "Өгүүлбэр байгуулах", desc: "Холилдсон үгсийг зөв дараалалд оруул." },
+      { id: "tone", icon: "🎵", title: "Аялгуу таах", desc: "Хятад үгийн зөв аялгуутай пиньинийг сонго.", lang: "zh" },
+      { id: "spell", icon: "🔤", title: "Үг угсрах", desc: "Үсгүүдийг зөв дараалалд оруулж англи үг бүтээ.", lang: "en" },
+      { id: "numbers", icon: "🔢", title: "Тоо", desc: "Тоог үгээр, үгийг тоогоор таниж сур." },
+      { id: "speak", icon: "🎤", title: "Дуудлага шалгах", desc: "Үгийг чангаар хэлж, хөтөч таны дуудлагыг шалгана." }
     ],
     run(id, el, courseId, level) {
       const L = getLevel(courseId, level);
-      ({ flash, match, speed, build })[id](el, L);
+      ({ flash, match, speed, build, tone, spell, numbers, speak })[id](el, L);
     }
   };
+
+  // Нийтлэг: олон сонголттой тойргийн тоглоом
+  function rounds(el, items, makeQ, opts) {
+    let i = 0, score = 0;
+    function render() {
+      if (i >= items.length) {
+        Progress.update((p) => { p.games++; p.xp += score * 2; });
+        el.innerHTML = `<div class="card center"><h3>Дууслаа!</h3><div class="result-score pass">${score}/${items.length}</div><p class="muted">+${score * 2} XP</p><button class="btn" id="again">Дахин тоглох</button></div>`;
+        el.querySelector("#again").onclick = opts.restart;
+        return;
+      }
+      const q = makeQ(items[i]);
+      el.innerHTML = `
+        <div class="quiz card">
+          <div class="quiz-top"><span class="badge">${i + 1} / ${items.length}</span><span>Оноо: <b>${score}</b></span></div>
+          <div class="quiz-prompt">${q.prompt}</div>
+          ${q.say ? `<div class="row center"><button class="btn audio" id="say">🔊 Сонсох</button></div>` : ""}
+          <div class="options">${q.options.map((o, k) => `<button class="opt ${q.optClass || ""}" data-k="${k}">${esc(o)}</button>`).join("")}</div>
+          <div class="feedback" id="fb"></div>
+        </div>`;
+      if (q.say) el.querySelector("#say").onclick = () => Speech.speak(q.say.text, q.say.lang);
+      el.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
+        const ok = +b.dataset.k === q.answer;
+        if (ok) score++;
+        el.querySelectorAll(".opt").forEach((x) => (x.disabled = true));
+        el.querySelectorAll(".opt")[q.answer].classList.add("correct");
+        if (!ok) b.classList.add("wrong");
+        if (q.say) Speech.speak(q.say.text, q.say.lang);
+        const fb = el.querySelector("#fb");
+        fb.className = "feedback " + (ok ? "ok" : "bad");
+        fb.innerHTML = `${ok ? "✔ Зөв!" : "✘ Зөв хариулт: <b>" + esc(q.options[q.answer]) + "</b>"}${q.reveal ? `<div class="reveal">${q.reveal}</div>` : ""}<button class="btn" id="nx">Дараагийн →</button>`;
+        fb.querySelector("#nx").onclick = () => { i++; render(); };
+      }));
+    }
+    render();
+  }
+  const needLang = (el, lang) => {
+    el.innerHTML = `<div class="card center"><p>Энэ тоглоом зөвхөн <b>${lang === "zh" ? "хятад хэл (HSK)" : "англи хэл (IELTS)"}</b> хичээлд зориулагдсан. Дээрээс хичээлээ сольж сонгоно уу.</p></div>`;
+  };
+
+  /* ---------- Аялгуу таах ---------- */
+  const TONES = { a: "āáǎà", e: "ēéěè", i: "īíǐì", o: "ōóǒò", u: "ūúǔù", "ü": "ǖǘǚǜ" };
+  const TONE_OF = {};
+  Object.keys(TONES).forEach((v) => Array.from(TONES[v]).forEach((c, k) => (TONE_OF[c] = [v, k])));
+  function toneVariants(py) {
+    const chars = Array.from(py);
+    const pos = chars.map((c, k) => (TONE_OF[c] ? k : -1)).filter((k) => k >= 0);
+    const out = new Set([py]);
+    let guard = 0;
+    while (out.size < 4 && pos.length && guard++ < 60) {
+      const v = chars.slice();
+      const k = pos[Math.floor(Math.random() * pos.length)];
+      const [base, t] = TONE_OF[v[k]];
+      let nt = Math.floor(Math.random() * 4);
+      if (nt === t) nt = (nt + 1) % 4;
+      v[k] = TONES[base][nt];
+      out.add(v.join(""));
+    }
+    return Array.from(out);
+  }
+  function tone(el, L) {
+    if (L.course.lang !== "zh") return needLang(el, "zh");
+    const items = sample(L.words.filter((w) => toneVariants(w.reading).length >= 3), 10);
+    rounds(el, items, (w) => {
+      const opts = shuffle(toneVariants(w.reading));
+      return { prompt: `<div class="q-term zh">${esc(w.term)}</div><p>Зөв аялгуутай пиньинийг сонгоно уу.</p>`, options: opts, answer: opts.indexOf(w.reading), say: { text: w.term, lang: "zh" }, reveal: esc(w.meaning) };
+    }, { restart: () => tone(el, L) });
+  }
+
+  /* ---------- Үг угсрах (англи) ---------- */
+  function spell(el, L) {
+    if (L.course.lang !== "en") return needLang(el, "en");
+    const list = sample(L.words.filter((w) => /^[a-z]+$/i.test(w.term)), 8);
+    let i = 0, score = 0;
+    function render() {
+      if (i >= list.length) {
+        Progress.update((p) => { p.games++; p.xp += score * 2; });
+        el.innerHTML = `<div class="card center"><h3>Дууслаа!</h3><div class="result-score pass">${score}/${list.length}</div><button class="btn" id="again">Дахин тоглох</button></div>`;
+        el.querySelector("#again").onclick = () => spell(el, L);
+        return;
+      }
+      const w = list[i];
+      const letters = Array.from(w.term.toLowerCase());
+      let pieces = shuffle(letters.map((t, k) => ({ t, k })));
+      if (pieces.every((p, k) => p.k === k)) pieces.reverse();
+      const chosen = [];
+      let hinted = false;
+      el.innerHTML = `
+        <div class="quiz card">
+          <div class="quiz-top"><span class="badge">${i + 1} / ${list.length}</span><span>Оноо: <b>${score}</b></span></div>
+          <p class="center big-mean">${esc(w.meaning)} <span class="muted">(${esc(w.reading)})</span></p>
+          <div class="build-answer letters" id="ans"></div>
+          <div class="build-pieces letters" id="pcs"></div>
+          <div class="row center">
+            <button class="btn ghost" id="clr">Арилгах</button>
+            <button class="btn audio" id="say">🔊 Сонсох</button>
+            <button class="btn ghost" id="hint">💡 Эхний үсэг</button>
+            <button class="btn" id="chk">Шалгах</button>
+          </div>
+          <div class="feedback" id="fb"></div>
+        </div>`;
+      const ans = el.querySelector("#ans"), pcs = el.querySelector("#pcs");
+      function draw() {
+        ans.innerHTML = chosen.map((p, k) => `<button class="chip on" data-k="${k}">${esc(p.t)}</button>`).join("") || `<span class="muted">Үсгүүдийг дарж сонгоно уу</span>`;
+        pcs.innerHTML = pieces.map((p, k) => `<button class="chip" data-k="${k}">${esc(p.t)}</button>`).join("");
+        ans.querySelectorAll(".chip").forEach((b) => (b.onclick = () => { pieces.push(chosen.splice(+b.dataset.k, 1)[0]); draw(); }));
+        pcs.querySelectorAll(".chip").forEach((b) => (b.onclick = () => { chosen.push(pieces.splice(+b.dataset.k, 1)[0]); draw(); }));
+      }
+      draw();
+      el.querySelector("#clr").onclick = () => { pieces = pieces.concat(chosen.splice(0)); draw(); };
+      el.querySelector("#say").onclick = () => Speech.speak(w.term, "en");
+      el.querySelector("#hint").onclick = () => {
+        if (hinted) return;
+        hinted = true;
+        pieces = pieces.concat(chosen.splice(0));
+        const k = pieces.findIndex((p) => p.t === letters[0]);
+        chosen.push(pieces.splice(k, 1)[0]);
+        draw();
+      };
+      el.querySelector("#chk").onclick = () => {
+        if (pieces.length) return UI.toast("Бүх үсгийг ашиглана уу.", "warn");
+        const ok = chosen.map((p) => p.t).join("") === letters.join("");
+        if (ok) score++;
+        const fb = el.querySelector("#fb");
+        fb.className = "feedback " + (ok ? "ok" : "bad");
+        fb.innerHTML = `${ok ? "✔ Зөв!" : "✘ Зөв хариулт:"} <div class="reveal">${esc(w.term)}</div><div class="muted">${esc(w.example)}</div><button class="btn" id="nx">Дараагийн →</button>`;
+        el.querySelector("#chk").disabled = true;
+        fb.querySelector("#nx").onclick = () => { i++; render(); };
+        Speech.speak(w.term, "en");
+      };
+    }
+    render();
+  }
+
+  /* ---------- Тоо ---------- */
+  const ZH_D = "零一二三四五六七八九";
+  function zhNum(n) {
+    if (n === 0) return "零";
+    const units = ["", "十", "百", "千"];
+    const ds = String(n).split("").map(Number);
+    let out = "", zero = false;
+    ds.forEach((d, k) => {
+      const u = units[ds.length - 1 - k];
+      if (d === 0) { zero = true; return; }
+      if (zero && out) out += "零";
+      zero = false;
+      out += ZH_D[d] + u;
+    });
+    if (out.startsWith("一十")) out = out.slice(1); // 十二, 十五
+    return out;
+  }
+  const EN_1 = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+  const EN_10 = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+  function enNum(n) {
+    if (n < 20) return EN_1[n];
+    if (n < 100) return EN_10[Math.floor(n / 10)] + (n % 10 ? "-" + EN_1[n % 10] : "");
+    if (n < 1000) return EN_1[Math.floor(n / 100)] + " hundred" + (n % 100 ? " and " + enNum(n % 100) : "");
+    return enNum(Math.floor(n / 1000)) + " thousand" + (n % 1000 ? (n % 1000 < 100 ? " and " : " ") + enNum(n % 1000) : "");
+  }
+  function numbers(el, L) {
+    const lang = L.course.lang;
+    const tier = Math.min(4, (L.course.data().levels.indexOf(L.level) + 1));
+    const max = [0, 20, 100, 1000, 9999][tier];
+    const toWord = lang === "zh" ? zhNum : enNum;
+    const nums = Array.from({ length: 10 }, () => Math.floor(Math.random() * max) + 1);
+    rounds(el, nums, (n) => {
+      const set = new Set([n]);
+      while (set.size < 4) {
+        const d = n + (Math.floor(Math.random() * 21) - 10) * (max > 100 ? Math.ceil(Math.random() * 10) : 1);
+        if (d > 0 && d !== n) set.add(d);
+      }
+      const opts = shuffle(Array.from(set));
+      const reverse = Math.random() < 0.5;
+      return reverse
+        ? { prompt: `<div class="q-term ${lang}">${esc(toWord(n))}</div><p>Энэ ямар тоо вэ?</p>`, options: opts.map(String), answer: opts.indexOf(n), say: { text: toWord(n), lang } }
+        : { prompt: `<div class="q-term">${n}</div><p>${lang === "zh" ? "Хятадаар" : "Англиар"} зөв бичсэнийг сонго.</p>`, options: opts.map(toWord), answer: opts.indexOf(n), optClass: lang, say: { text: toWord(n), lang } };
+    }, { restart: () => numbers(el, L) });
+  }
+
+  /* ---------- Дуудлага шалгах (SpeechRecognition) ---------- */
+  function speak(el, L) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      el.innerHTML = `<div class="card center warn">⚠️ Таны хөтөч яриа таних боломжгүй. Chrome эсвэл Edge хөтөч ашиглана уу.</div>`;
+      return;
+    }
+    const lang = L.course.lang;
+    const list = sample(L.words, 8);
+    let i = 0, score = 0;
+    const norm = (t) => lang === "zh" ? String(t).replace(/[^一-鿿]/g, "") : String(t).toLowerCase().replace(/[^a-z' ]/g, "").trim();
+    function render() {
+      if (i >= list.length) {
+        Progress.update((p) => { p.games++; p.xp += score * 3; });
+        el.innerHTML = `<div class="card center"><h3>Дууслаа!</h3><div class="result-score pass">${score}/${list.length}</div><button class="btn" id="again">Дахин тоглох</button></div>`;
+        el.querySelector("#again").onclick = () => speak(el, L);
+        return;
+      }
+      const w = list[i];
+      el.innerHTML = `
+        <div class="quiz card center">
+          <div class="quiz-top"><span class="badge">${i + 1} / ${list.length}</span><span>Оноо: <b>${score}</b></span></div>
+          <div class="q-term ${lang}">${esc(w.term)}</div>
+          <div class="q-sub">${esc(w.reading)} · ${esc(w.meaning)}</div>
+          <div class="row center">
+            <button class="btn audio" id="say">🔊 Жишээ сонсох</button>
+            <button class="btn mic" id="rec">🎤 Хэлэх</button>
+            <button class="btn ghost" id="skip">Алгасах →</button>
+          </div>
+          <div class="feedback" id="fb"></div>
+        </div>`;
+      el.querySelector("#say").onclick = () => Speech.speak(w.term, lang);
+      el.querySelector("#skip").onclick = () => { i++; render(); };
+      el.querySelector("#rec").onclick = () => {
+        const r = new SR();
+        r.lang = lang === "zh" ? "zh-CN" : "en-GB";
+        r.maxAlternatives = 5;
+        const btn = el.querySelector("#rec"), fb = el.querySelector("#fb");
+        btn.disabled = true; btn.textContent = "👂 Сонсож байна...";
+        r.onresult = (e) => {
+          const alts = Array.from(e.results[0]).map((a) => a.transcript);
+          const ok = alts.some((a) => norm(a) === norm(w.term) || norm(a).includes(norm(w.term)));
+          if (ok) score++;
+          fb.className = "feedback " + (ok ? "ok" : "bad");
+          fb.innerHTML = `${ok ? "✔ Маш сайн дуудлага!" : "✘ Дахин оролдоорой."}<div class="muted">Таны хэлсэн: «${esc(alts[0] || "")}»</div><button class="btn" id="nx">Дараагийн →</button>`;
+          fb.querySelector("#nx").onclick = () => { i++; render(); };
+        };
+        r.onerror = (e) => { fb.className = "feedback bad"; fb.textContent = e.error === "not-allowed" ? "Микрофоны зөвшөөрөл өгнө үү." : "Сонсож чадсангүй. Дахин оролдоно уу."; };
+        r.onend = () => { btn.disabled = false; btn.textContent = "🎤 Дахин хэлэх"; };
+        r.start();
+      };
+    }
+    render();
+  }
 
   /* ---------- Картаар цээжлэх ---------- */
   function flash(el, L) {

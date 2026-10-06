@@ -34,6 +34,7 @@
   }
 
   const pageHead = (title, sub) => `<header class="page-head"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</header>`;
+  const strokeBtn = (w) => `<button class="icon-btn" data-stroke="${esc(w.term)}" data-read="${esc(w.reading)}" title="Зурааны дараалал" aria-label="Зурааны дараалал">✍️</button>`;
   const speakBtn = (text, lang) => `<button class="icon-btn" data-say="${esc(text)}" data-lang="${lang}" title="Сонсох" aria-label="Сонсох">🔊</button>`;
 
   /* ======================= ХУУДСУУД ======================= */
@@ -60,9 +61,12 @@
         ${feature("🇨🇳", "Хятад хэл (HSK)", "HSK 2.0 — 6 түвшин, HSK 3.0 — 9 түвшин. Пиньинь, утга, дуудлага, дүрэм.", "#/chinese")}
         ${feature("🇬🇧", "Англи хэл (IELTS)", "CEFR A1–C1 түвшин, IELTS band оноотой харьцуулалт, унших дасгал.", "#/english")}
         ${feature("🎧", "Сонсгол", "Үг, өгүүлбэр сонсож таних, сонсоод бичих дасгал.", "#/listening")}
-        ${feature("🎮", "Тоглоом", "Картаар цээжлэх, хос тааруулах, хурдны сорил, өгүүлбэр байгуулах.", "#/games")}
+        ${feature("🎮", "8 төрлийн тоглоом", "Флаш карт, хос тааруулах, хурдны сорил, өгүүлбэр, аялгуу, үг угсрах, тоо, дуудлага.", "#/games")}
         ${feature("📝", "Тест шалгалт", "Түвшин тогтоох хугацаатай шалгалт, дүнгийн түүх.", "#/tests")}
-        ${feature("📖", "Толь бичиг", "Хятад–монгол–англи толь. Хайх, сонсох, хадгалах.", "#/dictionary")}
+        ${feature("📖", "Толь бичиг", "Хятад–монгол–англи толь. Хайх, сонсох, зурааны дараалал.", "#/dictionary")}
+        ${feature("🗂️", "Anki давталт", "Зайтай давталтын систем: мартах үед тань яг цагт нь сануулна. Өөрийн карт нэмнэ.", "#/review")}
+        ${feature("🎯", "IELTS Writing & Speaking", "Цагтай эссе бичих, үг тоолох, cue card, яриагаа бичиж сонсох.", "#/ielts")}
+        ${feature("✍️", "Ханз бичих", "Зурааны дараалал хөдөлгөөнтэй, өөрөө зурж дадлагажих.", "#/dictionary")}
       </section>`;
     function feature(icon, t, d, href) {
       return `<a class="card feature" href="${href}"><div class="f-icon">${icon}</div><h3>${t}</h3><p>${d}</p></a>`;
@@ -128,7 +132,6 @@
   Pages.dashboard = function () {
     const u = Auth.current(), p = Progress.get();
     const learned = Object.keys(p.learned).length;
-    const total = allWords().length;
     const avg = p.tests.length ? Math.round(p.tests.reduce((s, t) => s + t.pct, 0) / p.tests.length) : 0;
     const courseStats = Object.values(COURSES).map((c) => {
       const lv = c.data().levels.map((l) => {
@@ -139,19 +142,66 @@
       }).join("");
       return `<div class="card"><h3>${esc(c.title)}</h3><div class="lv-chips">${lv}</div></div>`;
     }).join("");
+    // Өдрийн үг (огноогоор тогтмол)
+    const uniq = Array.from(new Map(allWords().map((w) => [w.id, w])).values());
+    const seed = A.today().split("-").join("") % uniq.length;
+    const wotd = uniq[seed];
+    const due = A.SRS.allDue();
+    const done = p.activity[A.today()] || 0;
+    const goalPct = Math.min(100, Math.round((done / p.goal) * 100));
+    const days = Array.from({ length: 7 }, (_, k) => {
+      const d = new Date(Date.now() - (6 - k) * 864e5);
+      return { key: A.dayKey(d), lbl: ["Ня", "Да", "Мя", "Лх", "Пү", "Ба", "Бя"][d.getDay()] };
+    });
+    const mx = Math.max(p.goal, ...days.map((d) => p.activity[d.key] || 0));
     view().innerHTML = `
       ${pageHead("Сайн уу, " + esc(u.name) + "! 👋", "Өнөөдөр юу сурах вэ?")}
+      <div class="dash-top">
+        <div class="card hero-card">
+          <div>
+            <span class="eyebrow">Өнөөдрийн давталт</span>
+            <h2>${due ? due + " карт таныг хүлээж байна" : "Давтах карт алга 🎉"}</h2>
+            <p>${due ? "Мартахаас нь өмнө давтаж, ой санамжаа бэхжүүлээрэй." : "Шинэ түвшин сонгоод шинэ үг сурч эхлээрэй."}</p>
+            <a class="btn light" href="#/review">${due ? "▶ Давтах" : "＋ Шинэ үг сурах"}</a>
+          </div>
+          <div class="goal-ring light" style="--p:${goalPct}"><span>${done}<small>/${p.goal}</small></span></div>
+        </div>
+        ${wotd ? `<div class="card wotd">
+          <span class="eyebrow">Өдрийн үг · ${esc(wotd.course === "ielts" ? "IELTS " + wotd.level : COURSES[wotd.course].short + " " + wotd.level)}</span>
+          <div class="wotd-term ${wotd.lang}">${esc(wotd.term)}</div>
+          <div class="w-read">${esc(wotd.reading)}</div>
+          <div class="wotd-mean">${esc(wotd.meaning)}</div>
+          ${wotd.example ? `<div class="muted small">${esc(wotd.example)}</div>` : ""}
+          <div class="row">${speakBtn(wotd.term, wotd.lang)}${wotd.lang === "zh" ? strokeBtn(wotd) : ""}<button class="icon-btn ${p.favorites.includes(wotd.id) ? "on" : ""}" data-fav="${esc(wotd.id)}" title="Хадгалах">★</button></div>
+        </div>` : ""}
+      </div>
       <div class="stats">
         ${stat("⭐", p.xp, "XP оноо")}
         ${stat("🔥", p.streak, "Дараалсан өдөр")}
-        ${stat("📚", learned + " / " + total, "Цээжилсэн үг")}
+        ${stat("📚", learned + " / " + uniq.length, "Цээжилсэн үг")}
         ${stat("📝", p.tests.length, "Өгсөн тест")}
         ${stat("🎯", avg + "%", "Тестийн дундаж")}
+      </div>
+      <div class="grid cards2">
+        <div class="card">
+          <h3>📈 Сүүлийн 7 хоног</h3>
+          <div class="bars">${days.map((d) => { const v = p.activity[d.key] || 0; return `<div class="bar" title="${v} карт"><i style="height:${(v / mx) * 100}%" class="${v >= p.goal ? "met" : ""}"></i><span>${d.lbl}</span></div>`; }).join("")}</div>
+          <p class="muted small">Өдөр бүр давтсан картын тоо · зорилго ${p.goal}</p>
+        </div>
+        <div class="card">
+          <h3>⚡ Шуурхай эхлэх</h3>
+          <div class="quick-grid">
+            <a href="#/chinese">🇨🇳 HSK хичээл</a><a href="#/english">🇬🇧 IELTS хичээл</a>
+            <a href="#/games/flash">🃏 Флаш карт</a><a href="#/listening">🎧 Сонсгол</a>
+            <a href="#/ielts/writing">✍️ Writing</a><a href="#/tests">📝 Тест өгөх</a>
+          </div>
+        </div>
       </div>
       <h2 class="section-title">Түвшний ахиц</h2>
       <div class="grid cards3">${courseStats}</div>
       <h2 class="section-title">Сүүлийн тестүүд</h2>
       ${testTable(p.tests.slice(-5).reverse())}`;
+    bindCommon(view());
     function stat(i, v, l) { return `<div class="stat card"><div class="s-icon">${i}</div><div class="s-val">${v}</div><div class="s-lbl">${l}</div></div>`; }
   };
 
@@ -295,7 +345,7 @@
     return `<div class="table-wrap"><table class="table words">
       <thead><tr><th></th><th>Үг</th><th>${words[0].lang === "zh" ? "Пиньинь" : "Аймаг"}</th><th>Утга</th><th class="hide-sm">${words[0].lang === "zh" ? "English" : "Жишээ"}</th><th></th></tr></thead>
       <tbody>${words.map((w) => `<tr>
-        <td>${speakBtn(w.term, w.lang)}</td>
+        <td class="nowrap">${speakBtn(w.term, w.lang)}${w.lang === "zh" ? strokeBtn(w) : ""}</td>
         <td class="w-term ${w.lang}">${esc(w.term)}</td>
         <td class="w-read">${esc(w.reading)}</td>
         <td>${esc(w.meaning)}</td>
@@ -351,6 +401,7 @@
 
   // Сонсох, цээжлэх, хадгалах товчнууд
   function bindCommon(root) {
+    root.querySelectorAll("[data-stroke]").forEach((b) => (b.onclick = () => A.Stroke.open(b.dataset.stroke, b.dataset.read)));
     root.querySelectorAll("[data-say]").forEach((b) => (b.onclick = (e) => { e.preventDefault(); Speech.speak(b.dataset.say, b.dataset.lang); }));
     root.querySelectorAll("[data-learn]").forEach((b) => (b.onclick = () => { b.classList.toggle("on", Progress.toggleLearned(b.dataset.learn)); }));
     root.querySelectorAll("[data-fav]").forEach((b) => (b.onclick = () => {
@@ -373,7 +424,7 @@
       ${!Speech.supported ? `<div class="card warn">⚠️ Таны хөтөч дуу унших (Speech Synthesis) боломжгүй байна. Chrome, Edge, Safari ашиглана уу.</div>` : ""}
       ${picker()}
       <div class="row center">
-        <label class="rate">Хурд <input type="range" id="rate" min="0.5" max="1.3" step="0.1" value="${Speech.rate}"><span id="rv">${Speech.rate}</span></label>
+        <label class="rate-ctl">Хурд <input type="range" id="rate" min="0.5" max="1.3" step="0.1" value="${Speech.rate}"><span id="rv">${Speech.rate}</span></label>
       </div>
       <div class="grid cards4">${modes.map((m) => `<button class="card mode" data-m="${m.id}"><h3>${m.t}</h3><p>${m.d}</p></button>`).join("")}</div>
       <div id="lz"></div>`;
@@ -405,7 +456,7 @@
     view().innerHTML = `
       ${pageHead("🎮 Тоглоом", "Тоглонгоо сур!")}
       ${picker()}
-      <div class="grid cards4">${Games.list.map((x) => `<a class="card mode ${x.id === id ? "on" : ""}" href="#/games/${x.id}"><div class="f-icon">${x.icon}</div><h3>${x.title}</h3><p>${x.desc}</p></a>`).join("")}</div>
+      <div class="grid cards4">${Games.list.map((x) => { const off = x.lang && x.lang !== COURSES[pick.course].lang; return `<a class="card mode ${x.id === id ? "on" : ""} ${off ? "off" : ""}" href="#/games/${x.id}"><div class="f-icon">${x.icon}</div><h3>${x.title}</h3><p>${x.desc}</p>${x.lang ? `<span class="tag">${x.lang === "zh" ? "Зөвхөн HSK" : "Зөвхөн IELTS"}</span>` : ""}</a>`; }).join("")}</div>
       <div id="gz"></div>`;
     bindPicker(() => Pages.games(id));
     if (g) {
@@ -515,7 +566,7 @@
         ? `<p class="muted">${list.length} үг олдлоо${list.length > shown.length ? " (эхний 120)" : ""}</p><div class="dict-list">${shown.map(({ w, tags }) => `
           <div class="card entry">
             <div class="e-head">
-              ${speakBtn(w.term, w.lang)}
+              ${speakBtn(w.term, w.lang)}${w.lang === "zh" ? strokeBtn(w) : ""}
               <span class="e-term ${w.lang}">${esc(w.term)}</span>
               <span class="e-read">${esc(w.reading)}</span>
               <button class="icon-btn fav ${p.favorites.includes(w.id) ? "on" : ""}" data-fav="${esc(w.id)}" title="Хадгалах">★</button>
@@ -584,6 +635,326 @@
     document.getElementById("del").onclick = () => { if (confirm("Бүртгэлээ бүрмөсөн устгах уу?")) { Auth.deleteAccount(); go("#/"); } };
   };
 
+  /* ---------- Давталт (Anki маягийн SRS) ---------- */
+  function customWords() {
+    return (Progress.get().custom || []).map((c) => ({ id: c.id, lang: c.lang, course: "custom", level: "", term: c.term, reading: c.reading || "", gloss: "", meaning: c.meaning, example: c.example || "" }));
+  }
+  let WORD_MAP = null;
+  function wordById(id) {
+    if (!WORD_MAP) { WORD_MAP = {}; allWords().forEach((w) => { if (!WORD_MAP[w.id]) WORD_MAP[w.id] = w; }); }
+    return WORD_MAP[id] || customWords().find((w) => w.id === id) || null;
+  }
+  const reviewSrc = { mode: "level", newLimit: 10 };
+
+  Pages.review = function (sub) {
+    if (sub === "cards") return customCardsPage();
+    const p = Progress.get();
+    const t = A.today();
+    const doneToday = p.activity[t] || 0;
+    const goalPct = Math.min(100, Math.round((doneToday / p.goal) * 100));
+    let ids;
+    if (reviewSrc.mode === "all") ids = Object.keys(p.srs);
+    else if (reviewSrc.mode === "custom") ids = customWords().map((w) => w.id);
+    else ids = getLevel(pick.course, pick.level).words.map((w) => w.id);
+    const st = A.SRS.stats(ids);
+    view().innerHTML = `
+      ${pageHead("🗂️ Давталт", "Anki маягийн зайтай давталт — мартах гэж байхад тань сануулна")}
+      <div class="goal card">
+        <div class="goal-ring" style="--p:${goalPct}"><span>${doneToday}<small>/${p.goal}</small></span></div>
+        <div class="goal-txt">
+          <h3>Өдрийн зорилго</h3>
+          <p class="muted">Өнөөдөр ${doneToday} карт давтлаа. ${goalPct >= 100 ? "🎉 Зорилгоо биелүүллээ!" : "Зорилгодоо хүрэхэд " + (p.goal - doneToday) + " карт үлдлээ."}</p>
+          <label class="inline">Өдөрт <input class="input tiny" type="number" id="goal" min="5" max="300" value="${p.goal}"> карт</label>
+        </div>
+      </div>
+      <div class="seg wide" id="src">
+        <button data-m="level" class="${reviewSrc.mode === "level" ? "on" : ""}">📚 Түвшнээр</button>
+        <button data-m="all" class="${reviewSrc.mode === "all" ? "on" : ""}">♻️ Бүх давтах карт</button>
+        <button data-m="custom" class="${reviewSrc.mode === "custom" ? "on" : ""}">✏️ Миний картууд</button>
+      </div>
+      ${reviewSrc.mode === "level" ? picker() : ""}
+      ${reviewSrc.mode === "custom" ? `<p><a class="btn small ghost" href="#/review/cards">＋ Карт нэмэх / засах (${customWords().length})</a></p>` : ""}
+      <div class="srs-stats">
+        <div class="ss new"><b>${reviewSrc.mode === "all" ? "—" : st.fresh}</b><span>Шинэ</span></div>
+        <div class="ss due"><b>${st.due}</b><span>Давтах</span></div>
+        <div class="ss learning"><b>${st.learning}</b><span>Сурч буй</span></div>
+        <div class="ss mature"><b>${st.mature}</b><span>Цээжилсэн</span></div>
+      </div>
+      <div class="row center">
+        ${reviewSrc.mode !== "all" ? `<label class="inline">Шинэ карт: <select class="input tiny" id="nl">${[5, 10, 20, 30, 50].map((n) => `<option ${n === reviewSrc.newLimit ? "selected" : ""}>${n}</option>`).join("")}</select></label>` : ""}
+        <button class="btn big" id="go">▶ Давталт эхлэх</button>
+      </div>
+      <div id="rv"></div>
+      <details class="card help"><summary>Давталт хэрхэн ажилладаг вэ?</summary>
+        <p>Карт бүрийг харсны дараа хэр сайн санаж байснаа үнэлнэ: <b>Дахин</b> (мартсан — 10 минутын дараа дахин), <b>Хэцүү</b>, <b>Сайн</b>, <b>Амархан</b>. Сайн санасан карт улам урт хугацааны дараа (1 → 3 → 8 → 20 өдөр...) дахин гарч ирнэ. 21+ өдрийн интервалтай карт «цээжилсэн» гэж тооцогдоно.</p>
+        <p>Товчлуур: <kbd>Space</kbd> — хариу харах, <kbd>1</kbd>–<kbd>4</kbd> — үнэлэх.</p>
+      </details>`;
+    if (reviewSrc.mode === "level") bindPicker(() => Pages.review());
+    view().querySelectorAll("#src button").forEach((b) => (b.onclick = () => { reviewSrc.mode = b.dataset.m; Pages.review(); }));
+    document.getElementById("goal").onchange = (e) => { Progress.setGoal(e.target.value); Pages.review(); };
+    const nl = document.getElementById("nl");
+    if (nl) nl.onchange = () => (reviewSrc.newLimit = +nl.value);
+    document.getElementById("go").onclick = () => {
+      const s = Progress.get().srs, now = Date.now();
+      const due = ids.filter((id) => s[id] && s[id].due <= now);
+      const fresh = reviewSrc.mode === "all" ? [] : shuffle(ids.filter((id) => !s[id])).slice(0, reviewSrc.newLimit);
+      const queue = shuffle(due).concat(fresh);
+      if (!queue.length) { UI.toast("Одоогоор давтах карт алга. Шинэ түвшин сонгох эсвэл дараа ирээрэй!", "ok"); return; }
+      document.querySelectorAll(".srs-stats, #src, .picker, .row.center, .goal").forEach((x) => (x.hidden = true));
+      runReview(document.getElementById("rv"), queue);
+    };
+  };
+
+  function runReview(el, queue) {
+    let shown = false, done = 0, again = 0;
+    const total = queue.length;
+    function onKey(e) {
+      if (!document.body.contains(el)) return document.removeEventListener("keydown", onKey);
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (e.code === "Space") { e.preventDefault(); if (!shown) reveal(); }
+      else if (shown && ["1", "2", "3", "4"].includes(e.key)) rate(["again", "hard", "good", "easy"][+e.key - 1]);
+    }
+    document.addEventListener("keydown", onKey);
+    function card() {
+      if (!queue.length) {
+        document.removeEventListener("keydown", onKey);
+        el.innerHTML = `<div class="card center"><h2>🎉 Давталт дууслаа!</h2><p>${done} үнэлгээ · ${again} удаа «Дахин»</p><div class="row center"><a class="btn" href="#/dashboard">Самбар</a><button class="btn ghost" id="more">Дахин давтах</button></div></div>`;
+        el.querySelector("#more").onclick = () => Pages.review();
+        return;
+      }
+      const id = queue[0], w = wordById(id);
+      if (!w) { queue.shift(); return card(); }
+      const c = A.SRS.card(id);
+      shown = false;
+      el.innerHTML = `
+        <div class="review-stage">
+          <div class="progressbar"><div style="width:${((total - queue.length) / total) * 100}%"></div></div>
+          <div class="muted center small">Үлдсэн: ${queue.length} ${c ? "" : "· <span class='pill new'>ШИНЭ</span>"}</div>
+          <div class="srs-card card">
+            <div class="srs-front ${w.lang}">${esc(w.term)}</div>
+            <div class="srs-back" hidden>
+              <div class="srs-read">${esc(w.reading)}</div>
+              <div class="srs-mean">${esc(w.meaning)}</div>
+              ${w.gloss ? `<div class="muted">${esc(w.gloss)}</div>` : ""}
+              ${w.example ? `<div class="srs-ex">${esc(w.example)}</div>` : ""}
+            </div>
+            <div class="srs-tools">
+              <button class="icon-btn" id="say" title="Сонсох">🔊</button>
+              ${w.lang === "zh" ? `<button class="icon-btn" id="stroke" title="Зурааны дараалал">✍️</button>` : ""}
+            </div>
+          </div>
+          <div class="srs-actions" id="act">
+            <button class="btn big full" id="show">Хариу харах <kbd>Space</kbd></button>
+          </div>
+        </div>`;
+      el.querySelector("#say").onclick = () => Speech.speak(w.term, w.lang);
+      const sb = el.querySelector("#stroke");
+      if (sb) sb.onclick = () => A.Stroke.open(w.term, w.reading);
+      el.querySelector("#show").onclick = reveal;
+      Speech.speak(w.term, w.lang);
+    }
+    function reveal() {
+      if (shown) return;
+      shown = true;
+      const id = queue[0], c = A.SRS.card(id);
+      el.querySelector(".srs-back").hidden = false;
+      const R = [["again", "Дахин", 1], ["hard", "Хэцүү", 2], ["good", "Сайн", 3], ["easy", "Амархан", 4]];
+      el.querySelector("#act").innerHTML = `<div class="rate-row">${R.map(([r, t, k]) => `<button class="rate ${r}" data-r="${r}">${t}<small>${A.SRS.label(c, r)}</small><kbd>${k}</kbd></button>`).join("")}</div>`;
+      el.querySelectorAll(".rate").forEach((b) => (b.onclick = () => rate(b.dataset.r)));
+    }
+    function rate(r) {
+      const id = queue.shift();
+      A.SRS.rate(id, r);
+      done++;
+      if (r === "again") { again++; queue.push(id); }
+      renderNav();
+      card();
+    }
+    card();
+  }
+
+  function customCardsPage() {
+    const list = customWords();
+    view().innerHTML = `
+      <a class="back" href="#/review">← Давталт</a>
+      ${pageHead("✏️ Миний картууд", "Өөрийн үг, хэллэгээ нэмж Anki шиг давтаарай")}
+      <form class="card" id="cf">
+        <div class="grid cards3 tight">
+          <label>Нүүр тал (үг)<input class="input" name="term" required maxlength="80" placeholder="жишээ: 学习 / opportunity"></label>
+          <label>Ар тал (утга)<input class="input" name="meaning" required maxlength="160" placeholder="сурах / боломж"></label>
+          <label>Дуудлага / пиньинь<input class="input" name="reading" maxlength="80" placeholder="xuéxí"></label>
+        </div>
+        <div class="row">
+          <label class="inline">Хэл <select class="input tiny" name="lang"><option value="zh">Хятад</option><option value="en">Англи</option></select></label>
+          <input class="input grow" name="example" maxlength="200" placeholder="Жишээ өгүүлбэр (заавал биш)">
+          <button class="btn">＋ Нэмэх</button>
+        </div>
+      </form>
+      ${list.length ? `<div class="table-wrap"><table class="table"><thead><tr><th></th><th>Үг</th><th>Утга</th><th>Төлөв</th><th></th></tr></thead><tbody>
+        ${list.map((w) => { const c = A.SRS.card(w.id); return `<tr><td>${speakBtn(w.term, w.lang)}</td><td class="w-term ${w.lang}">${esc(w.term)} <span class="w-read">${esc(w.reading)}</span></td><td>${esc(w.meaning)}</td><td>${c ? (c.ivl >= 21 ? "✅ Цээжилсэн" : "📖 " + (c.ivl || "<1") + " өдөр") : "🆕 Шинэ"}</td><td><button class="icon-btn" data-del="${esc(w.id)}" title="Устгах">🗑</button></td></tr>`; }).join("")}
+      </tbody></table></div>` : `<p class="muted center">Одоогоор карт алга. Дээрх маягтаар нэмнэ үү.</p>`}`;
+    document.getElementById("cf").onsubmit = (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      Progress.update((p) => {
+        p.custom = p.custom || [];
+        p.custom.push({ id: "c:" + Date.now().toString(36), lang: fd.get("lang"), term: String(fd.get("term")).trim(), meaning: String(fd.get("meaning")).trim(), reading: String(fd.get("reading")).trim(), example: String(fd.get("example")).trim() });
+      });
+      UI.toast("Карт нэмэгдлээ", "ok");
+      customCardsPage();
+    };
+    bindCommon(view());
+    view().querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => {
+      if (!confirm("Энэ картыг устгах уу?")) return;
+      Progress.update((p) => { p.custom = (p.custom || []).filter((c) => c.id !== b.dataset.del); delete p.srs[b.dataset.del]; });
+      customCardsPage();
+    }));
+  }
+
+  /* ---------- IELTS Writing / Speaking дадлага ---------- */
+  Pages.ielts = function (tab, id) {
+    const P = window.IELTS_PRACTICE;
+    tab = tab || "writing";
+    view().innerHTML = `
+      ${pageHead("🎯 IELTS дадлага", "Writing болон Speaking хэсгийг жинхэнэ шалгалтын нөхцөлөөр дадлагажуул")}
+      <div class="tabs">
+        <a class="tab ${tab === "writing" ? "on" : ""}" href="#/ielts/writing">✍️ Writing</a>
+        <a class="tab ${tab === "speaking" ? "on" : ""}" href="#/ielts/speaking">🗣️ Speaking</a>
+        <a class="tab ${tab === "linking" ? "on" : ""}" href="#/ielts/linking">🔗 Холбоос үгс</a>
+      </div>
+      <div id="ip"></div>`;
+    const box = document.getElementById("ip");
+    if (tab === "linking") {
+      box.innerHTML = `<div class="grid cards2">${P.linking.map(([k, v]) => `<div class="card"><h4>${esc(k)}</h4><p>${v.split(", ").map((x) => `<span class="tag big">${esc(x)}</span>`).join(" ")}</p></div>`).join("")}</div>`;
+      return;
+    }
+    if (tab === "writing") {
+      const t = P.writing.find((x) => x.id === id);
+      if (!t) {
+        box.innerHTML = `<div class="grid cards2">${P.writing.map((x) => `<a class="card level-card" href="#/ielts/writing/${x.id}"><span class="badge">Task ${x.task} · ${x.minutes} мин · ${x.min}+ үг</span><h3>${esc(x.title)}</h3><p>${esc(x.prompt.slice(0, 120))}...</p>${Progress.get().writing[x.id] ? `<span class="pill pass">Ноорог хадгалсан</span>` : ""}</a>`).join("")}</div>`;
+        return;
+      }
+      return writingEditor(box, t, P.criteria);
+    }
+    const sets = P.speaking;
+    const si = Math.max(0, Math.min(sets.length - 1, +id || 0));
+    const s = sets[si];
+    box.innerHTML = `
+      <div class="seg wide">${sets.map((x, k) => `<a href="#/ielts/speaking/${k}" class="${k === si ? "on" : ""}">${esc(x.topic)}</a>`).join("")}</div>
+      <div class="grid cards3 speak-grid">
+        <div class="card"><h3>Part 1 <small class="muted">4–5 мин</small></h3><ol class="qlist">${s.part1.map((q) => `<li>${speakBtn(q, "en")} ${esc(q)}</li>`).join("")}</ol></div>
+        <div class="card cue">
+          <h3>Part 2 <small class="muted">Cue card</small></h3>
+          <p class="cue-main">${speakBtn(s.part2.cue, "en")} <b>${esc(s.part2.cue)}</b></p>
+          <p class="muted">You should say:</p>
+          <ul>${s.part2.points.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+          <div class="timer-big" id="tb">1:00</div>
+          <div class="row center">
+            <button class="btn" id="prep">⏱ 1 мин бэлтгэл</button>
+            <button class="btn ghost" id="talk">🗣️ 2 мин ярих</button>
+          </div>
+        </div>
+        <div class="card"><h3>Part 3 <small class="muted">4–5 мин</small></h3><ol class="qlist">${s.part3.map((q) => `<li>${speakBtn(q, "en")} ${esc(q)}</li>`).join("")}</ol></div>
+      </div>
+      <div class="card recorder">
+        <h3>🎙️ Өөрийгөө бичиж сонсох</h3>
+        <p class="muted">Хариултаа бичлэг хийгээд дахин сонсож, алдаагаа засаарай. Бичлэг зөвхөн таны төхөөрөмж дээр үлдэнэ.</p>
+        <div class="row"><button class="btn mic" id="rec">● Бичлэг эхлэх</button><span id="rst" class="muted"></span></div>
+        <div id="clips"></div>
+      </div>`;
+    bindCommon(box);
+    let tm = null;
+    const tb = document.getElementById("tb");
+    const countdown = (sec, label, after) => {
+      clearInterval(tm);
+      let left = sec;
+      const draw = () => (tb.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`);
+      draw(); tb.dataset.label = label; tb.classList.add("run");
+      tm = setInterval(() => {
+        if (!document.body.contains(tb)) return clearInterval(tm);
+        left--; draw();
+        if (left <= 0) { clearInterval(tm); tb.classList.remove("run"); UI.toast(label + " дууслаа!", "ok"); if (after) after(); }
+      }, 1000);
+    };
+    document.getElementById("prep").onclick = () => countdown(60, "Бэлтгэл", () => countdown(120, "Ярих хугацаа"));
+    document.getElementById("talk").onclick = () => countdown(120, "Ярих хугацаа");
+    recorder(document.getElementById("rec"), document.getElementById("rst"), document.getElementById("clips"));
+  };
+
+  function writingEditor(box, t, criteria) {
+    const saved = Progress.get().writing[t.id] || "";
+    box.innerHTML = `
+      <a class="back" href="#/ielts/writing">← Бүх даалгавар</a>
+      <div class="writing-grid">
+        <div>
+          <div class="card prompt-card">
+            <span class="badge">Writing Task ${t.task} · ${t.minutes} минут · хамгийн багадаа ${t.min} үг</span>
+            <h3>${esc(t.title)}</h3>
+            <p>${esc(t.prompt)}</p>
+          </div>
+          <textarea class="input essay" id="essay" placeholder="Энд бичнэ үү...">${esc(saved)}</textarea>
+          <div class="row between">
+            <span id="wc" class="wc"></span>
+            <span class="timer" id="wt">${t.minutes}:00</span>
+            <button class="btn ghost small" id="wstart">⏱ Цаг эхлүүлэх</button>
+            <button class="btn small" id="wsave">💾 Хадгалах</button>
+          </div>
+        </div>
+        <aside>
+          <div class="card"><h4>💡 Зөвлөгөө</h4><ul>${t.tips.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
+          <div class="card"><h4>✅ Өөрийгөө шалгах (band шалгуур)</h4>${criteria.map((c, k) => `<label class="check"><input type="checkbox" id="cr${k}"> ${esc(c)}</label>`).join("")}</div>
+        </aside>
+      </div>`;
+    const ta = document.getElementById("essay"), wc = document.getElementById("wc");
+    const count = () => {
+      const n = (ta.value.trim().match(/\S+/g) || []).length;
+      wc.innerHTML = `<b>${n}</b> / ${t.min} үг`;
+      wc.classList.toggle("ok", n >= t.min);
+    };
+    ta.oninput = count; count();
+    const save = (quiet) => { Progress.update((p) => { p.writing[t.id] = ta.value; }); if (!quiet) UI.toast("Хадгалагдлаа", "ok"); };
+    document.getElementById("wsave").onclick = () => save();
+    let auto = setInterval(() => { if (!document.body.contains(ta)) return clearInterval(auto); save(true); }, 15000);
+    let tm = null;
+    document.getElementById("wstart").onclick = () => {
+      clearInterval(tm);
+      let left = t.minutes * 60;
+      const wt = document.getElementById("wt");
+      tm = setInterval(() => {
+        if (!document.body.contains(wt)) return clearInterval(tm);
+        left--;
+        wt.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+        wt.classList.toggle("low", left <= 300);
+        if (left <= 0) { clearInterval(tm); save(true); UI.toast("Хугацаа дууслаа! Бичсэн зүйл тань хадгалагдлаа.", "warn"); }
+      }, 1000);
+    };
+  }
+
+  function recorder(btn, status, clips) {
+    if (!navigator.mediaDevices || !window.MediaRecorder) { btn.disabled = true; status.textContent = "Таны хөтөч бичлэг хийх боломжгүй."; return; }
+    let mr = null, chunks = [], start = 0, tick = null;
+    btn.onclick = async () => {
+      if (mr && mr.state === "recording") { mr.stop(); return; }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mr = new MediaRecorder(stream);
+        chunks = [];
+        mr.ondataavailable = (e) => chunks.push(e.data);
+        mr.onstop = () => {
+          clearInterval(tick);
+          stream.getTracks().forEach((t) => t.stop());
+          const url = URL.createObjectURL(new Blob(chunks, { type: mr.mimeType }));
+          const sec = Math.round((Date.now() - start) / 1000);
+          clips.insertAdjacentHTML("afterbegin", `<div class="clip"><audio controls src="${url}"></audio><span class="muted">${sec} сек · ${new Date().toLocaleTimeString("mn-MN")}</span></div>`);
+          btn.textContent = "● Бичлэг эхлэх"; btn.classList.remove("on"); status.textContent = "";
+        };
+        mr.start(); start = Date.now();
+        btn.textContent = "■ Зогсоох"; btn.classList.add("on");
+        tick = setInterval(() => (status.textContent = "Бичиж байна... " + Math.round((Date.now() - start) / 1000) + " сек"), 500);
+      } catch (e) { status.textContent = "Микрофоны зөвшөөрөл өгнө үү."; }
+    };
+  }
+
   Pages.notfound = function () {
     view().innerHTML = `<div class="card center"><h2>404</h2><p>Хуудас олдсонгүй.</p><a class="btn" href="#/">Нүүр хуудас</a></div>`;
   };
@@ -609,27 +980,48 @@
     fn.apply(null, parts.slice(1));
     renderNav();
     window.scrollTo(0, 0);
-    document.getElementById("nav-links").classList.remove("open");
+    document.body.classList.remove("menu-open");
   }
+
+  const NAV = [
+    ["Суралцах", [["dashboard", "🏠", "Самбар"], ["chinese", "🇨🇳", "Хятад хэл"], ["english", "🇬🇧", "Англи хэл"], ["review", "🗂️", "Давталт"]]],
+    ["Дадлага", [["listening", "🎧", "Сонсгол"], ["games", "🎮", "Тоглоом"], ["ielts", "🎯", "IELTS дадлага"], ["tests", "📝", "Тест"]]],
+    ["Хэрэгсэл", [["dictionary", "📖", "Толь бичиг"], ["profile", "👤", "Профайл"]]]
+  ];
+  const THEME_ICON = { system: "🖥️", light: "☀️", dark: "🌙" };
 
   function renderNav() {
     const u = Auth.current();
     const cur = (location.hash.replace(/^#\/?/, "").split("/")[0]) || "home";
-    const links = [
-      ["dashboard", "Самбар"], ["chinese", "Хятад хэл"], ["english", "Англи хэл"], ["listening", "Сонсгол"],
-      ["games", "Тоглоом"], ["tests", "Тест"], ["dictionary", "Толь бичиг"]
-    ];
-    document.getElementById("nav-links").innerHTML = (u
-      ? links.map(([h, t]) => `<a href="#/${h}" class="${cur === h ? "on" : ""}">${t}</a>`).join("") +
-        `<a href="#/profile" class="user ${cur === "profile" ? "on" : ""}">👤 ${esc(u.name)}</a><button class="btn small ghost" id="logout">Гарах</button>`
-      : `<a href="#/login" class="${cur === "login" ? "on" : ""}">Нэвтрэх</a><a href="#/register" class="btn small">Бүртгүүлэх</a>`);
+    document.body.classList.toggle("authed", !!u);
+    const due = u ? A.SRS.allDue() : 0;
+    document.getElementById("side-nav").innerHTML = u ? NAV.map(([g, items]) => `
+      <div class="nav-group"><div class="nav-label">${g}</div>
+        ${items.map(([h, i, t]) => `<a href="#/${h}" class="${cur === h ? "on" : ""}"><span class="ni">${i}</span>${t}${h === "review" && due ? `<span class="nbadge">${due}</span>` : ""}</a>`).join("")}
+      </div>`).join("") : "";
+    document.getElementById("side-user").innerHTML = u ? `
+      <div class="su-avatar">${esc(u.name.slice(0, 1).toUpperCase())}</div>
+      <div class="su-info"><b>${esc(u.name)}</b><span>⭐ ${Progress.get().xp} XP · 🔥 ${Progress.get().streak}</span></div>
+      <button class="icon-btn" id="logout" title="Гарах">⏻</button>` : "";
+    document.getElementById("top-actions").innerHTML = (u
+      ? `<a class="due-pill ${due ? "has" : ""}" href="#/review" title="Давтах карт">🗂️ ${due} давтах</a>`
+      : `<a href="#/login" class="btn small ghost">Нэвтрэх</a><a href="#/register" class="btn small">Бүртгүүлэх</a>`) +
+      `<button class="icon-btn theme" id="theme" title="Өнгөний горим">${THEME_ICON[A.Theme.get()]}</button>`;
+    document.getElementById("theme").onclick = () => {
+      const order = ["system", "light", "dark"];
+      const nx = order[(order.indexOf(A.Theme.get()) + 1) % 3];
+      A.Theme.set(nx);
+      UI.toast({ system: "Системийн горим", light: "Цайвар горим", dark: "Бараан горим" }[nx]);
+      renderNav();
+    };
     const lo = document.getElementById("logout");
     if (lo) lo.onclick = () => { Auth.logout(); UI.toast("Системээс гарлаа"); go("#/"); };
   }
 
   window.addEventListener("hashchange", route);
   document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("burger").onclick = () => document.getElementById("nav-links").classList.toggle("open");
+    document.getElementById("burger").onclick = () => document.body.classList.toggle("menu-open");
+    document.getElementById("scrim").onclick = () => document.body.classList.remove("menu-open");
     route();
   });
 })();

@@ -17,7 +17,9 @@
     return a;
   };
   const sample = (arr, n) => shuffle(arr).slice(0, n);
-  const today = () => new Date().toISOString().slice(0, 10);
+  // Локал цагийн огноо (YYYY-MM-DD)
+  const dayKey = (d) => { d = d || new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+  const today = () => dayKey();
 
   /* ---------- Хадгалалт (localStorage) ---------- */
   let memory = null; // localStorage ажиллахгүй үед
@@ -109,7 +111,7 @@
 
   /* ---------- Ахиц ---------- */
   function newProgress() {
-    return { xp: 0, learned: {}, favorites: [], tests: [], games: 0, listening: 0, streak: 0, lastDay: null };
+    return { xp: 0, learned: {}, favorites: [], tests: [], games: 0, listening: 0, streak: 0, lastDay: null, srs: {}, activity: {}, goal: 20, writing: {} };
   }
   const Progress = {
     get() {
@@ -125,7 +127,7 @@
       // Өдөр дараалсан идэвх
       const t = today();
       if (p.lastDay !== t) {
-        const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+        const y = dayKey(new Date(Date.now() - 864e5));
         p.streak = p.lastDay === y ? p.streak + 1 : 1;
         p.lastDay = t;
       }
@@ -150,8 +152,81 @@
       });
       return on;
     },
-    reset() { this.update((p) => Object.assign(p, newProgress())); }
+    reset() { this.update((p) => Object.assign(p, newProgress())); },
+    setGoal(n) { this.update((p) => { p.goal = Math.max(5, Math.min(300, +n || 20)); }); }
   };
+
+  /* ---------- Давталт (SRS, Anki маягийн SM-2 хялбаршуулсан) ----------
+     Карт бүр: { due: ms, ivl: өдөр, ease, reps, lapses } */
+  const MIN = 6e4, DAY = 864e5;
+  const SRS = {
+    card(id) { return Progress.get().srs[id] || null; },
+    // Үнэлгээ бүрийн дараагийн интервалыг тооцох (өдрөөр; 0 = 10 минут)
+    next(c, rating) {
+      c = c ? Object.assign({}, c) : { ivl: 0, ease: 2.5, reps: 0, lapses: 0 };
+      const isNew = !c.reps;
+      if (rating === "again") {
+        c.lapses++; c.reps = 0; c.ease = Math.max(1.3, c.ease - 0.2); c.ivl = 0;
+      } else if (rating === "hard") {
+        c.ivl = isNew ? 1 : Math.max(1, Math.round(c.ivl * 1.2)); c.ease = Math.max(1.3, c.ease - 0.15); c.reps++;
+      } else if (rating === "good") {
+        c.ivl = isNew ? 1 : c.reps === 1 ? 3 : Math.round(c.ivl * c.ease); c.reps++;
+      } else {
+        c.ivl = isNew ? 4 : Math.round(Math.max(c.ivl, 1) * c.ease * 1.3); c.ease += 0.15; c.reps++;
+      }
+      c.due = Date.now() + (c.ivl ? c.ivl * DAY : 10 * MIN);
+      return c;
+    },
+    label(c, rating) {
+      const n = this.next(c, rating);
+      if (!n.ivl) return "10 мин";
+      if (n.ivl < 30) return n.ivl + " өдөр";
+      if (n.ivl < 365) return Math.round(n.ivl / 30) + " сар";
+      return (n.ivl / 365).toFixed(1) + " жил";
+    },
+    rate(id, rating) {
+      Progress.update((p) => {
+        const c = SRS.next(p.srs[id], rating);
+        p.srs[id] = c;
+        const t = today();
+        p.activity[t] = (p.activity[t] || 0) + 1;
+        p.xp += rating === "again" ? 0 : 1;
+        if (c.ivl >= 21) p.learned[id] = 1;
+      });
+    },
+    dueIds(ids) {
+      const s = Progress.get().srs, now = Date.now();
+      return ids.filter((id) => s[id] && s[id].due <= now);
+    },
+    stats(ids) {
+      const s = Progress.get().srs, now = Date.now();
+      let fresh = 0, due = 0, learning = 0, mature = 0;
+      ids.forEach((id) => {
+        const c = s[id];
+        if (!c) fresh++;
+        else if (c.due <= now) due++;
+        else if (c.ivl >= 21) mature++;
+        else learning++;
+      });
+      return { fresh, due, learning, mature };
+    },
+    allDue() {
+      const s = Progress.get().srs, now = Date.now();
+      return Object.keys(s).filter((id) => s[id].due <= now).length;
+    }
+  };
+
+  /* ---------- Өнгөний горим ---------- */
+  const Theme = {
+    get() { try { return localStorage.getItem("hicheel_theme") || "system"; } catch (e) { return "system"; } },
+    apply(t) {
+      t = t || this.get();
+      if (t === "system") document.documentElement.removeAttribute("data-theme");
+      else document.documentElement.setAttribute("data-theme", t);
+    },
+    set(t) { try { localStorage.setItem("hicheel_theme", t); } catch (e) { /* ignore */ } this.apply(t); }
+  };
+  Theme.apply();
 
   /* ---------- Курс ---------- */
   const COURSES = {
@@ -165,7 +240,7 @@
     if (c.lang === "zh") {
       return { id: "zh:" + w[0], lang: "zh", course: courseId, level, term: w[0], reading: w[1], gloss: w[2], meaning: w[3], example: "" };
     }
-    return { id: "en:" + w[0], lang: "en", course: courseId, level, term: w[0], reading: w[1], gloss: "", meaning: w[2], example: w[3] };
+    return { id: "en:" + w[0], lang: "en", course: courseId, level, term: w[0], reading: w[4] ? w[1] + " " + w[4] : w[1], gloss: "", meaning: w[2], example: w[3] };
   }
 
   function getLevel(courseId, level) {
@@ -252,5 +327,5 @@
   // Пиньинийн аялгуу тэмдгийг арилгах (харьцуулахад)
   const stripTones = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ü/g, "v").toLowerCase().replace(/[^a-z0-9一-鿿]/g, "");
 
-  window.App = Object.assign(window.App || {}, { esc, shuffle, sample, today, Auth, Progress, COURSES, getLevel, allWords, Speech, UI, stripTones });
+  window.App = Object.assign(window.App || {}, { esc, shuffle, sample, today, dayKey, SRS, Theme, Auth, Progress, COURSES, getLevel, allWords, Speech, UI, stripTones });
 })();

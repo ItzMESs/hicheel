@@ -359,3 +359,51 @@ window.IELTS = {
     { title: "Speaking (11–14 мин)", text: "Part 1: өөрийн тухай асуулт. Part 2: картан дээрх сэдвээр 1–2 минут ярих (1 минут бэлтгэнэ). Part 3: гүнзгий хэлэлцүүлэг. Хариултаа жишээ, шалтгаанаар өргөжүүл." }
   ]
 };
+
+/* IELTS Writing & Speaking дадлага */
+window.IELTS_PRACTICE = {
+  writing: [
+    { id: "t1-line", task: 1, minutes: 20, min: 150, title: "Line graph — Internet users",
+      prompt: "The graph below shows the percentage of households with internet access in three countries (Mongolia, Japan and Brazil) between 2000 and 2020. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.",
+      tips: ["Overview-д ерөнхий чиг хандлагыг (бүгд өссөн гэх мэт) заавал бич.", "Тоо баримтыг яг тодорхой дурд: rose from 5% to 70%.", "Өөрийн бодлыг бүү бич — зөвхөн өгөгдлийг тайлбарла."] },
+    { id: "t1-process", task: 1, minutes: 20, min: 150, title: "Process — Making tea",
+      prompt: "The diagram below shows the stages in the production of black tea, from picking the leaves to packaging. Summarise the information by selecting and reporting the main features.",
+      tips: ["Процессыг Passive voice-оор тайлбарла: The leaves are picked...", "First, Next, After that, Finally гэх мэт дарааллын үг ашигла.", "Нийт хэдэн үе шаттайг overview-д дурд."] },
+    { id: "t2-tech", task: 2, minutes: 40, min: 250, title: "Opinion — Technology and children",
+      prompt: "Some people believe that children today spend too much time using smartphones and computers, and that this has a negative effect on their development. To what extent do you agree or disagree?",
+      tips: ["Оршилд байр сууриа тодорхой илэрхийл.", "Биеийн 2 догол мөр, тус бүрт нэг гол санаа + жишээ.", "Дүгнэлтэд байр сууриа дахин сануул, шинэ санаа бүү нэм."] },
+    { id: "t2-city", task: 2, minutes: 40, min: 250, title: "Discussion — City or countryside",
+      prompt: "Some people prefer to live in a big city, while others prefer to live in the countryside. Discuss both views and give your own opinion.",
+      tips: ["Хоёр талын үзлийг тус тусад нь догол мөрөөр бич.", "Өөрийн байр суурийг оршил ба дүгнэлтэд тодорхой хэл.", "whereas, on the other hand зэрэг харьцуулах үг ашигла."] },
+    { id: "t2-pollution", task: 2, minutes: 40, min: 250, title: "Problem/Solution — Air pollution",
+      prompt: "Air pollution is a serious problem in many cities around the world. What are the main causes of this problem, and what measures could be taken to solve it?",
+      tips: ["Шалтгаан ба шийдлийг тус бүр нэг догол мөрөнд бич.", "Шийдэл бүрийг бодит жишээгээр баталгаажуул.", "should, could, it is essential that гэх мэт бүтэц хэрэглэ."] }
+  ],
+  criteria: ["Task Response / Achievement — асуултад бүрэн хариулсан уу?", "Coherence & Cohesion — догол мөр, холбоос үг", "Lexical Resource — үгийн баялаг, давталтгүй", "Grammatical Range & Accuracy — нийлмэл өгүүлбэр, алдаагүй"],
+  linking: [
+    ["Нэмэх", "Furthermore, Moreover, In addition, Not only... but also"],
+    ["Эсрэгцүүлэх", "However, Nevertheless, On the other hand, Whereas, Although"],
+    ["Шалтгаан/үр дагавар", "Therefore, As a result, Consequently, Due to, Owing to"],
+    ["Жишээ", "For example, For instance, Such as, To illustrate"],
+    ["Дүгнэх", "In conclusion, To sum up, Overall, All things considered"],
+    ["Байр суурь", "In my opinion, I strongly believe that, From my perspective"]
+  ],
+  speaking: [
+    { topic: "Home & Hometown",
+      part1: ["Where is your hometown?", "What do you like most about your hometown?", "Do you live in a house or an apartment?", "Would you like to move to another place in the future?"],
+      part2: { cue: "Describe a place in your country that you would recommend to visitors.", points: ["where it is", "how you know about it", "what people can do there", "and explain why you would recommend it"] },
+      part3: ["Why do people like to travel to other countries?", "How does tourism affect local communities?", "Should governments spend more money on promoting tourism?"] },
+    { topic: "Study & Work",
+      part1: ["Do you work or are you a student?", "What subject do you enjoy the most?", "What do you usually do after class or work?", "Is it difficult to learn a foreign language?"],
+      part2: { cue: "Describe a teacher who has influenced you.", points: ["who the teacher was", "what subject they taught", "what they were like", "and explain how they influenced you"] },
+      part3: ["What makes a good teacher?", "Will online learning replace traditional classrooms?", "Should education be free for everyone?"] },
+    { topic: "Technology",
+      part1: ["How often do you use your phone?", "What apps do you use most?", "Did you use computers when you were a child?", "Do you think you spend too much time online?"],
+      part2: { cue: "Describe a piece of technology that you find useful.", points: ["what it is", "when you started using it", "how you use it", "and explain why it is useful to you"] },
+      part3: ["How has technology changed the way people communicate?", "Are there any disadvantages of modern technology?", "What technology will be important in the future?"] },
+    { topic: "Health & Free time",
+      part1: ["What do you do in your free time?", "Do you like doing sport?", "What kind of food do you usually eat?", "How do you relax after a busy day?"],
+      part2: { cue: "Describe a healthy habit you have.", points: ["what the habit is", "when you started it", "how often you do it", "and explain how it helps you"] },
+      part3: ["Why do some people find it hard to live a healthy life?", "Should the government encourage people to exercise?", "How have eating habits changed in your country?"] }
+  ]
+};

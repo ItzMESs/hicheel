@@ -4,30 +4,42 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Хичээл — Хятад, Англи хэл</title>
-  <meta name="description" content="HSK 2.0, HSK 3.0, IELTS A1–C1 хичээл, сонсгол, тоглоом, тест, толь бичиг — монгол хэл дээр." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>" />
+  <meta name="description" content="HSK 2.0, HSK 3.0, IELTS A1–C1: хичээл, Anki давталт, сонсгол, тоглоом, тест, толь бичиг — монгол хэл дээр." />
+  <meta name="theme-color" content="#e8553e" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23e8553e'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white'>学</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <nav class="nav">
-    <div class="nav-in">
-      <a class="logo" href="#/">📚 <span>Хичээл</span></a>
-      <button class="burger" id="burger" aria-label="Цэс">☰</button>
-      <div class="nav-links" id="nav-links"></div>
+  <div class="shell">
+    <aside class="side" id="side">
+      <a class="logo" href="#/"><span class="logo-mark">学</span><span class="logo-txt">Хичээл<small>Хятад · Англи</small></span></a>
+      <nav id="side-nav" class="side-nav"></nav>
+      <div class="side-user" id="side-user"></div>
+    </aside>
+    <div class="scrim" id="scrim"></div>
+    <div class="main">
+      <header class="topbar">
+        <button class="burger" id="burger" aria-label="Цэс">☰</button>
+        <a class="logo top-logo" href="#/"><span class="logo-mark">学</span><span class="logo-txt">Хичээл</span></a>
+        <div class="top-actions" id="top-actions"></div>
+      </header>
+      <main id="view" class="container"></main>
+      <footer class="footer">© Хичээл — Хятад (HSK 2.0 / 3.0) болон Англи (IELTS) хэл сурах платформ</footer>
     </div>
-  </nav>
-  <main id="view" class="container"></main>
-  <footer class="footer">
-    <p>© Хичээл — Хятад (HSK 2.0 / 3.0) болон Англи (IELTS) хэл сурах платформ</p>
-  </footer>
+  </div>
 
   <script src="js/data/hsk2.js"></script>
   <script src="js/data/hsk3.js"></script>
   <script src="js/data/chinese-extra.js"></script>
   <script src="js/data/ielts.js"></script>
+  <script src="js/data/vocab-extra.js"></script>
   <script src="js/core.js"></script>
   <script src="js/quiz.js"></script>
   <script src="js/games.js"></script>
+  <script src="js/stroke.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
