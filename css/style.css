@@ -546,3 +546,33 @@ details.grammar > .mini-quiz { margin-bottom: 16px; }
 .pk-title { font-weight: 800; padding: 6px 4px 10px; }
 
 @media (max-width: 480px) { .logo-txt { display: none; } .topbar-in { gap: 8px; } }
+
+/* ---------- HSK / IELTS тусдаа өнгө ---------- */
+:root[data-track="en"] { --primary: #2f6fe4; --primary-2: #4fb3ff; --soft: #e8f0ff; }
+@media (prefers-color-scheme: dark) { :root[data-track="en"]:not([data-theme="light"]) { --soft: #17233f; } }
+:root[data-theme="dark"][data-track="en"] { --soft: #17233f; }
+:root[data-track="en"] .btn { box-shadow: 0 4px 14px rgba(47, 111, 228, 0.25); }
+:root[data-track="en"] .btn.ghost, :root[data-track="en"] .btn.audio, :root[data-track="en"] .btn.light { box-shadow: none; }
+:root[data-track="en"] .goal-ring:not(.light) { --ring: var(--primary); }
+.top-nav a.primary { background: var(--soft); color: var(--primary); }
+.top-nav a.primary .ni { background: linear-gradient(135deg, var(--primary), var(--primary-2)); border-color: transparent; }
+.top-nav a.primary.on { background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: #fff; }
+.top-nav a.primary.on .ni { background: rgba(255, 255, 255, 0.22); }
+
+/* ---------- Унших ---------- */
+.passage { margin-bottom: 16px; }
+.passage h2 { font-size: 1.3rem; margin: 0; }
+.passage .r-text.zh { font-size: 1.35rem; line-height: 2; font-family: "Noto Sans SC", sans-serif; }
+.r-py { color: var(--primary); line-height: 1.8; }
+.r-mn { background: var(--card-2); border-left: 3px solid var(--primary); padding: 10px 14px; border-radius: 0 10px 10px 0; }
+.toggles { padding: 12px 14px; }
+
+/* ---------- Ханз зурах ---------- */
+.hz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+.hz-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 6px; border-radius: 14px; cursor: pointer;
+  background: var(--card); border: 1px solid var(--line); color: var(--ink); font-family: inherit; box-shadow: var(--shadow); transition: transform 0.12s, border-color 0.12s;
+}
+.hz-tile span { font-size: 2rem; }
+.hz-tile small { color: var(--primary); font-weight: 600; font-size: 0.78rem; }
+.hz-tile:hover { transform: translateY(-2px); border-color: var(--primary); }

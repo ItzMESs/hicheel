@@ -682,6 +682,109 @@
     document.getElementById("del").onclick = () => { if (confirm("Бүртгэлээ бүрмөсөн устгах уу?")) { Auth.deleteAccount(); go("#/"); } };
   };
 
+  /* ---------- Үгсийн сан ---------- */
+  Pages.vocab = function () {
+    const L = getLevel(pick.course, pick.level);
+    view().innerHTML = `
+      ${pageHead("📚 Үгсийн сан", `${esc(L.course.title)} · ${esc(L.label)} — ${esc(L.info.desc)}`)}
+      <div class="split"><aside class="lvl-side">${picker()}
+        <a class="btn ghost full" href="#/flashcards">🃏 Энэ түвшнийг давтах</a>
+        <a class="btn ghost full" href="#/tests">📝 Түвшний тест</a>
+      </aside><section class="split-main"><div id="vc"></div></section></div>`;
+    bindPicker(Pages.vocab);
+    document.querySelectorAll('.lvl-side a[href="#/flashcards"]').forEach((a) => (a.onclick = () => (reviewSrc.mode = "level")));
+    wordsTab(document.getElementById("vc"), L.words);
+  };
+  Pages.flashcards = function (sub) { return Pages.review(sub); };
+
+  /* ---------- Унших ---------- */
+  Pages.reading = function () {
+    const L = getLevel(pick.course, pick.level);
+    const lang = L.course.lang;
+    const show = { py: true, mn: false };
+    let passages;
+    if (lang === "zh") {
+      const tier = window.ZH_EXTRA.tier[L.course.id][L.level];
+      passages = (window.ZH_READING[tier] || []).map((r) => ({ title: r.title, text: r.text, py: r.py, mn: r.mn, questions: r.questions }));
+    } else passages = L.reading ? [{ title: L.reading.title, text: L.reading.text, py: "", mn: "", questions: L.reading.questions }] : [];
+    view().innerHTML = `
+      ${pageHead("📖 Унших", "Эх уншиж, асуултад хариулж, өгүүлбэрийг сонсоорой")}
+      <div class="split"><aside class="lvl-side">${picker()}
+        <div class="card toggles">
+          ${lang === "zh" ? `<label class="check"><input type="checkbox" id="tpy" checked> Пиньинь харуулах</label>` : ""}
+          <label class="check"><input type="checkbox" id="tmn"> Орчуулга харуулах</label>
+        </div>
+      </aside><section class="split-main"><div id="rd"></div></section></div>`;
+    bindPicker(Pages.reading);
+    function draw() {
+      const box = document.getElementById("rd");
+      box.innerHTML = passages.map((r, ri) => `
+        <article class="card passage">
+          <div class="row between"><h2>${esc(r.title)}</h2>${speakBtn(r.text, lang)}</div>
+          <p class="r-text ${lang}">${esc(r.text)}</p>
+          ${r.py && show.py ? `<p class="r-py">${esc(r.py)}</p>` : ""}
+          ${r.mn && show.mn ? `<p class="r-mn">${esc(r.mn)}</p>` : ""}
+          <h4>Асуултууд</h4>
+          ${r.questions.map((q, qi) => `<div class="mq" data-p="${ri}" data-rq="${qi}"><p>${qi + 1}. <span class="${lang}">${esc(q.q)}</span></p><div class="options small">${q.o.map((o, k) => `<button class="opt ${lang}" data-k="${k}">${esc(o)}</button>`).join("")}</div></div>`).join("")}
+        </article>`).join("") + `
+        <h2 class="section-title">💬 Өгүүлбэр унших</h2>
+        <div class="list">${L.sentences.map((s) => `
+          <div class="card sent">${speakBtn(s.text, lang)}
+            <div><div class="s-text ${lang}">${esc(s.text)}</div>${s.reading && show.py ? `<div class="s-read">${esc(s.reading)}</div>` : ""}${show.mn ? `<div class="muted">${esc(s.meaning)}</div>` : `<details><summary>Орчуулга</summary>${esc(s.meaning)}</details>`}</div>
+          </div>`).join("")}</div>`;
+      bindCommon(box);
+      box.querySelectorAll(".mq").forEach((m) => {
+        const q = passages[+m.dataset.p].questions[+m.dataset.rq];
+        m.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
+          m.querySelectorAll(".opt").forEach((x) => (x.disabled = true));
+          m.querySelectorAll(".opt")[q.a].classList.add("correct");
+          if (+b.dataset.k !== q.a) b.classList.add("wrong"); else Progress.addXP(3);
+        }));
+      });
+    }
+    const tpy = document.getElementById("tpy"), tmn = document.getElementById("tmn");
+    if (tpy) tpy.onchange = () => { show.py = tpy.checked; draw(); };
+    tmn.onchange = () => { show.mn = tmn.checked; draw(); };
+    draw();
+  };
+
+  /* ---------- Бичих (хятад: ханз зурах, пиньинээр бичих) ---------- */
+  Pages.writing = function (mode) {
+    if (track() === "en") return Pages.ielts("writing");
+    mode = mode === "pinyin" ? "pinyin" : "hanzi";
+    const L = getLevel(pick.course, pick.level);
+    view().innerHTML = `
+      ${pageHead("✍️ Бичих", "Ханзыг зурааны дарааллаар нь зурж, пиньинээр бичиж дадлагажаарай")}
+      <div class="split"><aside class="lvl-side">${picker()}</aside><section class="split-main">
+        <div class="tabs">
+          <a class="tab ${mode === "hanzi" ? "on" : ""}" href="#/writing/hanzi">✍️ Ханз зурах</a>
+          <a class="tab ${mode === "pinyin" ? "on" : ""}" href="#/writing/pinyin">⌨️ Пиньинээр бичих</a>
+        </div>
+        <div id="wr"></div>
+      </section></div>`;
+    bindPicker(() => Pages.writing(mode));
+    const box = document.getElementById("wr");
+    if (mode === "pinyin") {
+      const qs = sample(L.words, 10).map((w) => ({
+        type: "Пиньинээр бичих", input: true, wordId: w.id,
+        prompt: `<div class="q-term zh">${esc(w.term)}</div><div class="q-sub">${esc(w.meaning)}</div><p>Пиньинийг бичнэ үү (аялгуугүй ч болно, жишээ: nihao).</p>`,
+        accept: [w.reading], reveal: `${esc(w.term)} — ${esc(w.reading)}`
+      }));
+      Quiz.run(box, qs, { onFinish: (sc) => Progress.update((p) => { p.xp += sc * 2; }), onRetry: () => Pages.writing("pinyin") });
+      return;
+    }
+    let limit = 60;
+    function draw() {
+      box.innerHTML = `<p class="muted small">Ханз дээр дарж зурааны дарааллыг үзээд «✍️ Өөрөө зурах» товчоор дадлагажаарай.</p>
+        <div class="hz-grid">${L.words.slice(0, limit).map((w) => `<button class="hz-tile" data-stroke="${esc(w.term)}" data-read="${esc(w.reading)}"><span class="zh">${esc(w.term)}</span><small>${esc(w.reading)}</small></button>`).join("")}</div>
+        ${L.words.length > limit ? `<div class="row center"><button class="btn ghost" id="more">Цааш үзэх (${L.words.length - limit})</button></div>` : ""}`;
+      bindCommon(box);
+      const m = box.querySelector("#more");
+      if (m) m.onclick = () => { limit += 60; draw(); };
+    }
+    draw();
+  };
+
   /* ---------- Дүрэм (бүх түвшин) ---------- */
   Pages.grammar = function () {
     const c = COURSES[pick.course];
@@ -749,7 +852,7 @@
     else ids = getLevel(pick.course, pick.level).words.map((w) => w.id);
     const st = A.SRS.stats(ids);
     view().innerHTML = `
-      ${pageHead("🗂️ Давталт", "Anki маягийн зайтай давталт — мартах гэж байхад тань сануулна")}
+      ${pageHead("🃏 Флаш карт", "Anki маягийн зайтай давталт — мартах гэж байхад тань яг цагт нь сануулна")}
       <div class="split"><aside class="lvl-side">
       <div class="side-src" id="src">
         <button data-m="level" class="${reviewSrc.mode === "level" ? "on" : ""}">📚 Түвшнээр</button>
@@ -1068,7 +1171,7 @@
       location.replace("#/login");
       return;
     }
-    if ((name === "login" || name === "register") && u) { location.replace("#/dashboard"); return; }
+    if ((name === "login" || name === "register" || name === "home") && u) { location.replace("#/dashboard"); return; }
     if (window.speechSynthesis) speechSynthesis.cancel();
     const fn = Pages[name] || Pages.notfound;
     fn.apply(null, parts.slice(1));
@@ -1079,11 +1182,17 @@
     if (m) m.hidden = true;
   }
 
+  // Дээд цэс: [зам, идэвхжих хэсэг, дүрс, нэр]
   function navFor(lang) {
     return [
-      ["Суралцах", [["dashboard", "🏠", "Самбар"], [lang === "zh" ? "chinese" : "english", "📚", lang === "zh" ? "HSK хичээл" : "IELTS хичээл"], ["grammar", "✏️", "Дүрэм"], ["review", "🗂️", "Давталт"]]],
-      ["Дадлага", [["listening", "🎧", "Сонсгол"], ["games", "🎮", "Тоглоом"], ["tests", "📝", "Тест"]].concat(lang === "en" ? [["ielts", "🎯", "Writing & Speaking"]] : [])],
-      ["Хэрэгсэл", [["dictionary", "📖", "Толь бичиг"], ["profile", "👤", "Профайл"]]]
+      ["flashcards", ["flashcards", "review"], "🃏", "Флаш карт"],
+      ["vocab", ["vocab", "chinese", "english", "dictionary"], "📚", "Үгсийн сан"],
+      ["listening", ["listening"], "🎧", "Сонсох"],
+      ["reading", ["reading"], "📖", "Унших"],
+      [lang === "zh" ? "writing" : "ielts/writing", ["writing", "ielts"], "✍️", lang === "zh" ? "Бичих" : "Бичих · Ярих"],
+      ["grammar", ["grammar"], "✏️", "Дүрэм"],
+      ["games", ["games"], "🎮", "Тоглоом"],
+      ["tests", ["tests"], "📝", "Тест"]
     ];
   }
   const THEME_ICON = { system: "🖥️", light: "☀️", dark: "🌙" };
@@ -1094,9 +1203,10 @@
     document.body.classList.toggle("authed", !!u);
     const due = u ? A.SRS.allDue() : 0;
     const lang = track();
-    const items = navFor(lang).flatMap((g) => g[1]).filter(([h]) => h !== "profile");
-    document.getElementById("top-nav").innerHTML = u ? items.map(([h, i, t]) =>
-      `<a href="#/${h}" class="${cur === h ? "on" : ""}"><span class="ni">${i}</span><span>${t}</span>${h === "review" && due ? `<span class="nbadge">${due}</span>` : ""}</a>`).join("") : "";
+    document.documentElement.dataset.track = lang;
+    document.querySelectorAll(".logo-mark").forEach((m) => (m.textContent = lang === "zh" ? "学" : "Aa"));
+    document.getElementById("top-nav").innerHTML = u ? navFor(lang).map(([h, keys, i, t], k) =>
+      `<a href="#/${h}" class="${keys.includes(cur) ? "on" : ""} ${k === 0 ? "primary" : ""}"><span class="ni">${i}</span><span>${t}</span>${h === "flashcards" && due ? `<span class="nbadge">${due}</span>` : ""}</a>`).join("") : "";
     const pr = u ? Progress.get() : null;
     document.getElementById("top-actions").innerHTML = (u
       ? `<div class="track-sw" role="group" aria-label="Хэл сонгох">
@@ -1109,8 +1219,12 @@
           <div class="pmenu card" id="pmenu" hidden>
             <div class="pm-head"><div class="su-avatar">${esc(u.name.slice(0, 1).toUpperCase())}</div><div><b>${esc(u.name)}</b><span class="muted small">${esc(u.email)}</span></div></div>
             <div class="pm-stats"><span>⭐ ${pr.xp} XP</span><span>🔥 ${pr.streak} өдөр</span><span>🗂️ ${due} давтах</span></div>
-            <a href="#/profile">👤 Профайл</a>
+            <a href="#/dashboard">🏠 Хянах самбар</a>
+            <a href="#/profile">👤 Миний профайл</a>
+            <a href="#/${lang === "zh" ? "chinese" : "english"}">🎓 ${lang === "zh" ? "HSK түвшнүүд" : "IELTS түвшнүүд"}</a>
+            <a href="#/dictionary">🔎 Толь бичиг</a>
             <a href="#/review/cards">✏️ Миний картууд</a>
+            ${lang === "en" ? `<a href="#/ielts/speaking">🗣️ Speaking дадлага</a>` : ""}
             <button id="logout">⏻ Гарах</button>
           </div>
         </div>`
@@ -1128,7 +1242,8 @@
       setTrack(t);
       UI.toast(t === "zh" ? "中 Хятад хэл сонгогдлоо" : "EN Англи хэл сонгогдлоо");
       if (cur === "chinese" || cur === "english") go(t === "zh" ? "#/chinese" : "#/english");
-      else if (cur === "ielts" && t === "zh") go("#/listening");
+      else if (cur === "ielts" && t === "zh") go("#/writing");
+      else if (cur === "writing" && t === "en") go("#/ielts/writing");
       else route();
     }));
     const av = document.getElementById("avatar");

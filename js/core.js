@@ -251,7 +251,7 @@
     let sentences, grammar, reading = null;
     if (c.lang === "zh") {
       const tier = window.ZH_EXTRA.tier[courseId][level];
-      sentences = window.ZH_EXTRA.sentences[tier].map((s) => ({ text: s[0], reading: s[1], meaning: s[2] }));
+      sentences = (window.ZH_EXTRA.sentences[tier] || window.ZH_EXTRA.sentences[6]).map((s) => ({ text: s[0], reading: s[1], meaning: s[2] }));
       grammar = window.ZH_EXTRA.grammar[tier];
     } else {
       sentences = d.sentences[level].map((s) => ({ text: s[0], reading: "", meaning: s[1] }));
