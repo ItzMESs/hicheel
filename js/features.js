@@ -17,13 +17,24 @@
     try { await Remote.call("POST", "report", { kind, targetId: id, reason }); UI.toast("Мэдээлэл админд илгээгдлээ. Баярлалаа!", "ok"); }
     catch (e) { UI.toast(e.message, "warn"); }
   };
+  // Хэрэглэгчдийн жагсаалттай цонх (❤️ дарсан, үзсэн хүмүүс)
+  A.userListModal = function (title, users) {
+    const m = document.createElement("div");
+    m.className = "modal";
+    m.innerHTML = `<div class="modal-bg"></div><div class="modal-box ulist-box"><button class="modal-x">✕</button><h3>${esc(title)}</h3>
+      <div class="ulist">${(users || []).map((u) => `<a class="ulist-row" href="#/u/${esc(u.id)}">${A.avatarHtml(u, 38)}<b>${esc(u.name)}</b></a>`).join("") || `<p class="muted">Хэн ч алга.</p>`}</div></div>`;
+    document.body.appendChild(m);
+    const close = () => m.remove();
+    m.querySelector(".modal-bg").onclick = close; m.querySelector(".modal-x").onclick = close;
+    m.querySelectorAll(".ulist-row").forEach((a) => a.addEventListener("click", close));
+  };
   A.msgMenu = function (btn, bubble) {
     document.querySelectorAll(".msg-menu").forEach((m) => m.remove());
     const mine = !!bubble.dataset.mine;
     const me = Auth.current();
     const menu = document.createElement("div");
     menu.className = "msg-menu card";
-    menu.innerHTML = (mine || (me && me.isAdmin) ? `<button data-a="del">🗑 Устгах</button>` : "") +
+    menu.innerHTML = (me && me.isAdmin ? `<button data-a="pin">📌 Тогтоох / болиулах</button>` : "") + (mine || (me && me.isAdmin) ? `<button data-a="del">🗑 Устгах</button>` : "") +
       (mine ? "" : `<button data-a="rep">⚑ Мэдээлэх</button><button data-a="block">🚫 Хэрэглэгчийг блоклох</button>`);
     bubble.appendChild(menu);
     const close = (e) => { if (!menu.contains(e.target) && e.target !== btn) { menu.remove(); document.removeEventListener("click", close, true); } };
@@ -34,6 +45,7 @@
       menu.remove();
       try {
         if (a === "del") { await Remote.call("DELETE", "chat/" + bubble.dataset.mid); bubble.closest(".msg").remove(); }
+        if (a === "pin") { const r = await Remote.call("POST", `chat/${bubble.dataset.mid}/pin`, {}); UI.toast(r.pinned ? "📌 Тогтоолоо" : "Тогтоолт болилоо", "ok"); A.go(location.hash); }
         if (a === "rep") await A.reportItem("chat", bubble.dataset.mid);
         if (a === "block" && confirm("Энэ хэрэглэгчийг блоклох уу?")) {
           await Remote.call("POST", "block", { id: bubble.dataset.uid, on: true });
@@ -520,6 +532,7 @@
       try { await Remote.call("POST", "stories", { text, image: img, bg }); close(); UI.toast("Сторй нийтлэгдлээ", "ok"); done(); } catch (ex) { UI.toast(ex.message, "warn"); }
     };
   }
+  const viewedNow = new Set();
   function openStories(groups, gi, refresh) {
     let si = 0, timer = null;
     const seen = JSON.parse(localStorage.getItem("hicheel_seen_st") || "{}");
@@ -532,13 +545,15 @@
       const g = groups[gi];
       if (!g) return close();
       const s0 = g.items[si];
+      if (!g.mine && !viewedNow.has(s0.id)) { viewedNow.add(s0.id); Remote.call("POST", `stories/${s0.id}/view`, {}).catch(() => {}); }
       seen[s0.id] = 1;
       m.innerHTML = `<div class="modal-bg"></div><div class="story-view" style="background:${s0.image ? `#000 url(${esc(s0.image)}) center/contain no-repeat` : esc(s0.bg)}">
         <div class="st-bars">${g.items.map((x, k) => `<i class="${k < si ? "full" : k === si ? "run" : ""}"></i>`).join("")}</div>
         <div class="st-head">${A.avatarHtml(g.user, 34)}<b>${esc(g.user.name)}</b><span>${A.timeAgo(s0.createdAt)}</span>
           ${g.mine ? `<button class="st-btn" data-a="del">🗑</button>` : `<button class="st-btn" data-a="rep">⚑</button>`}<button class="st-btn" data-a="x">✕</button></div>
         ${s0.text ? `<div class="st-text">${esc(s0.text)}</div>` : ""}
-        <button class="st-nav prev" data-a="prev"></button><button class="st-nav next" data-a="next"></button></div>`;
+        <button class="st-nav prev" data-a="prev"></button><button class="st-nav next" data-a="next"></button>
+        ${g.mine ? `<button class="st-seen" data-a="seen">👁 Уншсан (${(s0.viewers || []).length}): <span>${(s0.viewers || []).slice(0, 12).map((u) => A.avatarHtml(u, 26)).join("")}</span></button>` : ""}</div>`;
       m.querySelector(".modal-bg").onclick = close;
       m.querySelectorAll("[data-a]").forEach((b) => (b.onclick = async (e) => {
         e.stopPropagation();
@@ -547,6 +562,7 @@
         if (a === "next") return step(1);
         if (a === "prev") return step(-1);
         if (a === "rep") { clearTimeout(timer); return A.reportItem("story", s0.id); }
+        if (a === "seen") { clearTimeout(timer); return A.userListModal(`👁 Уншсан (${(s0.viewers || []).length})`, s0.viewers || []); }
         if (a === "del" && confirm("Сторйгоо устгах уу?")) { await Remote.call("DELETE", "stories/" + s0.id); g.items.splice(si, 1); if (!g.items.length) groups.splice(gi, 1); si = Math.min(si, (g.items.length || 1) - 1); show(); }
       }));
       timer = setTimeout(() => step(1), 5000);

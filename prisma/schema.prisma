@@ -42,6 +42,10 @@ model User {
   pushSubs      PushSub[]
   aiUses        AiUse[]
   orders        Order[]
+  chatReactions ChatReaction[]
+  storyViews    StoryView[]
+  postViews     PostView[]
+  actedNotifs   Notification[] @relation("NotifActor")
 
   @@index([googleId])
 }
@@ -72,6 +76,7 @@ model Post {
   createdAt DateTime   @default(now())
   comments  Comment[]
   reactions Reaction[]
+  views     PostView[]
 
   @@index([createdAt])
 }
@@ -107,9 +112,48 @@ model ChatMessage {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   text      String
   image     String?  // жижигрүүлсэн JPEG data URL
+  system    Boolean  @default(false) // системийн баяр хүргэлт
+  pinned    Boolean  @default(false)
+  meta      Json?
   createdAt DateTime @default(now())
+  reactions ChatReaction[]
 
   @@index([room, createdAt])
+}
+
+// Чатын мессежид ❤️ дарсан хүмүүс
+model ChatReaction {
+  id        String      @id @default(cuid())
+  messageId String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([messageId, userId])
+}
+
+// Сторй, пост үзсэн хүмүүс
+model StoryView {
+  id        String   @id @default(cuid())
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([storyId, userId])
+}
+
+model PostView {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
 }
 
 model Friend {
@@ -130,6 +174,8 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   text      String
   link      String   @default("")
+  actorId   String?
+  actor     User?    @relation("NotifActor", fields: [actorId], references: [id], onDelete: SetNull)
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
@@ -181,6 +227,7 @@ model Story {
   text      String   @default("")
   bg        String   @default("#0a0a0a")
   createdAt DateTime @default(now())
+  views     StoryView[]
 
   @@index([createdAt])
 }

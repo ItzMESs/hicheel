@@ -661,6 +661,7 @@
   /* ---------- Аватар ---------- */
   function avatarHtml(u, size) {
     size = size || 40;
+    if (u && u.system) return `<img class="av av-sys" src="img/logo-zh.png" alt="Систем" style="width:${size}px;height:${size}px">`;
     const url = u && (u.avatarUrl || u.avatar);
     const letter = esc(((u && u.name) || "?").slice(0, 1).toUpperCase());
     return url
@@ -932,6 +933,7 @@
         </aside>
         <section class="chat-main card">
           <div class="chat-head" id="chead">${room === "public" ? "🌐 Нийтийн чат" : room === "zh" ? "中 Хятадаар чатлъя — 用中文聊天吧！" : room === "en" ? "EN English chat — let's practise!" : "💬 Хувийн чат"}</div>
+          <div id="cbanner"></div>
           <div class="chat-msgs" id="msgs"><p class="muted center">Ачаалж байна...</p></div>
           <div id="cimg-prev"></div>
           <form class="chat-form" id="cf"><label class="ibtn" title="Зураг илгээх">📷<input type="file" id="cimg" accept="image/*" hidden></label><input class="input" id="ct" maxlength="1000" placeholder="Зурвас бичих..." autocomplete="off"><button class="btn">Илгээх</button></form>
@@ -946,17 +948,47 @@
     }).catch(() => {});
     const msgs = document.getElementById("msgs");
     let last = null, seen = new Set(), first = true;
+    const WELCOME = { public: "Системийн нийтийн чатад тавтай морил. Та ямар ч хэлээр бичиж болно — хятадаар, англиар бичиж хэлний чадвараа сайжруулбал бүр сайн!", zh: "欢迎！Энд зөвхөн хятадаар бичихийг хичээгээрэй. 加油！", en: "Welcome! Энд англиар бичиж дадлага хийгээрэй. Don't be shy!" };
+    function drawBanner(pin) {
+      const b = document.getElementById("cbanner");
+      if (!b) return;
+      b.innerHTML = (WELCOME[room] ? `<div class="chat-welcome">${esc(WELCOME[room])}</div>` : "") +
+        (pin ? `<div class="chat-pin"><span class="pin-ic">📌</span><div><b>${esc(pin.user.name)}</b> ${linkify(pin.text)}</div>${me && me.isAdmin ? `<button class="icon-btn" data-unpin="${esc(pin.id)}" title="Тогтоолтыг болиулах">✕</button>` : ""}</div>` : "");
+      const up = b.querySelector("[data-unpin]");
+      if (up) up.onclick = async () => { await A.Remote.call("POST", `chat/${up.dataset.unpin}/pin`, {}); drawBanner(null); };
+    }
+    // @нэр дурдалтыг холбоос болгох (системийн баяр хүргэлт)
+    function mentionText(m) {
+      const lines = String(m.text || "").split("\n").map((ln) => esc(ln));
+      if (m.meta && m.meta.uid && m.meta.name) {
+        const at = esc("@" + m.meta.name);
+        return lines.map((ln) => ln.split(at).join(`<a class="mention" href="#/u/${esc(m.meta.uid)}">${at}</a>`)).join("<br>");
+      }
+      return lines.join("<br>");
+    }
+    function reactHtml(m) {
+      const r = m.react || { count: 0, users: [], mine: false };
+      const more = r.count - r.users.length;
+      return `<div class="mreact" data-mid="${esc(m.id)}">${r.count ? `<button class="rstack" data-who="${esc(m.id)}" title="Хэн дарсан бэ">${r.users.map((u) => avatarHtml(u, 22)).join("")}${more > 0 ? `<span class="rmore">+${more}</span>` : ""}</button>` : ""}</div>`;
+    }
+    function msgHtml(m) {
+      const heart = `<button class="mheart ${m.react && m.react.mine ? "on" : ""}" data-heart="${esc(m.id)}" title="Таалагдлаа">${m.react && m.react.mine ? "❤️" : "🤍"}</button>`;
+      if (m.system) {
+        return `<div class="msg sys">${avatarHtml(m.user, 36)}<div class="msg-col"><div class="mh sys-h"><b>Систем</b><span>${timeAgo(m.createdAt)}</span></div><div class="bubble-msg sys-b" data-mid="${esc(m.id)}" data-uid="${esc(m.user.id)}"><div>${mentionText(m)}</div>${me && me.isAdmin ? `<button class="msg-more" title="Цэс">⋯</button>` : ""}</div>${reactHtml(m)}</div>${heart}</div>`;
+      }
+      return `<div class="msg ${m.mine ? "mine" : ""}">${m.mine ? "" : `<a href="#/u/${esc(m.user.id)}">${avatarHtml(m.user, 32)}</a>`}<div class="msg-col"><div class="bubble-msg" data-mid="${esc(m.id)}" data-uid="${esc(m.user.id)}" data-mine="${m.mine ? 1 : ""}"><div class="mh">${m.mine ? "" : `<b>${esc(m.user.name)}</b>`}<span>${timeAgo(m.createdAt)}</span><button class="msg-more" title="Цэс">⋯</button></div>${m.image ? `<img class="chat-img" src="${esc(m.image)}" alt="" loading="lazy">` : ""}${m.text ? `<div>${linkify(m.text)}</div>` : ""}</div>${reactHtml(m)}</div>${heart}</div>`;
+    }
     async function poll() {
       if (!document.body.contains(msgs)) return clearInterval(iv);
       try {
         const d = await A.Remote.call("GET", "chat?room=" + encodeURIComponent(room) + (last ? "&after=" + encodeURIComponent(last) : ""));
-        if (!last) msgs.innerHTML = "";
+        if (!last) { msgs.innerHTML = ""; drawBanner(d.pinned); }
         const atBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80;
         d.messages.forEach((m) => {
           if (seen.has(m.id)) return;
           seen.add(m.id);
           last = m.createdAt;
-          msgs.insertAdjacentHTML("beforeend", `<div class="msg ${m.mine ? "mine" : ""}">${m.mine ? "" : `<a href="#/u/${esc(m.user.id)}">${avatarHtml(m.user, 32)}</a>`}<div class="bubble-msg" data-mid="${esc(m.id)}" data-uid="${esc(m.user.id)}" data-mine="${m.mine ? 1 : ""}"><div class="mh">${m.mine ? "" : `<b>${esc(m.user.name)}</b>`}<span>${timeAgo(m.createdAt)}</span><button class="msg-more" title="Цэс">⋯</button></div>${m.image ? `<img class="chat-img" src="${esc(m.image)}" alt="" loading="lazy">` : ""}${m.text ? `<div>${linkify(m.text)}</div>` : ""}</div></div>`);
+          msgs.insertAdjacentHTML("beforeend", msgHtml(m));
           if (!first && !m.mine) Notify.ding();
         });
         first = false;
@@ -984,6 +1016,16 @@
       if (im) return window.open(im.src, "_blank");
       const mb = e.target.closest(".msg-more");
       if (mb && A.msgMenu) A.msgMenu(mb, mb.closest(".bubble-msg"));
+      const hb = e.target.closest("[data-heart]");
+      if (hb) {
+        A.Remote.call("POST", `chat/${hb.dataset.heart}/react`, {}).then((r) => {
+          hb.classList.toggle("on", r.react.mine); hb.textContent = r.react.mine ? "❤️" : "🤍";
+          const row = msgs.querySelector(`.mreact[data-mid="${hb.dataset.heart}"]`);
+          if (row) row.outerHTML = reactHtml({ id: hb.dataset.heart, react: r.react });
+        }).catch((ex) => UI.toast(ex.message, "warn"));
+      }
+      const who = e.target.closest("[data-who]");
+      if (who) A.Remote.call("GET", `chat/${who.dataset.who}/reactions`).then((r) => A.userListModal && A.userListModal("❤️ Таалагдсан", r.users)).catch(() => {});
     });
     document.getElementById("cf").onsubmit = async (e) => {
       e.preventDefault();
@@ -1057,6 +1099,25 @@
     }
     try { await more(false); } catch (e) { box.innerHTML = `<p class="error">${esc(e.message)}</p>`; }
   }
+  // Постыг дэлгэцэнд 1 секундээс дээш харагдвал «үзсэн» гэж бүртгэнэ
+  const viewQueue = new Set(), viewSent = new Set();
+  let viewTimer = null;
+  const viewObs = "IntersectionObserver" in window ? new IntersectionObserver((ents) => {
+    ents.forEach((en) => {
+      const id = en.target.dataset.pid;
+      if (!id || viewSent.has(id)) return;
+      if (en.isIntersecting) en.target._vt = setTimeout(() => { viewSent.add(id); viewQueue.add(id); viewObs.unobserve(en.target); flushViews(); }, 1000);
+      else clearTimeout(en.target._vt);
+    });
+  }, { threshold: 0.5 }) : null;
+  function flushViews() {
+    clearTimeout(viewTimer);
+    viewTimer = setTimeout(() => {
+      const ids = Array.from(viewQueue); viewQueue.clear();
+      if (ids.length) A.Remote.call("POST", "posts/views", { ids }).catch(() => {});
+    }, 800);
+  }
+  function trackView(el, id) { if (!viewObs) return; el.dataset.pid = id; viewObs.observe(el); }
   function postHtml(p) {
     return `<article class="card post">
       <header class="post-head">
@@ -1069,7 +1130,9 @@
       <footer class="post-foot">
         ${Object.keys(RE).map((k) => `<button class="react ${p.myReactions.includes(k) ? "on" : ""}" data-k="${k}">${RE[k]} <span>${p.reactions[k] || ""}</span></button>`).join("")}
         <button class="react cm-toggle">💬 <span>${p.comments || ""}</span></button>
+        <span class="pviews" title="Үзсэн">👁 ${p.views || 0}</span>
       </footer>
+      ${p.mine && p.viewers && p.viewers.length ? `<button class="seen-row" data-seen>Уншсан (${p.views}): <span class="seen-av">${p.viewers.slice(0, 16).map((u) => avatarHtml(u, 26)).join("")}</span></button>` : ""}
       <div class="comments" hidden></div>
     </article>`;
   }
@@ -1085,6 +1148,9 @@
     }));
     const rep = el.querySelector(".post-rep");
     if (rep) rep.onclick = () => A.reportItem && A.reportItem("post", p.id);
+    const seenBtn = el.querySelector("[data-seen]");
+    if (seenBtn) seenBtn.onclick = () => A.userListModal && A.userListModal(`👁 Уншсан (${p.views})`, p.viewers);
+    if (!p.mine) trackView(el, p.id);
     const del = el.querySelector(".post-del");
     if (del) del.onclick = async () => {
       if (!confirm("Постоо устгах уу?")) return;
@@ -1180,7 +1246,16 @@
     const perm = Notify.canPush() ? Notification.permission : "denied";
     box.innerHTML = `<div class="nm-head"><b>Мэдэгдэл</b><span><button class="icon-btn" id="nsound" title="Дуу">${Notify.sound ? "🔊" : "🔇"}</button>${list.length ? `<button class="icon-btn" id="nclear" title="Цэвэрлэх">🧹</button>` : ""}</span></div>` +
       (perm === "default" ? `<button class="btn small full nm-ask" id="nask">🔔 Мэдэгдэл асаах (утас, компьютер)</button>` : "") +
-      (list.length ? list.map((n) => `<a class="nm-item ${n.read ? "" : "unread"}" href="${esc(n.link || "#/dashboard")}"><span>${esc(n.text)}</span><small class="muted">${timeAgo(n.createdAt)}</small></a>`).join("") : `<p class="muted small center">Мэдэгдэл алга.</p>`);
+      (list.length ? list.map((n) => `<a class="nm-item ${n.read ? "" : "unread"} ${n.actor ? "has-av" : ""}" href="${esc(n.link || "#/dashboard")}">${n.actor ? avatarHtml(n.actor, 38) : ""}<span class="nm-body"><span>${n.actor ? `<b>${esc(n.actor.name)}</b> ${esc(n.text.replace(n.actor.name, "").trim())}` : esc(n.text)}</span><small class="muted">${timeAgo(n.createdAt)}</small></span>${n.request ? `<span class="nm-req"><button class="btn small" data-acc="${esc(n.actor.id)}">Зөвшөөрөх</button><button class="icon-btn" data-dec="${esc(n.actor.id)}" title="Татгалзах">✕</button></span>` : ""}</a>`).join("") : `<p class="muted small center">Мэдэгдэл алга.</p>`);
+    box.querySelectorAll("[data-acc],[data-dec]").forEach((b) => (b.onclick = async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      try {
+        if (b.dataset.acc) { await A.Remote.call("POST", "friends/accept", { id: b.dataset.acc }); UI.toast("Найз боллоо 🎉", "ok"); }
+        else await A.Remote.call("POST", "friends/remove", { id: b.dataset.dec });
+        badges.list = (badges.list || []).map((x) => (x.actor && x.actor.id === (b.dataset.acc || b.dataset.dec) ? Object.assign({}, x, { request: false }) : x));
+        notifMenu(); refreshBadges();
+      } catch (ex) { UI.toast(ex.message, "warn"); }
+    }));
     document.getElementById("nsound").onclick = (e) => { e.stopPropagation(); Notify.sound = !Notify.sound; if (Notify.sound) Notify.ding(); notifMenu(); };
     const ask = document.getElementById("nask");
     if (ask) ask.onclick = async (e) => { e.stopPropagation(); if (A.pushSubscribe) await A.pushSubscribe(); else await Notify.ask(); notifMenu(); };

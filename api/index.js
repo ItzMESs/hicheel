@@ -113,13 +113,24 @@ async function blockedIds(meId) {
 }
 
 const avatarUrl = (u) => (u.avatar ? `/api/avatar?id=${u.id}&v=${u.avatarAt ? new Date(u.avatarAt).getTime() : 0}` : null);
-const publicUser = (u) => ({ id: u.id, name: u.name, avatarUrl: avatarUrl(u) });
+const SYSTEM_EMAIL = "system@hicheel.invalid";
+const publicUser = (u) => (u.email === SYSTEM_EMAIL ? { id: u.id, name: u.name, avatarUrl: null, system: true } : { id: u.id, name: u.name, avatarUrl: avatarUrl(u) });
+let systemUserCache = null;
+async function systemUser() {
+  if (systemUserCache) return systemUserCache;
+  systemUserCache = await db().user.upsert({
+    where: { email: SYSTEM_EMAIL },
+    create: { email: SYSTEM_EMAIL, name: "Систем", passwordHash: await bcrypt.hash(crypto.randomBytes(24).toString("hex"), 10) },
+    update: {}
+  });
+  return systemUserCache;
+}
 const meUser = (u) => ({ id: u.id, email: u.email, name: u.name, bio: u.bio, created: u.createdAt, avatarUrl: avatarUrl(u), isAdmin: isAdmin(u), premium: { zh: u.premiumZh || null, en: u.premiumEn || null } });
 const isDataImage = (s, max) => typeof s === "string" && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s) && s.length <= max;
 
-async function notify(userId, text, link) {
+async function notify(userId, text, link, actorId) {
   try {
-    const n = await db().notification.create({ data: { userId, text: str(text, 300), link: link || "" } });
+    const n = await db().notification.create({ data: { userId, text: str(text, 300), link: link || "", actorId: actorId || null } });
     await sendPush(userId, { title: "Хичээл", body: n.text, link: n.link, tag: n.id });
   } catch (e) { /* ignore */ }
 }
@@ -147,7 +158,7 @@ on("POST", "auth/register", async (req, res, { body }) => {
   if (name.length < 2) fail(400, "Нэр хамгийн багадаа 2 тэмдэгт байна.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, "Имэйл хаяг буруу байна.");
   if (password.length < 6) fail(400, "Нууц үг хамгийн багадаа 6 тэмдэгт байна.");
-  if (await db().user.findUnique({ where: { email } })) fail(409, "Энэ имэйлээр бүртгэл үүссэн байна.");
+  if (email === SYSTEM_EMAIL || (await db().user.findUnique({ where: { email } }))) fail(409, "Энэ имэйлээр бүртгэл үүссэн байна.");
   const user = await db().user.create({ data: { name, email, passwordHash: await bcrypt.hash(password, 10) } });
   res.setHeader("Set-Cookie", sessionCookie(req, user.id));
   return { user: meUser(user) };
@@ -194,7 +205,8 @@ on("PUT", "progress", async (req, res, { body }) => {
   if (xp > prevXp) {
     const dayGain = prev && prev.xpDay === today ? prev.xpDayGain : 0;
     // Хуримтлагдах хязгаар (token bucket): xpAt нь «сав хоосон байх» агшин
-    const tokens = prev ? Math.min(XP_BURST, Math.max(0, ((Date.now() - new Date(prev.xpAt).getTime()) / 60000) * XP_PER_MIN)) : XP_BURST;
+    // Өдрийн анхны XP-д сав дүүрэн байна (шинэ хэрэглэгч ч мөн адил)
+    const tokens = prev && prev.xpDay === today ? Math.min(XP_BURST, Math.max(0, ((Date.now() - new Date(prev.xpAt).getTime()) / 60000) * XP_PER_MIN)) : XP_BURST;
     const allowed = Math.max(0, Math.min(Math.floor(tokens), XP_DAY - dayGain));
     const grant = Math.min(xp - prevXp, allowed);
     clamped = grant < xp - prevXp;
@@ -207,6 +219,16 @@ on("PUT", "progress", async (req, res, { body }) => {
     create: Object.assign({ userId: u.id, data: saved, xp, streak, learned, track }, xpMeta),
     update: Object.assign({ data: saved, xp, streak, learned, track }, xpMeta)
   });
+  if (prev) {
+    // Ахицын үйл явдал: түвшин ахих (3+), шинэ тэмдэг, дараалсан өдрийн чухал тоо
+    const oldBadges = new Set((prev.data && prev.data.badges) || []);
+    const newBadge = (Array.isArray(data.badges) ? data.badges : []).find((b) => !oldBadges.has(b) && BADGE_NAMES[b]);
+    let ev = null;
+    if (lvlOf(xp) > lvlOf(prevXp) && lvlOf(xp) >= 3) ev = { kind: "level", n: lvlOf(xp) };
+    else if (newBadge) ev = { kind: "badge", id: newBadge };
+    else if ([7, 30, 50, 100, 200, 365].includes(streak) && (prev.streak || 0) < streak) ev = { kind: "streak", n: streak };
+    if (ev) await celebrate(u, ev);
+  }
   return { ok: true, xp, streak, clamped };
 });
 
@@ -273,7 +295,7 @@ on("GET", "users", async (req, res, { query }) => {
   const q = str(query.q, 40);
   if (!q) return { users: [] };
   const bl = await blockedIds(me.id);
-  const users = await db().user.findMany({ where: { name: { contains: q, mode: "insensitive" }, banned: false, id: { notIn: [me.id, ...bl] } }, take: 20 });
+  const users = await db().user.findMany({ where: { name: { contains: q, mode: "insensitive" }, banned: false, email: { not: SYSTEM_EMAIL }, id: { notIn: [me.id, ...bl] } }, take: 20 });
   return { users: users.map(publicUser) };
 });
 on("GET", "users/:id", async (req, res, { params }) => {
@@ -315,11 +337,11 @@ on("POST", "friends/request", async (req, res, { body }) => {
   const rev = await db().friend.findUnique({ where: { fromId_toId: { fromId: id, toId: me.id } } });
   if (rev) {
     await db().friend.update({ where: { id: rev.id }, data: { status: "accepted" } });
-    await notify(id, `${me.name} таны найзын хүсэлтийг зөвшөөрлөө 🎉`, `#/u/${me.id}`);
+    await notify(id, `${me.name} таны найзын хүсэлтийг зөвшөөрлөө 🎉`, `#/u/${me.id}`, me.id);
     return { status: "friends" };
   }
   await db().friend.upsert({ where: { fromId_toId: { fromId: me.id, toId: id } }, create: { fromId: me.id, toId: id }, update: {} });
-  await notify(id, `${me.name} танд найзын хүсэлт илгээлээ`, "#/friends");
+  await notify(id, `${me.name} танд найзын хүсэлт илгээлээ`, `#/friends?from=${me.id}`, me.id);
   return { status: "sent" };
 });
 on("POST", "friends/accept", async (req, res, { body }) => {
@@ -328,7 +350,7 @@ on("POST", "friends/accept", async (req, res, { body }) => {
   const r = await db().friend.findUnique({ where: { fromId_toId: { fromId: id, toId: me.id } } });
   if (!r) fail(404, "Хүсэлт олдсонгүй.");
   await db().friend.update({ where: { id: r.id }, data: { status: "accepted" } });
-  await notify(id, `${me.name} таны найзын хүсэлтийг зөвшөөрлөө 🎉`, `#/u/${me.id}`);
+  await notify(id, `${me.name} таны найзын хүсэлтийг зөвшөөрлөө 🎉`, `#/u/${me.id}`, me.id);
   return { status: "friends" };
 });
 on("POST", "friends/remove", async (req, res, { body }) => {
@@ -348,6 +370,56 @@ async function checkRoom(me, room) {
   if ((await blockedIds(me.id)).includes(other)) fail(403, "Энэ хэрэглэгчтэй харилцах боломжгүй.");
   return dmRoom(me.id, other);
 }
+const reactOut = (rs, meId) => ({ count: rs.length, mine: rs.some((r) => r.userId === meId), users: rs.slice(0, 3).map((r) => publicUser(r.user)) });
+const chatOut = (m, meId) => ({ id: m.id, text: m.text, image: m.image || null, createdAt: m.createdAt, user: publicUser(m.user), mine: m.userId === meId, system: m.system, meta: m.meta || null, pinned: m.pinned, react: reactOut(m.reactions || [], meId) });
+async function canSeeRoom(me, room) {
+  if (room === "public" || room === "zh" || room === "en") return true;
+  return room.startsWith("dm:") && room.slice(3).split(":").includes(me.id);
+}
+on("POST", "chat/:id/react", async (req, res, { params }) => {
+  const me = await currentUser(req, true);
+  const m = await db().chatMessage.findUnique({ where: { id: params.id } });
+  if (!m || !(await canSeeRoom(me, m.room))) fail(404, "Зурвас олдсонгүй.");
+  const ex = await db().chatReaction.findUnique({ where: { messageId_userId: { messageId: m.id, userId: me.id } } });
+  if (ex) await db().chatReaction.delete({ where: { id: ex.id } });
+  else await db().chatReaction.create({ data: { messageId: m.id, userId: me.id } });
+  const rs = await db().chatReaction.findMany({ where: { messageId: m.id }, include: { user: true }, orderBy: { createdAt: "desc" } });
+  return { react: reactOut(rs, me.id) };
+});
+on("GET", "chat/:id/reactions", async (req, res, { params }) => {
+  const me = await currentUser(req, true);
+  const m = await db().chatMessage.findUnique({ where: { id: params.id } });
+  if (!m || !(await canSeeRoom(me, m.room))) fail(404, "Зурвас олдсонгүй.");
+  const rs = await db().chatReaction.findMany({ where: { messageId: m.id }, include: { user: true }, orderBy: { createdAt: "desc" }, take: 200 });
+  return { users: rs.map((r) => publicUser(r.user)) };
+});
+on("POST", "chat/:id/pin", async (req, res, { params }) => {
+  await adminUser(req);
+  const m = await db().chatMessage.findUnique({ where: { id: params.id } });
+  if (!m) fail(404, "Зурвас олдсонгүй.");
+  if (!m.pinned) await db().chatMessage.updateMany({ where: { room: m.room, pinned: true }, data: { pinned: false } });
+  await db().chatMessage.update({ where: { id: m.id }, data: { pinned: !m.pinned } });
+  return { pinned: !m.pinned };
+});
+
+/* --- Ахиц гаргасан хэрэглэгчид нийтийн чатад баяр хүргэх --- */
+const BADGE_NAMES = { w1: "Анхны үг", w50: "50 үг", w200: "200 үг", w1000: "Мянган үг", s3: "3 өдөр дараалан", s7: "7 хоног дараалан", s30: "Сар дараалан", t1: "Анхны тест", t10: "10 тест", t100: "Төгс оноо", r100: "Картын мастер", g10: "Тоглогч", l10: "Чих сайтай", wr3: "Зохиолч", m1: "Жишиг шалгалт", lv10: "10-р түвшин", xp5k: "5000 XP", q7: "Даалгаврын баатар" };
+const lvlOf = (x) => Math.floor(Math.sqrt((x || 0) / 25)) + 1;
+async function celebrate(u, ev) {
+  try {
+    const sys = await systemUser();
+    // Нэг хэрэглэгчид 10 минутад нэгээс олон баяр хүргэлт гаргахгүй
+    const recent = await db().chatMessage.findFirst({ where: { system: true, createdAt: { gt: new Date(Date.now() - 600e3) }, meta: { path: ["uid"], equals: u.id } } });
+    if (recent) return;
+    const at = "@" + u.name;
+    const t = ev.kind === "level" ? [`${at} ${ev.n}-р түвшинд хүрлээ! Баяр хүргэе! 🎉`, `${at} 升到了第${ev.n}级，祝贺！🎉`]
+      : ev.kind === "badge" ? [`${at} «${BADGE_NAMES[ev.id]}» тэмдэг авлаа! Баяр хүргэе! 🏅`, `${at} 获得了新徽章，祝贺！🏅`]
+      : ev.kind === "streak" ? [`${at} ${ev.n} өдөр дараалан хичээллэлээ! Баяр хүргэе! 🔥`, `${at} 连续学习${ev.n}天，祝贺！🔥`]
+      : [`${at} явцаа ахиулж чадлаа. Баяр хүргэе! 🎉`, `${at} 取得了学习进步，祝贺！🎉`];
+    await db().chatMessage.create({ data: { room: "public", userId: sys.id, system: true, text: t.join("\n"), meta: Object.assign({ uid: u.id, name: u.name }, ev) } });
+  } catch (e) { console.error("celebrate", e.message); }
+}
+
 on("GET", "chat", async (req, res, { query }) => {
   const me = await currentUser(req, true);
   const room = await checkRoom(me, str(query.room || "public", 80));
@@ -355,8 +427,12 @@ on("GET", "chat", async (req, res, { query }) => {
   const bl = await blockedIds(me.id);
   if (bl.length) where.userId = { notIn: bl };
   if (query.after) where.createdAt = { gt: new Date(String(query.after)) };
-  const msgs = await db().chatMessage.findMany({ where, orderBy: { createdAt: "desc" }, take: 60, include: { user: true } });
-  return { room, messages: msgs.reverse().map((m) => ({ id: m.id, text: m.text, image: m.image || null, createdAt: m.createdAt, user: publicUser(m.user), mine: m.userId === me.id })) };
+  const msgs = await db().chatMessage.findMany({ where, orderBy: { createdAt: "desc" }, take: 60, include: { user: true, reactions: { include: { user: true }, orderBy: { createdAt: "desc" } } } });
+  const pin = query.after ? null : await db().chatMessage.findFirst({ where: { room, pinned: true }, orderBy: { createdAt: "desc" }, include: { user: true } });
+  return {
+    room, messages: msgs.reverse().map((m) => chatOut(m, me.id)),
+    pinned: pin ? { id: pin.id, text: pin.text, user: publicUser(pin.user), createdAt: pin.createdAt } : null
+  };
 });
 on("POST", "chat", async (req, res, { body }) => {
   const me = await currentUser(req, true);
@@ -371,7 +447,7 @@ on("POST", "chat", async (req, res, { body }) => {
   const m = await db().chatMessage.create({ data: { room, userId: me.id, text, image } });
   if (room.startsWith("dm:")) {
     const other = room.slice(3).split(":").find((x) => x !== me.id);
-    await notify(other, `💬 ${me.name}: ${text ? text.slice(0, 80) : "📷 Зураг илгээлээ"}`, `#/chat/dm/${me.id}`);
+    await notify(other, `💬 ${me.name}: ${text ? text.slice(0, 80) : "📷 Зураг илгээлээ"}`, `#/chat/dm/${me.id}`, me.id);
   }
   return { id: m.id };
 });
@@ -389,7 +465,8 @@ async function postView(p, meId) {
   p.reactions.forEach((r) => { counts[r.kind] = (counts[r.kind] || 0) + 1; });
   return {
     id: p.id, text: p.text, image: p.image, createdAt: p.createdAt, user: publicUser(p.user), mine: p.userId === meId,
-    reactions: counts, myReactions: p.reactions.filter((r) => r.userId === meId).map((r) => r.kind), comments: p._count.comments
+    reactions: counts, myReactions: p.reactions.filter((r) => r.userId === meId).map((r) => r.kind), comments: p._count.comments,
+    views: p._count.views || 0, viewers: p.viewers || null
   };
 }
 on("GET", "posts", async (req, res, { query }) => {
@@ -398,8 +475,23 @@ on("GET", "posts", async (req, res, { query }) => {
   const bl = await blockedIds(me.id);
   if (bl.length && !query.user) where.userId = { notIn: bl };
   if (query.before) where.createdAt = { lt: new Date(String(query.before)) };
-  const posts = await db().post.findMany({ where, orderBy: { createdAt: "desc" }, take: 15, include: { user: true, reactions: true, _count: { select: { comments: true } } } });
+  const posts = await db().post.findMany({ where, orderBy: { createdAt: "desc" }, take: 15, include: { user: true, reactions: true, _count: { select: { comments: true, views: true } } } });
+  // Өөрийн постыг хэн үзсэнийг харуулна
+  const mineIds = posts.filter((p) => p.userId === me.id).map((p) => p.id);
+  if (mineIds.length) {
+    const vs = await db().postView.findMany({ where: { postId: { in: mineIds } }, include: { user: true }, orderBy: { createdAt: "desc" }, take: 500 });
+    posts.forEach((p) => { if (p.userId === me.id) p.viewers = vs.filter((v) => v.postId === p.id).slice(0, 40).map((v) => publicUser(v.user)); });
+  }
   return { posts: await Promise.all(posts.map((p) => postView(p, me.id))) };
+});
+on("POST", "posts/views", async (req, res, { body }) => {
+  const me = await currentUser(req, true);
+  const ids = (Array.isArray(body.ids) ? body.ids : []).map((x) => str(x, 40)).filter(Boolean).slice(0, 30);
+  if (!ids.length) return { ok: true };
+  const own = await db().post.findMany({ where: { id: { in: ids } }, select: { id: true, userId: true } });
+  const data = own.filter((p) => p.userId !== me.id).map((p) => ({ postId: p.id, userId: me.id }));
+  if (data.length) await db().postView.createMany({ data, skipDuplicates: true });
+  return { ok: true };
 });
 on("POST", "posts", async (req, res, { body }) => {
   const me = await currentUser(req, true);
@@ -426,7 +518,7 @@ on("POST", "posts/:id/react", async (req, res, { params, body }) => {
   if (ex) await db().reaction.delete({ where: { id: ex.id } });
   else {
     await db().reaction.create({ data: { postId: p.id, userId: me.id, kind } });
-    if (p.userId !== me.id) await notify(p.userId, `${me.name} таны постод ${{ like: "👍", love: "❤️", wow: "😮" }[kind]} дарлаа`, "#/social");
+    if (p.userId !== me.id) await notify(p.userId, `${me.name} таны постод ${{ like: "👍", love: "❤️", wow: "😮" }[kind]} дарлаа`, "#/social", me.id);
   }
   return { on: !ex };
 });
@@ -444,14 +536,16 @@ on("POST", "posts/:id/comments", async (req, res, { params, body }) => {
   const p = await db().post.findUnique({ where: { id: params.id } });
   if (!p) fail(404, "Пост олдсонгүй.");
   await db().comment.create({ data: { postId: p.id, userId: me.id, text } });
-  if (p.userId !== me.id) await notify(p.userId, `${me.name} таны постод сэтгэгдэл бичлээ: ${text.slice(0, 60)}`, "#/social");
+  if (p.userId !== me.id) await notify(p.userId, `${me.name} таны постод сэтгэгдэл бичлээ: ${text.slice(0, 60)}`, "#/social", me.id);
   return { ok: true };
 });
 
 /* --- Мэдэгдэл --- */
 on("GET", "notifications", async (req) => {
   const me = await currentUser(req, true);
-  const list = await db().notification.findMany({ where: { userId: me.id }, orderBy: { createdAt: "desc" }, take: 40 });
+  const rows = await db().notification.findMany({ where: { userId: me.id }, orderBy: { createdAt: "desc" }, take: 40, include: { actor: true } });
+  const pendingFrom = new Set((await db().friend.findMany({ where: { toId: me.id, status: "pending" }, select: { fromId: true } })).map((f) => f.fromId));
+  const list = rows.map((n) => ({ id: n.id, text: n.text, link: n.link, read: n.read, createdAt: n.createdAt, actor: n.actor ? publicUser(n.actor) : null, request: !!(n.actorId && pendingFrom.has(n.actorId) && n.link.startsWith("#/friends")) }));
   const unread = await db().notification.count({ where: { userId: me.id, read: false } });
   const incoming = await db().friend.count({ where: { toId: me.id, status: "pending" } });
   return { list, unread, incoming };
@@ -658,11 +752,13 @@ on("POST", "auth/reset", async (req, res, { body }) => {
 on("GET", "stories", async (req) => {
   const me = await currentUser(req, true);
   const bl = await blockedIds(me.id);
-  const list = await db().story.findMany({ where: { createdAt: { gt: new Date(Date.now() - 864e5) }, userId: { notIn: bl }, user: { banned: false } }, orderBy: { createdAt: "asc" }, include: { user: true }, take: 200 });
+  const list = await db().story.findMany({ where: { createdAt: { gt: new Date(Date.now() - 864e5) }, userId: { notIn: bl }, user: { banned: false } }, orderBy: { createdAt: "asc" }, include: { user: true, views: { where: { story: { userId: me.id } }, include: { user: true }, orderBy: { createdAt: "desc" }, take: 100 } }, take: 200 });
   const groups = {};
   list.forEach((s) => {
     const g = groups[s.userId] || (groups[s.userId] = { user: publicUser(s.user), mine: s.userId === me.id, items: [] });
-    g.items.push({ id: s.id, text: s.text, image: s.image, bg: s.bg, createdAt: s.createdAt });
+    const it = { id: s.id, text: s.text, image: s.image, bg: s.bg, createdAt: s.createdAt };
+    if (s.userId === me.id) it.viewers = (s.views || []).map((v) => publicUser(v.user));
+    g.items.push(it);
   });
   const arr = Object.values(groups).sort((a, b) => (b.mine - a.mine) || (new Date(b.items[b.items.length - 1].createdAt) - new Date(a.items[a.items.length - 1].createdAt)));
   return { groups: arr };
@@ -675,7 +771,20 @@ on("POST", "stories", async (req, res, { body }) => {
   await limit("story", me.id, 864e2, 15, "Өдөрт 15-аас олон сторй оруулах боломжгүй.");
   const bg = /^#[0-9a-fA-F]{6}$/.test(body.bg || "") ? body.bg : "#0a0a0a";
   const s0 = await db().story.create({ data: { userId: me.id, text, image, bg } });
+  // Найзуудад мэдэгдэх (6 цагт нэг удаа)
+  const prevStory = await db().story.findFirst({ where: { userId: me.id, id: { not: s0.id }, createdAt: { gt: new Date(Date.now() - 6 * 3600e3) } } });
+  if (!prevStory) {
+    const fr = await db().friend.findMany({ where: { status: "accepted", OR: [{ fromId: me.id }, { toId: me.id }] }, select: { fromId: true, toId: true } });
+    for (const f of fr.slice(0, 200)) await notify(f.fromId === me.id ? f.toId : f.fromId, `${me.name} стори оруулаа 📷`, "#/social", me.id);
+  }
   return { id: s0.id };
+});
+on("POST", "stories/:id/view", async (req, res, { params }) => {
+  const me = await currentUser(req, true);
+  const s0 = await db().story.findUnique({ where: { id: params.id } });
+  if (!s0) fail(404, "Олдсонгүй.");
+  if (s0.userId !== me.id) await db().storyView.upsert({ where: { storyId_userId: { storyId: s0.id, userId: me.id } }, create: { storyId: s0.id, userId: me.id }, update: {} });
+  return { ok: true };
 });
 on("DELETE", "stories/:id", async (req, res, { params }) => {
   const me = await currentUser(req, true);
@@ -706,7 +815,7 @@ on("POST", "duels", async (req, res, { body }) => {
   const score = Math.max(0, Math.min(qs.length, parseInt(body.score, 10) || 0));
   await limit("duel", me.id, 3600, 20, "Цагт 20-оос олон тулаан эхлүүлэх боломжгүй.", "fromId");
   const d = await db().duel.create({ data: { fromId: me.id, toId, course: str(body.course, 10), level: str(body.level, 10), questions: qs, fromScore: score } });
-  await notify(toId, `⚔️ ${me.name} таныг үгийн тулаанд урилаа!`, "#/duels");
+  await notify(toId, `⚔️ ${me.name} таныг үгийн тулаанд урилаа!`, "#/duels", me.id);
   return { id: d.id };
 });
 on("POST", "duels/:id/play", async (req, res, { params, body }) => {
