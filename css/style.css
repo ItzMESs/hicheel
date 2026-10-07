@@ -1129,3 +1129,29 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
   .tb-grid .nbadge { position: absolute; top: 4px; right: 4px; font-style: normal; }
   #toasts { bottom: 90px; }
 }
+
+/* ===================== Профайлын цэс ===================== */
+.pmenu { width: 300px; padding: 14px; border: 2px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); max-height: calc(100vh - 90px); overflow-y: auto; }
+.pmenu .pm-head { padding: 0 0 12px; }
+.pmenu .pm-head b { font-size: 1rem; }
+.pmenu a.pm-level { border-radius: 0; display: flex; gap: 10px; align-items: center; padding: 8px; border: 1px solid var(--line); background: var(--card-2); margin-bottom: 8px; }
+.pm-lv { width: 38px; height: 38px; flex: none; display: grid; place-items: center; background: var(--ink); color: var(--bg); font-family: var(--display); font-weight: 800; }
+.pm-lvtx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pm-lvtx .mini-bar { margin: 4px 0 2px; }
+.pm-lvtx small { color: var(--muted); font-size: .72rem; font-weight: 500; }
+.pmenu .pm-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0; margin: 0 0 8px; border: 0; }
+.pmenu .pm-stats span { display: flex; flex-direction: column; align-items: center; border-radius: 0; padding: 6px 2px; font-size: .68rem; color: var(--muted); font-weight: 600; }
+.pmenu .pm-stats b { color: var(--ink); font-size: .9rem; }
+.pmenu a.pm-plan { display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 8px; border: 1.5px dashed var(--primary); background: var(--soft); border-radius: 0; }
+.pmenu a.pm-plan.on { border-style: solid; border-color: var(--ok); background: none; }
+.pm-plan > span:first-child { font-size: 1.3rem; }
+.pm-plan > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; line-height: 1.25; }
+.pm-plan small { color: var(--muted); font-size: .72rem; font-weight: 500; }
+.pm-plan i { font-style: normal; font-size: 1.3rem; color: var(--muted); }
+.pm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+.pmenu a.pm-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; border: 1px solid var(--line); text-align: center; font-size: .8rem; border-radius: 0; }
+.pmenu a.pm-tile span { font-size: 1.3rem; }
+.pmenu a.pm-tile:hover { border-color: var(--ink); }
+.pm-foot { display: flex; gap: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+.pm-foot > * { flex: 1; text-align: center !important; }
+.pmenu .pm-foot #logout { border-top: 0; margin: 0; border-radius: 0; }

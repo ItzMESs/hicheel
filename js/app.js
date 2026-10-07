@@ -1739,6 +1739,28 @@
       ]]] : [["Бусад", "🏆", [["leaderboard", ["leaderboard"], "🏆", "Тэргүүлэгчид", "XP-ээр эрэмбэлсэн жагсаалт"]]]])
     ];
   }
+  // Профайлын цэс: толгой, түвшин, статистик, багц, гол холбоосууд
+  function profileMenu(u, pr, due, lang) {
+    const L = A.levelOf ? A.levelOf(pr.xp) : null;
+    const prem = u.premium || {};
+    const until = (d) => d && new Date(d).getTime() > Date.now() ? new Date(d).toISOString().slice(0, 10) : "";
+    const pz = until(prem.zh), pe = until(prem.en);
+    const premTxt = u.isAdmin ? "Админ — бүх хичээл нээлттэй" : pz || pe ? [pz && "中 " + pz, pe && "EN " + pe].filter(Boolean).join(" · ") + " хүртэл" : "Үнэгүй — HSK 1, IELTS A1";
+    const tile = (h, i, t) => `<a href="${h}" class="pm-tile"><span>${i}</span>${t}</a>`;
+    return `
+      <div class="pm-head">${avatarHtml(u, 46)}<div><b>${esc(u.name)}</b><span class="muted small">${esc(u.email)}</span></div></div>
+      ${L ? `<a href="#/quests" class="pm-level"><span class="pm-lv">${L.lvl}</span><span class="pm-lvtx"><b>${esc(L.title)}</b><span class="mini-bar"><i style="width:${L.pct}%"></i></span><small>${pr.xp} / ${L.next} XP</small></span></a>` : ""}
+      <div class="pm-stats"><span><b>⭐ ${pr.xp}</b>XP</span><span><b>🔥 ${pr.streak}</b>өдөр</span><span><b>🃏 ${due}</b>давтах</span></div>
+      ${A.Remote.on ? `<a href="#/pricing" class="pm-plan ${pz || pe || u.isAdmin ? "on" : ""}"><span>💎</span><span><b>${pz || pe ? "Миний багц" : u.isAdmin ? "Багц" : "Багц авах"}</b><small>${premTxt}</small></span><i>›</i></a>` : ""}
+      <div class="pm-grid">
+        ${tile("#/profile", "👤", "Профайл")}${tile("#/quests", "🎯", "Даалгавар")}
+        ${tile("#/review/cards", "✏️", "Миний карт")}${tile(`#/${lang === "zh" ? "chinese" : "english"}`, "🎓", "Түвшнүүд")}
+      </div>
+      <div class="pm-foot">
+        ${u.isAdmin ? `<a href="#/admin" class="pm-admin">🛡️ Админ</a>` : ""}
+        <button id="logout">⏻ Гарах</button>
+      </div>`;
+  }
   const THEME_ICON = { system: "🖥️", light: "☀️", dark: "🌙" };
 
   function renderNav() {
@@ -1800,23 +1822,7 @@
         </div>
         <div class="pwrap">
           <button class="avatar-btn" id="avatar" aria-haspopup="true" aria-expanded="false" title="${esc(u.name)}">${avatarHtml(u, 40)}</button>
-          <div class="pmenu card" id="pmenu" hidden>
-            <div class="pm-head">${avatarHtml(u, 42)}<div><b>${esc(u.name)}</b><span class="muted small">${esc(u.email)}</span></div></div>
-            <div class="pm-stats"><span>⭐ ${pr.xp} XP</span><span>🔥 ${pr.streak} өдөр</span><span>🗂️ ${due} давтах</span></div>
-            <a href="#/dashboard">🏠 Хянах самбар</a>
-            <a href="#/profile">👤 Миний профайл</a>
-            ${A.Remote.on ? `<a href="#/pricing" class="pm-prem">💎 ${A.hasAccess("zh") && A.hasAccess("en") ? "Миний багц" : "Багц авах"}</a>` : ""}
-            <a href="#/quests">🎯 Даалгавар ба тэмдэг</a>
-            <a href="#/leaderboard">🏆 Тэргүүлэгчид</a>
-            ${A.Remote.on ? `<a href="#/duels">⚔️ Үгийн тулаан</a>` : ""}
-            ${u.isAdmin ? `<a href="#/admin" class="pm-admin">🛡️ Админ</a>` : ""}
-            ${A.Remote.on ? `<a href="#/friends">👥 Миний найзууд</a><a href="#/social">📰 Сошиал</a><a href="#/chat">💬 Чат</a>` : ""}
-            <a href="#/${lang === "zh" ? "chinese" : "english"}">🎓 ${lang === "zh" ? "HSK түвшнүүд" : "IELTS түвшнүүд"}</a>
-            <a href="#/dictionary">🔎 Толь бичиг</a>
-            <a href="#/review/cards">✏️ Миний картууд</a>
-            ${lang === "en" ? `<a href="#/ielts/speaking">🗣️ Speaking дадлага</a>` : ""}
-            <button id="logout">⏻ Гарах</button>
-          </div>
+          <div class="pmenu card" id="pmenu" hidden>${profileMenu(u, pr, due, lang)}</div>
         </div>`
       : `<button class="icon-btn theme" id="theme" title="Өнгөний горим">${THEME_ICON[A.Theme.get()]}</button><a href="#/login" class="btn small ghost">Нэвтрэх</a><a href="#/register" class="btn small">Бүртгүүлэх</a>`);
     document.getElementById("theme").onclick = () => {
