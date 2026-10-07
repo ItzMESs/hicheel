@@ -27,9 +27,15 @@
   }
   const FLAG = { zh: `<span class="flag zh">中</span>`, en: `<span class="flag en">EN</span>` };
 
-  function picker() {
+  // Сонгосон түвшин түгжээтэй бол үнэгүй түвшин рүү шилжүүлнэ
+  function ensurePick() {
     const c = COURSES[pick.course];
     if (!c.data().levels.includes(pick.level)) pick.level = c.data().levels[0];
+    if (A.isLocked(pick.course, pick.level)) { pick.level = A.FREE_LEVELS[pick.course][0]; savePick(); }
+  }
+  function picker() {
+    const c = COURSES[pick.course];
+    ensurePick();
     const prog = Progress.get();
     return `
       <div class="picker">
@@ -44,17 +50,15 @@
             return `<button data-l="${esc(l)}" class="${l === pick.level ? "on" : ""} ${LL.locked ? "locked" : ""}"><b>${esc(c.levelLabel(l).replace("HSK ", "HSK"))}</b><small>${LL.total || ws.length} үг${LL.locked ? " 🔒" : ""}</small>${n ? `<i class="pk-done">${n}✔</i>` : ""}</button>`;
           }).join("")}
         </div>
-        ${lockNote(getLevel(c.id, pick.level))}
+        ${A.hasAccess(c.lang) ? "" : `<div class="lock-note"><b>🔒 Бусад түвшин багцтай</b><span>${esc(c.levelLabel(A.FREE_LEVELS[c.id][0]))} үнэгүй. Бусад түвшнийг үзэхийн тулд багц авна уу.</span><a class="btn small full" href="#/pricing">💎 Багц авах</a></div>`}
       </div>`;
-  }
-  // Түгжээтэй түвшний сануулга
-  function lockNote(L) {
-    if (!L.locked) return "";
-    return `<div class="lock-note"><b>🔒 Үнэгүй хэсэг</b><span>${L.words.length}/${L.total} үг, ${L.grammar.length}/${L.totalGrammar} дүрэм нээлттэй.</span><a class="btn small full" href="#/pricing">💎 Багц авч бүгдийг нээх</a></div>`;
   }
   function bindPicker(onChange) {
     document.querySelectorAll("#pk-ver button").forEach((b) => (b.onclick = () => { setCourse(b.dataset.c); onChange(); }));
-    document.querySelectorAll("#pk-lv button").forEach((b) => (b.onclick = () => { pick.level = b.dataset.l; savePick(); onChange(); }));
+    document.querySelectorAll("#pk-lv button").forEach((b) => (b.onclick = () => {
+      if (A.isLocked(pick.course, b.dataset.l)) { UI.toast("🔒 Энэ түвшин багцад багтана.", "warn"); go("#/pricing"); return; }
+      pick.level = b.dataset.l; savePick(); onChange();
+    }));
   }
 
   const pageHead = (title, sub) => `<header class="page-head"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}<i class="hamar" aria-hidden="true"></i></header>`;
@@ -281,15 +285,15 @@
           const ws = getLevel(ver, l).words;
           const n = ws.filter((w) => p.learned[w.id]).length;
           return `<a class="card level-card" href="#/chinese/${ver}/${encodeURIComponent(l)}">
-            <div class="lv-badge zh">HSK ${esc(l)}</div>
+            <div class="lv-badge zh">HSK ${esc(l)}${A.isLocked(ver, l) ? " 🔒" : ""}</div>
             <p>${esc(info.desc)}</p>
             <ul class="facts">
               <li>Шинэ үг: <b>${info.words}</b> (нийт ${info.total})</li>
               ${info.chars ? `<li>Ханз: <b>${info.chars}</b> · Дүрэм: <b>${info.grammar}</b></li>` : `<li>CEFR ойролцоо: <b>${info.cefr}</b></li>`}
               ${info.stage ? `<li>${esc(info.stage)}</li>` : ""}
             </ul>
-            <div class="mini-bar"><i style="width:${(n / ws.length) * 100}%"></i></div>
-            <div class="muted small">${n}/${ws.length} үг цээжилсэн</div>
+            <div class="mini-bar"><i style="width:${ws.length ? (n / ws.length) * 100 : 0}%"></i></div>
+            <div class="muted small">${ws.length ? `${n}/${ws.length} үг цээжилсэн` : "🔒 Багцад багтана"}</div>
           </a>`;
         }).join("")}
       </div>`;
@@ -314,14 +318,14 @@
       </div>
       <div class="grid cards3">
         ${d.levels.map((l) => {
-          const ws = getLevel("ielts", l).words;
+          const LL = getLevel("ielts", l), ws = LL.words, tot = LL.total || ws.length;
           const n = ws.filter((w) => p.learned[w.id]).length;
           return `<a class="card level-card" href="#/english/${l}">
-            <div class="lv-badge en">${l}</div>
+            <div class="lv-badge en">${l}${LL.locked ? " 🔒" : ""}</div>
             <p>${esc(d.info[l].desc)}</p>
-            <ul class="facts"><li>IELTS: <b>${d.info[l].band}</b></li><li>Үг: <b>${ws.length}</b> · Дүрэм: <b>${d.grammar[l].length}</b> · Унших: 1</li></ul>
-            <div class="mini-bar"><i style="width:${(n / ws.length) * 100}%"></i></div>
-            <div class="muted small">${n}/${ws.length} үг цээжилсэн</div>
+            <ul class="facts"><li>IELTS: <b>${d.info[l].band}</b></li><li>Үг: <b>${tot}</b> · Дүрэм: <b>${d.grammar[l].length}</b> · Унших: 1</li></ul>
+            <div class="mini-bar"><i style="width:${ws.length ? (n / ws.length) * 100 : 0}%"></i></div>
+            <div class="muted small">${ws.length ? `${n}/${ws.length} үг цээжилсэн` : "🔒 Багцад багтана"}</div>
           </a>`;
         }).join("")}
       </div>`;
@@ -330,6 +334,10 @@
   /* ---------- Түвшний хуудас (үг, дүрэм, өгүүлбэр, унших) ---------- */
   function levelPage(courseId, level) {
     if (!COURSES[courseId] || !COURSES[courseId].data().levels.includes(level)) return Pages.notfound();
+    if (A.isLocked(courseId, level)) {
+      view().innerHTML = `<a class="back" href="${COURSES[courseId].lang === "zh" ? "#/chinese/" + courseId : "#/english"}">← ${esc(COURSES[courseId].title)}</a>` + A.paywall(`${COURSES[courseId].short} · ${COURSES[courseId].levelLabel(level)} түвшин багцад багтана.`);
+      return;
+    }
     if (pick.course !== courseId || pick.level !== level) setCourse(courseId, level);
     const L = getLevel(courseId, level);
     const lang = L.course.lang;
@@ -338,7 +346,6 @@
     view().innerHTML = `
       <a class="back" href="${back}">← ${esc(L.course.title)}</a>
       ${pageHead(esc(L.course.short) + " · " + esc(L.label), esc(L.info.desc))}
-      ${lockNote(L)}
       <div class="tabs">
         <button class="tab on" data-tab="words">📚 Үгс (${L.words.length})</button>
         <button class="tab" data-tab="grammar">✏️ Дүрэм (${L.grammar.length})</button>
@@ -1205,7 +1212,6 @@
     if (lang === "zh") {
       const tier = window.ZH_EXTRA.tier[L.course.id][L.level];
       passages = (window.ZH_READING[tier] || []).map((r) => ({ title: r.title, text: r.text, py: r.py, mn: r.mn, questions: r.questions }));
-      if (L.locked) passages = passages.slice(0, 1);
     } else passages = L.reading ? [{ title: L.reading.title, text: L.reading.text, py: "", mn: "", questions: L.reading.questions }] : [];
     view().innerHTML = `
       ${pageHead("📖 Унших", "Эх уншиж, асуултад хариулж, өгүүлбэрийг сонсоорой")}
@@ -1527,7 +1533,7 @@
     }
     if (tab === "writing") {
       const t = P.writing.find((x) => x.id === id);
-      const wOpen = (x) => A.hasAccess("en") || P.writing.indexOf(x) < 2;
+      const wOpen = () => A.hasAccess("en");
       if (t && !wOpen(t)) { box.innerHTML = A.paywall("Энэ Writing даалгавар англи хэлний багцад багтана."); return; }
       if (!t) {
         box.innerHTML = `<div class="grid cards2">${P.writing.map((x) => `<a class="card level-card" href="#/ielts/writing/${x.id}"><span class="badge">${wOpen(x) ? "" : "🔒 "}Task ${x.task} · ${x.minutes} мин · ${x.min}+ үг</span><h3>${esc(x.title)}</h3><p>${esc(x.prompt.slice(0, 120))}...</p>${Progress.get().writing[x.id] ? `<span class="pill pass">Ноорог хадгалсан</span>` : ""}</a>`).join("")}</div>`;
@@ -1538,7 +1544,7 @@
     const sets = P.speaking;
     const si = Math.max(0, Math.min(sets.length - 1, +id || 0));
     const s = sets[si];
-    const sOpen = (k) => A.hasAccess("en") || k < 2;
+    const sOpen = () => A.hasAccess("en");
     const segs = `<div class="seg wide">${sets.map((x, k) => `<a href="#/ielts/speaking/${k}" class="${k === si ? "on" : ""}">${sOpen(k) ? "" : "🔒 "}${esc(x.topic)}</a>`).join("")}</div>`;
     if (!sOpen(si)) { box.innerHTML = segs + A.paywall("Энэ Speaking сэдэв англи хэлний багцад багтана."); return; }
     box.innerHTML = `
@@ -1688,6 +1694,7 @@
     }
     if ((name === "login" || name === "register" || name === "home") && u) { location.replace("#/dashboard"); return; }
     if (window.speechSynthesis) speechSynthesis.cancel();
+    if (u) ensurePick();
     const fn = Pages[name] || Pages.notfound;
     fn.apply(null, parts.slice(1));
     renderNav();

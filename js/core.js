@@ -375,7 +375,7 @@
     return { id: "en:" + w[0], lang: "en", course: courseId, level, term: w[0], reading: w[4] ? w[1] + " " + w[4] : w[1], gloss: "", meaning: w[2], example: w[3] };
   }
 
-  /* ---- Багц: HSK1 / IELTS A1 үнэгүй, бусад түвшний эхний ~10% үнэгүй ---- */
+  /* ---- Багц: зөвхөн HSK 1 / IELTS A1 үнэгүй, бусад түвшин багцтай ---- */
   const FREE_LEVELS = { hsk2: ["1"], hsk3: ["1"], ielts: ["A1"] };
   function hasAccess(lang) {
     if (!Remote.on) return true; // локал горимд төлбөргүй
@@ -388,18 +388,12 @@
   function isLocked(courseId, level) {
     return !(FREE_LEVELS[courseId] || []).includes(level) && !hasAccess(COURSES[courseId].lang);
   }
-  const freeCount = (n, min) => Math.min(n, Math.max(min, Math.ceil(n * 0.1)));
 
   function getLevel(courseId, level) {
     const L = fullLevel(courseId, level);
     if (!isLocked(courseId, level)) return L;
-    return Object.assign({}, L, {
-      locked: true, total: L.words.length, totalGrammar: L.grammar.length,
-      words: L.words.slice(0, freeCount(L.words.length, 10)),
-      grammar: L.grammar.slice(0, freeCount(L.grammar.length, 1)),
-      sentences: L.sentences.slice(0, freeCount(L.sentences.length, 4)),
-      reading: null
-    });
+    // Түгжээтэй түвшин: агуулга огт өгөхгүй (зөвхөн тоо)
+    return Object.assign({}, L, { locked: true, total: L.words.length, totalGrammar: L.grammar.length, words: [], grammar: [], sentences: [], reading: null });
   }
   function fullLevel(courseId, level) {
     const c = COURSES[courseId];

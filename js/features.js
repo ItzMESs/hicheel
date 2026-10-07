@@ -653,7 +653,7 @@
   }
   A.paywall = function (msg) {
     return `<div class="card paywall center"><div class="pw-ic">🔒</div><h2>Багцад багтсан хичээл</h2><p class="muted">${esc(msg || "Энэ хэсгийг үзэхийн тулд багц авна уу.")}</p>
-      <p class="small muted">HSK 1 ба IELTS A1 бүрэн үнэгүй, бусад түвшний эхний хэсгийг үнэгүй туршиж болно.</p><a class="btn big" href="#/pricing">💎 Багцууд харах</a></div>`;
+      <p class="small muted">HSK 1 ба IELTS A1 үнэгүй. Бусад бүх түвшин багцтай хэрэглэгчид нээлттэй.</p><a class="btn big" href="#/pricing">💎 Багцууд харах</a></div>`;
   };
   const bankHtml = (b, code, amount) => `
     <div class="pay-box">
@@ -685,8 +685,8 @@
     box.innerHTML = `
       <div class="prem-status card">
         <div><b>Таны эрх</b></div>
-        <div class="ps-row"><span>🇨🇳 Хятад хэл</span>${alive(prem.zh) || u.isAdmin ? `<span class="pill pass">✔ ${u.isAdmin ? "Админ" : ymd(prem.zh) + " хүртэл"}</span>` : `<span class="pill">Үнэгүй (HSK 1 + эхний хэсэг)</span>`}</div>
-        <div class="ps-row"><span>🇬🇧 Англи хэл</span>${alive(prem.en) || u.isAdmin ? `<span class="pill pass">✔ ${u.isAdmin ? "Админ" : ymd(prem.en) + " хүртэл"}</span>` : `<span class="pill">Үнэгүй (A1 + эхний хэсэг)</span>`}</div>
+        <div class="ps-row"><span>🇨🇳 Хятад хэл</span>${alive(prem.zh) || u.isAdmin ? `<span class="pill pass">✔ ${u.isAdmin ? "Админ" : ymd(prem.zh) + " хүртэл"}</span>` : `<span class="pill">Үнэгүй (зөвхөн HSK 1)</span>`}</div>
+        <div class="ps-row"><span>🇬🇧 Англи хэл</span>${alive(prem.en) || u.isAdmin ? `<span class="pill pass">✔ ${u.isAdmin ? "Админ" : ymd(prem.en) + " хүртэл"}</span>` : `<span class="pill">Үнэгүй (зөвхөн A1)</span>`}</div>
       </div>
       ${pend.length ? `<h2 class="section-title">Төлбөр хүлээгдэж буй захиалга</h2>${pend.map((o) => `<div class="card order-card">
         <div class="row between"><b>${esc(o.plan ? o.plan.name : "")}</b><span class="pill">⏳ Шалгаж байна</span></div>
