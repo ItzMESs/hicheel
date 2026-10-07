@@ -298,7 +298,8 @@
           <div class="pr-bn"><b>ХИЧЭЭЛ</b><span>Хятад · Англи хэл сурах платформ</span></div>
           <div class="pr-meta"><b>${esc(title())}</b><span>${ws.length} үг · ${date}</span></div>
         </div><div class="pr-rule"></div>`;
-      const foot = `<div class="pr-foot"><span><img src="img/logo.png" alt=""> Хичээл · ${esc(location.host)}</span><span>${date}</span></div>`;
+      const wm = `<img class="pr-wm" src="img/logo.png" alt="" aria-hidden="true">`;
+      const foot = wm + `<div class="pr-foot"><span><img src="img/logo.png" alt=""> Хичээл · ${esc(location.host)}</span><span>${date}</span></div>`;
       area.className = `print-area sz-${opt.size}`;
       if (!ws.length) { area.innerHTML = `<p class="muted center">Үг алга.</p>`; return; }
       if (opt.fmt === "table" || opt.fmt === "test") {

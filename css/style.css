@@ -1471,3 +1471,11 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
   #print-area { padding-bottom: 24px; }
   .pr-table { margin-bottom: 30px; }
 }
+/* Хэвлэх: цаасны голд бүдэг лого (хуудас бүрд) */
+.print-area { position: relative; }
+.pr-wm { position: absolute; left: 50%; top: 260px; width: 62%; max-width: 440px; transform: translateX(-50%); opacity: .07; pointer-events: none; z-index: 0; }
+.print-area > *:not(.pr-wm) { position: relative; z-index: 1; }
+@media print {
+  .pr-wm { position: fixed; top: 50%; transform: translate(-50%, -50%); width: 70%; max-width: none; opacity: .07; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-area > .pr-foot { position: fixed; }
+}
