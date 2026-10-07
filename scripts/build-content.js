@@ -9,14 +9,14 @@ const path = require("path");
 const vm = require("vm");
 
 const ROOT = path.join(__dirname, "..");
-const SRC = ["hsk2", "hsk3", "chinese-extra", "ielts", "vocab-extra", "hsk-official", "ielts-more", "grammar-en", "grammar-zh", "reading-zh", "dialogues", "topics", "word-rel"];
+const SRC = ["hsk2", "hsk3", "chinese-extra", "ielts", "vocab-extra", "hsk-official", "ielts-more", "grammar-en", "grammar-zh", "reading-zh", "dialogues", "topics", "word-rel", "stories", "culture"];
 const FREE = { hsk2: ["1"], hsk3: ["1"], ielts: ["A1"] };
 
 const ctx = {};
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const f of SRC) vm.runInContext(fs.readFileSync(path.join(ROOT, "data-src", f + ".js"), "utf8"), ctx, { filename: f + ".js" });
-const W = JSON.parse(JSON.stringify({ HSK2: ctx.HSK2, HSK3: ctx.HSK3, ZH_EXTRA: ctx.ZH_EXTRA, ZH_READING: ctx.ZH_READING, IELTS: ctx.IELTS, IELTS_PRACTICE: ctx.IELTS_PRACTICE, DIALOGUES: ctx.DIALOGUES, TOPICS: ctx.TOPICS, WORD_REL: ctx.WORD_REL }));
+for (const f of SRC) { const fp = path.join(ROOT, "data-src", f + ".js"); if (fs.existsSync(fp)) vm.runInContext(fs.readFileSync(fp, "utf8"), ctx, { filename: f + ".js" }); }
+const W = JSON.parse(JSON.stringify({ STORIES: ctx.STORIES || { zh: [], en: [] }, CULTURE: ctx.CULTURE || [], HSK2: ctx.HSK2, HSK3: ctx.HSK3, ZH_EXTRA: ctx.ZH_EXTRA, ZH_READING: ctx.ZH_READING, IELTS: ctx.IELTS, IELTS_PRACTICE: ctx.IELTS_PRACTICE, DIALOGUES: ctx.DIALOGUES, TOPICS: ctx.TOPICS, WORD_REL: ctx.WORD_REL }));
 
 const counts = { hsk2: {}, hsk3: {}, ielts: {}, topics: { zh: {}, en: {} }, unique: {} };
 // Давхардалгүй нийт үгийн тоо (самбарт харуулна)
@@ -74,9 +74,25 @@ for (const lang of ["zh", "en"]) {
   W.WORD_REL[lang] = pubRel;
 }
 
+// Өгүүллэг: эхний түвшин (HSK 1 / A1) үнэгүй, бусад нь багцтай (гарчиг л нийтэд)
+for (const lang of ["zh", "en"]) {
+  priv[lang].stories = [];
+  W.STORIES[lang] = (W.STORIES[lang] || []).map((s) => {
+    if (lang === "zh" ? s.tier === 1 : s.level === "A1") return s;
+    priv[lang].stories.push(s);
+    return { id: s.id, tier: s.tier, level: s.level, title: s.title, title_mn: s.title_mn, locked: true };
+  });
+}
+// Монгол соёл: бүгд багцтай, хэл тус бүрийн агуулга тусдаа
+priv.zh.culture = {}; priv.en.culture = {};
+W.CULTURE = W.CULTURE.map((c) => {
+  priv.zh.culture[c.id] = c.zh; priv.en.culture[c.id] = c.en;
+  return { id: c.id, icon: c.icon, title_mn: c.title_mn, desc_mn: c.desc_mn, zh: { title: c.zh && c.zh.title }, en: { title: c.en && c.en.title } };
+});
+
 const js = (k, v) => `window.${k} = ${JSON.stringify(v)};\n`;
 const pub = "/* АВТОМАТААР ҮҮСГЭСЭН (scripts/build-content.js) — гараар бүү засаарай. Эх: data-src/ */\n" +
-  ["HSK2", "HSK3", "ZH_EXTRA", "ZH_READING", "IELTS", "IELTS_PRACTICE", "DIALOGUES", "TOPICS", "WORD_REL"].map((k) => js(k, W[k])).join("") + js("CONTENT_COUNTS", counts);
+  ["HSK2", "HSK3", "ZH_EXTRA", "ZH_READING", "IELTS", "IELTS_PRACTICE", "DIALOGUES", "TOPICS", "WORD_REL", "STORIES", "CULTURE"].map((k) => js(k, W[k])).join("") + js("CONTENT_COUNTS", counts);
 fs.writeFileSync(path.join(ROOT, "js/data/public.js"), pub);
 fs.mkdirSync(path.join(ROOT, "api/_content"), { recursive: true });
 for (const lang of ["zh", "en"]) fs.writeFileSync(path.join(ROOT, `api/_content/${lang}.json`), JSON.stringify(priv[lang]));

@@ -431,6 +431,11 @@
     });
     window.TOPICS[lang] = Object.assign({}, window.TOPICS[lang], d.topics || {});
     if (window.WORD_REL) window.WORD_REL[lang] = Object.assign({}, window.WORD_REL[lang], d.rel || {});
+    if (window.STORIES) (d.stories || []).forEach((full) => {
+      const arr = window.STORIES[lang], i = arr.findIndex((x) => x.id === full.id);
+      if (i >= 0) arr[i] = full; else arr.push(full);
+    });
+    if (window.CULTURE) Object.entries(d.culture || {}).forEach(([id, c]) => { const x = window.CULTURE.find((y) => y.id === id); if (x) x[lang] = c; });
     contentLoaded[lang] = true;
     window.dispatchEvent(new Event("content-loaded"));
   }

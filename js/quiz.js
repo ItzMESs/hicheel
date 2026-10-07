@@ -59,10 +59,30 @@
       const sh = shuffle(opts);
       return { type: "Дүрэм", prompt: `<p>${esc(g.q)}</p>`, options: sh.map((x) => x.t), answer: sh.findIndex((x) => x.i === g.a) };
     },
+    // Өгүүлбэрийн диктант: бүтэн өгүүлбэр сонсоод бичих
+    sentDictation(st, lang) {
+      return { type: "Диктант", input: true, sentence: true, lang, prompt: `<p>Өгүүлбэрийг сонсоод бүтнээр нь бичнэ үү ${lang === "zh" ? "(ханзаар)" : ""}. Хэдэн ч удаа сонсож болно.</p>`, audio: { text: st.text, lang, auto: true, hidden: true }, accept: [st.text], reveal: esc(st.meaning) };
+    },
     dictation(w) {
       return { type: "Сонсоод бичих", input: true, prompt: `<p>Сонссон үгээ бичнэ үү ${w.lang === "zh" ? "(ханз эсвэл аялгуугүй пиньинь)" : ""}.</p>`, audio: { text: w.term, lang: w.lang, auto: true, hidden: true }, accept: w.lang === "zh" ? [w.term, w.reading] : [w.term], reveal: `${esc(w.term)} ${w.lang === "zh" ? "— " + esc(w.reading) : ""} — ${esc(w.meaning)}`, wordId: w.id };
     }
   };
+
+  /* Диктант шалгах: хятад — тэмдэгтээр, англи — үгээр (LCS). Зөв хэсэг ногоон, дутуу нь улаан */
+  function compareSentence(target, typed, lang) {
+    const zh = lang === "zh";
+    const clean = (t) => (zh ? t.replace(/[\s，。！？、；：“”‘’（）《》,.!?;:'"()\-]/g, "").split("") : t.toLowerCase().replace(/[^a-z0-9'\s]/g, " ").split(/\s+/).filter(Boolean).map((w) => w.replace(/'/g, "")));
+    const a = clean(target), b = clean(typed);
+    const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+    for (let x = a.length - 1; x >= 0; x--) for (let y = b.length - 1; y >= 0; y--) dp[x][y] = a[x] === b[y] ? dp[x + 1][y + 1] + 1 : Math.max(dp[x + 1][y], dp[x][y + 1]);
+    const hit = new Array(a.length).fill(false);
+    let x = 0, y = 0;
+    while (x < a.length && y < b.length) { if (a[x] === b[y]) { hit[x] = true; x++; y++; } else if (dp[x + 1][y] >= dp[x][y + 1]) x++; else y++; }
+    const extra = Math.max(0, b.length - dp[0][0]);
+    const pct = a.length ? Math.round((dp[0][0] / (a.length + extra)) * 100) : 0;
+    const html = a.map((t, k) => `<span class="${hit[k] ? "d-ok" : "d-miss"}">${esc(t)}</span>`).join(zh ? "" : " ");
+    return { pct, html };
+  }
 
   /* Асуулт-хариултын хөдөлгүүр.
      opts: { title, onFinish(score,total,answers), timeLimit (сек) } */
@@ -120,7 +140,7 @@
           <div class="quiz-prompt">${q.prompt}</div>
           ${q.audio ? `<div class="row center"><button class="btn audio" data-act="play">🔊 Сонсох</button><button class="btn ghost small" data-act="slow">🐢 Удаан</button></div>` : ""}
           ${q.input
-            ? `<form class="dict-form"><input class="input" autocomplete="off" placeholder="Хариултаа бичнэ үү..." /><button class="btn">Шалгах</button></form>`
+            ? (q.sentence ? `<form class="dict-form sent"><textarea class="input" rows="2" autocomplete="off" placeholder="Сонссон өгүүлбэрээ бичнэ үү..."></textarea><button class="btn">Шалгах</button></form>` : `<form class="dict-form"><input class="input" autocomplete="off" placeholder="Хариултаа бичнэ үү..." /><button class="btn">Шалгах</button></form>`)
             : `<div class="options">${q.options.map((o, k) => `<button class="opt ${q.optClass || ""}" data-k="${k}">${esc(o)}</button>`).join("")}</div>`}
           <div class="feedback" id="fb"></div>
         </div>`;
@@ -132,10 +152,19 @@
       }
       if (q.input) {
         const f = el.querySelector("form");
-        const inp = f.querySelector("input");
+        const inp = f.querySelector("input, textarea");
         inp.focus();
+        if (q.sentence) inp.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); f.requestSubmit(); } };
         f.onsubmit = (e) => {
           e.preventDefault();
+          if (q.sentence) {
+            if (!inp.value.trim()) return;
+            const r = compareSentence(q.accept[0], inp.value, q.lang);
+            q.revealExtra = `<div class="dict-diff ${q.lang}">${r.html}</div><div class="muted small">Таарсан: ${r.pct}%</div>`;
+            answer(r.pct >= 85, q.accept[0]);
+            inp.disabled = true; f.querySelector("button").disabled = true;
+            return;
+          }
           const v = window.App.stripTones(inp.value);
           if (!v) return;
           const ok = q.accept.some((a) => window.App.stripTones(a) === v);
@@ -162,7 +191,7 @@
       answers.push({ q, ok, correct });
       const fb = el.querySelector("#fb");
       fb.className = "feedback " + (ok ? "ok" : "bad");
-      fb.innerHTML = `${ok ? "✔ Зөв!" : "✘ Буруу. Зөв хариулт: <b>" + esc(correct) + "</b>"}${q.reveal ? `<div class="reveal">${q.reveal}</div>` : ""}
+      fb.innerHTML = `${ok ? "✔ Зөв!" : "✘ Буруу. Зөв хариулт: <b>" + esc(correct) + "</b>"}${q.revealExtra || ""}${q.reveal ? `<div class="reveal">${q.reveal}</div>` : ""}
         <button class="btn" id="next">${i + 1 < questions.length ? "Дараагийн →" : "Дуусгах"}</button>`;
       const nx = fb.querySelector("#next");
       nx.focus();

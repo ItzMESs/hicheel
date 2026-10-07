@@ -444,7 +444,17 @@ on("POST", "chat", async (req, res, { body }) => {
   const lastMsg = await db().chatMessage.findFirst({ where: { userId: me.id }, orderBy: { createdAt: "desc" } });
   if (lastMsg && Date.now() - new Date(lastMsg.createdAt).getTime() < 1200) fail(429, "Хэт хурдан бичиж байна.");
   if (lastMsg && text && lastMsg.text === text && Date.now() - new Date(lastMsg.createdAt).getTime() < 30000) fail(429, "Ижил зурвасыг давтан илгээх боломжгүй.");
-  const m = await db().chatMessage.create({ data: { room, userId: me.id, text, image } });
+  // @mention: хамгийн ихдээ 5 хүн, блоклосон/өөрийгөө/системийг алгасна
+  let mentions = [];
+  const mIds = (Array.isArray(body.mentions) ? body.mentions : []).map((x) => str(x, 40)).filter((x) => x && x !== me.id).slice(0, 5);
+  if (mIds.length && text) {
+    const bl = await blockedIds(me.id);
+    const us = await db().user.findMany({ where: { id: { in: mIds.filter((x) => !bl.includes(x)) }, banned: false, email: { not: SYSTEM_EMAIL } } });
+    mentions = us.filter((u) => text.includes("@" + u.name) && (!room.startsWith("dm:") || room.slice(3).split(":").includes(u.id))).map((u) => ({ id: u.id, name: u.name }));
+  }
+  const m = await db().chatMessage.create({ data: { room, userId: me.id, text, image, meta: mentions.length ? { mentions } : undefined } });
+  const roomLink = room === "public" ? "#/chat" : room === "zh" || room === "en" ? `#/chat/${room}` : `#/chat/dm/${me.id}`;
+  for (const u of mentions) await notify(u.id, `${me.name} таныг чатад дурдлаа: ${text.slice(0, 70)}`, roomLink, me.id);
   if (room.startsWith("dm:")) {
     const other = room.slice(3).split(":").find((x) => x !== me.id);
     await notify(other, `💬 ${me.name}: ${text ? text.slice(0, 80) : "📷 Зураг илгээлээ"}`, `#/chat/dm/${me.id}`, me.id);

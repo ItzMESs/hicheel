@@ -330,3 +330,122 @@
     draw();
   };
 })();
+
+/* Богино өгүүллэг ба монгол соёлын хичээл: үг дээр дарахад утга гарна */
+(function () {
+  "use strict";
+  const A = window.App;
+  const { esc, UI, Progress, Quiz, Speech } = A;
+  const P = A.Pages;
+  const view = () => document.getElementById("view");
+  const H = (t, s) => A.pageHead(t, s);
+  const ZH_TIER_LBL = { 1: "HSK 1", 2: "HSK 2", 3: "HSK 3", 4: "HSK 4", 5: "HSK 5", 6: "HSK 6" };
+
+  // Токенуудаас текст ба уншигчийн HTML
+  const plain = (tokens) => tokens.map((t) => (Array.isArray(t) ? t[0] : t)).join("");
+  function readerHtml(tokens, lang, showPy) {
+    return tokens.map((t, k) => {
+      if (!Array.isArray(t)) return t === "\n" ? "<br>" : esc(t);
+      const [w, a, b] = t;
+      const read = lang === "zh" ? a : "";
+      const mean = lang === "zh" ? b : a;
+      return lang === "zh" && showPy
+        ? `<ruby class="tk" data-k="${k}">${esc(w)}<rt>${esc(read)}</rt></ruby>`
+        : `<span class="tk" data-k="${k}">${esc(w)}</span>`;
+    }).join("");
+  }
+  function bindReader(box, tokens, lang) {
+    let pop = null;
+    box.addEventListener("click", (e) => {
+      const el = e.target.closest(".tk");
+      if (pop) { pop.remove(); pop = null; }
+      box.querySelectorAll(".tk.on").forEach((x) => x.classList.remove("on"));
+      if (!el) return;
+      const t = tokens[+el.dataset.k];
+      const w = t[0], read = lang === "zh" ? t[1] : "", mean = lang === "zh" ? t[2] : t[1];
+      el.classList.add("on");
+      pop = document.createElement("div");
+      pop.className = "tk-pop card";
+      pop.innerHTML = `<div class="tk-w ${lang}">${esc(w)}</div>${read ? `<div class="s-read">${esc(read)}</div>` : ""}<div class="tk-m">${esc(mean)}</div><button class="icon-btn" data-say>🔊</button>`;
+      box.appendChild(pop);
+      const r = el.getBoundingClientRect(), br = box.getBoundingClientRect();
+      pop.style.left = Math.max(0, Math.min(br.width - 200, r.left - br.left + r.width / 2 - 100)) + "px";
+      pop.style.top = (r.bottom - br.top + 6) + "px";
+      pop.querySelector("[data-say]").onclick = (ev) => { ev.stopPropagation(); Speech.speak(w, lang); };
+      Speech.speak(w, lang);
+    });
+  }
+  function readerBlock(tokens, lang, mn, id) {
+    const box = document.getElementById(id);
+    let showPy = false, showMn = false;
+    const draw = () => {
+      box.innerHTML = `<div class="rd-tools">
+          <button class="btn small" data-a="read">🔊 Бүгдийг сонсох</button><button class="btn ghost small" data-a="stop">■</button>
+          ${lang === "zh" ? `<label class="check"><input type="checkbox" data-a="py" ${showPy ? "checked" : ""}> Пиньинь</label>` : ""}
+          <label class="check"><input type="checkbox" data-a="mn" ${showMn ? "checked" : ""}> Орчуулга</label>
+          <span class="muted small">💡 Үг дээр дарвал утга нь гарна</span></div>
+        <div class="rd-text ${lang}">${readerHtml(tokens, lang, showPy)}</div>
+        ${showMn ? `<div class="rd-mn">${esc(mn)}</div>` : ""}`;
+      box.querySelector('[data-a="read"]').onclick = () => Speech.speak(plain(tokens), lang, 0.85);
+      box.querySelector('[data-a="stop"]').onclick = () => window.speechSynthesis && speechSynthesis.cancel();
+      const py = box.querySelector('[data-a="py"]'); if (py) py.onchange = () => { showPy = py.checked; draw(); };
+      box.querySelector('[data-a="mn"]').onchange = (e) => { showMn = e.target.checked; draw(); };
+    };
+    draw();
+    bindReader(box, tokens, lang);
+  }
+  function quizBlock(id, questions, xp, retry) {
+    const qs = questions.map((q) => Object.assign(Quiz.Gen.grammar(q), { type: "Ойлголт" }));
+    Quiz.run(document.getElementById(id), qs, { onRetry: retry, onFinish: (sc) => Progress.update((p) => { p.xp += sc * xp; p.reading = (p.reading || 0) + 1; A.bump(p, "reading"); }) });
+  }
+
+  /* ---------- Өгүүллэг ---------- */
+  const storyOpen = (s) => A.hasAccess(s.tier ? "zh" : "en") || s.tier === 1 || s.level === "A1";
+  P.stories = function (id) {
+    const lang = A.track();
+    const list = (window.STORIES && window.STORIES[lang]) || [];
+    const s = list.find((x) => x.id === id);
+    if (!s) {
+      const groups = {};
+      list.forEach((x) => { const g = lang === "zh" ? ZH_TIER_LBL[x.tier] : x.level; (groups[g] = groups[g] || []).push(x); });
+      view().innerHTML = `${H("📖 Богино өгүүллэг", "Түвшиндээ тохирсон өгүүллэг уншаад үг дээр дарж утгыг нь хараарай")}
+        ${Object.keys(groups).length ? Object.entries(groups).map(([g, arr]) => `<h2 class="section-title">${esc(g)}</h2><div class="grid cards3">${arr.map((x) => `
+          <a class="card level-card story-card" href="#/stories/${esc(x.id)}"><span class="badge">${storyOpen(x) ? "" : "🔒 "}${esc(g)}</span><h3 class="${lang}">${esc(x.title)}</h3><p class="muted">${esc(x.title_mn)}</p></a>`).join("")}</div>`).join("") : `<p class="muted">Өгүүллэг удахгүй нэмэгдэнэ.</p>`}`;
+      return;
+    }
+    if (!storyOpen(s) || !s.tokens) { view().innerHTML = `<a class="back" href="#/stories">← Бүх өгүүллэг</a>` + A.paywall("Энэ өгүүллэг багцад багтана."); return; }
+    view().innerHTML = `<a class="back" href="#/stories">← Бүх өгүүллэг</a>
+      ${H(`<span class="${lang}">${esc(s.title)}</span>`, `${esc(s.title_mn)} · ${lang === "zh" ? ZH_TIER_LBL[s.tier] : s.level}`)}
+      <article class="card passage story-read" id="rd"></article>
+      <h2 class="section-title">Ойлголтын асуулт</h2><div id="sq"></div>`;
+    readerBlock(s.tokens, lang, s.mn, "rd");
+    quizBlock("sq", s.questions, 4, () => P.stories(id));
+  };
+
+  /* ---------- Монгол соёл ---------- */
+  P.culture = function (id) {
+    const lang = A.track();
+    const list = window.CULTURE || [];
+    const c = list.find((x) => x.id === id);
+    const open = A.hasAccess(lang);
+    if (!c) {
+      view().innerHTML = `${H("🇲🇳 Монгол соёл", lang === "zh" ? "Монголынхоо тухай хятадаар ярьж сураарай" : "Монголынхоо тухай англиар ярьж сураарай")}
+        <div class="grid cards3">${list.map((x) => `<a class="card level-card culture-card" href="#/culture/${esc(x.id)}"><span class="cu-ic">${x.icon}</span>
+          <h3>${esc(x.title_mn)}${open ? "" : " 🔒"}</h3><p class="${lang}">${esc((x[lang] && x[lang].title) || "")}</p><p class="muted small">${esc(x.desc_mn || "")}</p></a>`).join("")}</div>`;
+      return;
+    }
+    const L = c[lang];
+    if (!open || !L || !L.tokens) { view().innerHTML = `<a class="back" href="#/culture">← Монгол соёл</a>` + A.paywall(`«${c.title_mn}» хичээл багцад багтана.`); return; }
+    view().innerHTML = `<a class="back" href="#/culture">← Монгол соёл</a>
+      ${H(`${c.icon} ${esc(c.title_mn)} · <span class="${lang}">${esc(L.title)}</span>`, esc(c.desc_mn || ""))}
+      <article class="card passage" id="rd"></article>
+      <div class="grid cards2">
+        <div class="card"><h3>📚 Гол үгс</h3><div class="cu-vocab">${L.vocab.map((v) => `<div class="cu-v">${A.speakBtn(v[0], lang)}<b class="${lang}">${esc(v[0])}</b><span class="s-read">${esc(lang === "zh" ? v[1] : v[1])}</span><span>${esc(v[2])}</span></div>`).join("")}</div></div>
+        <div class="card"><h3>💬 Хэрэгтэй хэллэг</h3>${L.phrases.map((ph) => `<div class="cu-ph">${A.speakBtn(ph[0], lang)}<div><div class="${lang}">${esc(ph[0])}</div>${lang === "zh" ? `<div class="s-read">${esc(ph[1])}</div>` : ""}<div class="muted small">${esc(lang === "zh" ? ph[2] : ph[1])}</div></div></div>`).join("")}</div>
+      </div>
+      <h2 class="section-title">Ойлголтын асуулт</h2><div id="cq"></div>`;
+    A.bindCommon(view());
+    readerBlock(L.tokens, lang, L.mn, "rd");
+    quizBlock("cq", L.questions, 5, () => P.culture(id));
+  };
+})();

@@ -492,6 +492,7 @@
       { id: "sent", t: "💬 Өгүүлбэр сонсох", d: "Сонссон өгүүлбэрээ таниж сонго" },
       { id: "mean", t: "🧠 Өгүүлбэрийн утга", d: "Өгүүлбэр сонсоод утгыг нь сонго" },
       { id: "dict", t: "✍️ Сонсоод бичих", d: "Сонссон үгээ бичиж шалгуул" },
+      { id: "sdict", t: "📝 Диктант", d: "Бүтэн өгүүлбэр сонсоод бичих" },
       { id: "dlg", t: "🗣️ Харилцан яриа", d: "Амьдралын нөхцөлийн яриа сонсож асуултад хариул" }
     ];
     view().innerHTML = `
@@ -514,6 +515,7 @@
       let qs;
       if (m === "word") qs = sample(L.words, 10).map((w) => Quiz.Gen.listenWord(w, pool));
       if (m === "dict") qs = sample(L.words, 10).map((w) => Quiz.Gen.dictation(w));
+      if (m === "sdict") qs = shuffle(L.sentences).slice(0, 8).map((st) => Quiz.Gen.sentDictation(st, lang));
       if (m === "sent") qs = shuffle(L.sentences).map((s) => Quiz.Gen.listenSentence(s, L.sentences, lang));
       if (m === "mean") qs = shuffle(L.sentences).map((s) => Quiz.Gen.sentenceMeaning(s, L.sentences, lang));
       const box = document.getElementById("lz");
@@ -602,7 +604,7 @@
     view().innerHTML = `
       ${pageHead("📖 Толь бичиг", `Хятад–Монгол–Англи · ${words.length} үг`)}
       <div class="dict-bar card">
-        <input class="input big" id="dq" placeholder="Хайх: 茶, cha, tea, цай, hello..." autocomplete="off" />
+        <input class="input big" id="dq" placeholder="Хайх: цай, 茶, cha, tea, hello... (монголоор бичвэл хятад, англи хоёуланг нь гаргана)" autocomplete="off" />
         <div class="row">
           <div class="seg">
             <button data-f="all" class="${filter === "all" ? "on" : ""}">Бүгд</button><button data-f="zh" class="${filter === "zh" ? "on" : ""}">Хятад</button><button data-f="en" class="${filter === "en" ? "on" : ""}">Англи</button>
@@ -624,19 +626,46 @@
       const sq = A.stripTones(q);
       // Ижил үгийг (HSK 2.0 ба 3.0-д давхардсан) нэгтгэх
       const merged = new Map();
+      // Кирилл үсгээр хайвал монгол утгаар хайна: хятад, англи хоёуланг нь гаргаж, яг таарсныг эхэнд
+      const mnQ = /[а-яёөү]/i.test(nq);
+      const mnRank = (w) => {
+        const parts = String(w.noMn ? "" : w.meaning).toLowerCase().split(/[,;()/]|\s+[-—]\s+/).map((x) => x.trim()).filter(Boolean);
+        if (parts.includes(nq)) return 0;
+        if (parts.some((x) => x.split(/\s+/).includes(nq))) return 1;
+        if (parts.some((x) => x.startsWith(nq))) return 2;
+        return String(w.meaning).toLowerCase().includes(nq) ? 3 : 9;
+      };
       words.forEach((w) => {
-        if (filter !== "all" && w.lang !== filter) return;
+        if (filter !== "all" && w.lang !== filter && !mnQ) return;
         if (onlyFav && !p.favorites.includes(w.id)) return;
+        let rank = 5;
         if (nq) {
-          const hay = [w.term, w.meaning, w.gloss, w.example].join(" ").toLowerCase();
-          const hit = hay.includes(nq) || (w.lang === "zh" && sq && A.stripTones(w.reading).includes(sq));
-          if (!hit) return;
+          if (mnQ) { rank = mnRank(w); if (rank > 3) return; }
+          else {
+            const hay = [w.term, w.meaning, w.gloss, w.example].join(" ").toLowerCase();
+            const hit = hay.includes(nq) || (w.lang === "zh" && sq && A.stripTones(w.reading).includes(sq));
+            if (!hit) return;
+            rank = w.term.toLowerCase() === nq ? 0 : 5;
+          }
         }
         const m = merged.get(w.id);
         if (m) m.tags.push(COURSES[w.course].short + " " + w.level);
-        else merged.set(w.id, { w, tags: [COURSES[w.course].short + " " + w.level] });
+        else merged.set(w.id, { w, rank, tags: [COURSES[w.course].short + " " + w.level] });
       });
-      const list = Array.from(merged.values());
+      const list = Array.from(merged.values()).sort((a, b) => a.rank - b.rank || a.w.term.length - b.w.term.length);
+      if (mnQ && nq) {
+        // Монгол → хятад / англи: хоёр баганаар
+        const col = (lang) => list.filter((x) => x.w.lang === lang).slice(0, 40);
+        const zhL = col("zh"), enL = col("en");
+        const card = ({ w, rank }) => `<div class="mn-hit ${rank === 0 ? "exact" : ""}">${speakBtn(w.term, w.lang)}<span class="e-term ${w.lang}">${esc(w.term)}</span><span class="e-read">${esc(w.reading)}</span><span class="mn-m">${esc(w.meaning)}</span><button class="icon-btn fav ${p.favorites.includes(w.id) ? "on" : ""}" data-fav="${esc(w.id)}" title="Хадгалах">★</button></div>`;
+        document.getElementById("dr").innerHTML = list.length
+          ? `<p class="muted">«${esc(q.trim())}» — ${list.length} үг олдлоо</p><div class="mn-cols">
+              <div class="card"><h3>中 Хятадаар</h3>${zhL.map(card).join("") || `<p class="muted small">Олдсонгүй.</p>`}</div>
+              <div class="card"><h3>EN Англиар</h3>${enL.map(card).join("") || `<p class="muted small">Олдсонгүй.</p>`}</div></div>`
+          : `<p class="muted center">Үг олдсонгүй.</p>`;
+        bindCommon(document.getElementById("dr"));
+        return;
+      }
       const shown = list.slice(0, 120);
       document.getElementById("dr").innerHTML = list.length
         ? `<p class="muted">${list.length} үг олдлоо${list.length > shown.length ? " (эхний 120)" : ""}</p><div class="dict-list">${shown.map(({ w, tags }) => `
@@ -938,7 +967,7 @@
           <div id="cbanner"></div>
           <div class="chat-msgs" id="msgs"><p class="muted center">Ачаалж байна...</p></div>
           <div id="cimg-prev"></div>
-          <form class="chat-form" id="cf"><label class="ibtn" title="Зураг илгээх">📷<input type="file" id="cimg" accept="image/*" hidden></label><input class="input" id="ct" maxlength="1000" placeholder="Зурвас бичих..." autocomplete="off"><button class="btn">Илгээх</button></form>
+          <form class="chat-form" id="cf"><label class="ibtn" title="Зураг илгээх">📷<input type="file" id="cimg" accept="image/*" hidden></label><input class="input" id="ct" maxlength="1000" placeholder="Зурвас бичих... (@нэр гэж дурдах)" autocomplete="off"><button class="btn">Илгээх</button></form>
         </section>
       </div>`;
     A.Remote.call("GET", "chat/rooms").then((d) => {
@@ -950,6 +979,8 @@
     }).catch(() => {});
     const msgs = document.getElementById("msgs");
     let last = null, seen = new Set(), first = true;
+    const people = new Map(); // чатад бичсэн хүмүүс (@mention санал болгоход)
+    const picked = new Map(); // сонгосон @mention: нэр → id
     function drawBanner(pin) {
       const b = document.getElementById("cbanner");
       if (!b) return;
@@ -976,7 +1007,17 @@
       if (m.system) {
         return `<div class="msg sys">${avatarHtml(m.user, 36)}<div class="msg-col"><div class="mh sys-h"><b>Систем</b><span>${timeAgo(m.createdAt)}</span></div><div class="bubble-msg sys-b" data-mid="${esc(m.id)}" data-uid="${esc(m.user.id)}"><div>${mentionText(m)}</div>${me && me.isAdmin ? `<button class="msg-more" title="Цэс">⋯</button>` : ""}</div>${reactHtml(m)}</div>${heart}</div>`;
       }
-      return `<div class="msg ${m.mine ? "mine" : ""}">${m.mine ? "" : `<a href="#/u/${esc(m.user.id)}">${avatarHtml(m.user, 32)}</a>`}<div class="msg-col"><div class="bubble-msg" data-mid="${esc(m.id)}" data-uid="${esc(m.user.id)}" data-mine="${m.mine ? 1 : ""}"><div class="mh">${m.mine ? "" : `<b>${esc(m.user.name)}</b>`}<span>${timeAgo(m.createdAt)}</span><button class="msg-more" title="Цэс">⋯</button></div>${m.image ? `<img class="chat-img" src="${esc(m.image)}" alt="" loading="lazy">` : ""}${m.text ? `<div>${linkify(m.text)}</div>` : ""}</div>${reactHtml(m)}</div>${heart}</div>`;
+      const forMe = me && ((m.meta && m.meta.mentions) || []).some((u) => u.id === me.id);
+      return `<div class="msg ${m.mine ? "mine" : ""} ${forMe ? "for-me" : ""}">${m.mine ? "" : `<a href="#/u/${esc(m.user.id)}">${avatarHtml(m.user, 32)}</a>`}<div class="msg-col"><div class="bubble-msg" data-mid="${esc(m.id)}" data-uid="${esc(m.user.id)}" data-mine="${m.mine ? 1 : ""}"><div class="mh">${m.mine ? "" : `<b>${esc(m.user.name)}</b>`}<span>${timeAgo(m.createdAt)}</span><button class="msg-more" title="Цэс">⋯</button></div>${m.image ? `<img class="chat-img" src="${esc(m.image)}" alt="" loading="lazy">` : ""}${m.text ? `<div>${mentionify(m)}</div>` : ""}</div>${reactHtml(m)}</div>${heart}</div>`;
+    }
+    // Энгийн мессеж дэх @нэр дурдалтыг тодруулах
+    function mentionify(m) {
+      let html = linkify(m.text);
+      ((m.meta && m.meta.mentions) || []).forEach((u) => {
+        const at = esc("@" + u.name);
+        html = html.split(at).join(`<a class="mention ${me && u.id === me.id ? "me" : ""}" href="#/u/${esc(u.id)}">${at}</a>`);
+      });
+      return html;
     }
     async function poll() {
       if (!document.body.contains(msgs)) return clearInterval(iv);
@@ -988,6 +1029,7 @@
           if (seen.has(m.id)) return;
           seen.add(m.id);
           last = m.createdAt;
+          if (!m.mine && !m.system) people.set(m.user.id, m.user);
           msgs.insertAdjacentHTML("beforeend", msgHtml(m));
           if (!first && !m.mine) Notify.ding();
         });
@@ -1027,6 +1069,47 @@
       const who = e.target.closest("[data-who]");
       if (who) A.Remote.call("GET", `chat/${who.dataset.who}/reactions`).then((r) => A.userListModal && A.userListModal("❤️ Таалагдсан", r.users)).catch(() => {});
     });
+    // @ бичихэд хэрэглэгч санал болгох
+    const ct = document.getElementById("ct");
+    const sug = document.createElement("div");
+    sug.className = "mention-sug card"; sug.hidden = true;
+    document.getElementById("cf").appendChild(sug);
+    let sugTimer = null, sugItems = [], sugIdx = 0;
+    const atQuery = () => { const v = ct.value.slice(0, ct.selectionStart); const mm = /(^|\s)@([^\s@]{0,20})$/.exec(v); return mm ? mm[2] : null; };
+    function drawSug() {
+      sug.hidden = !sugItems.length;
+      sug.innerHTML = sugItems.map((u, k) => `<button type="button" class="${k === sugIdx ? "on" : ""}" data-k="${k}">${avatarHtml(u, 26)}<span>${esc(u.name)}</span></button>`).join("");
+      sug.querySelectorAll("button").forEach((b) => (b.onmousedown = (e) => { e.preventDefault(); choose(+b.dataset.k); }));
+    }
+    function choose(k) {
+      const u = sugItems[k]; if (!u) return;
+      const pos = ct.selectionStart, before = ct.value.slice(0, pos).replace(/@([^\s@]{0,20})$/, "@" + u.name + " ");
+      ct.value = before + ct.value.slice(pos); ct.focus(); ct.selectionStart = ct.selectionEnd = before.length;
+      picked.set(u.name, u.id); sugItems = []; drawSug();
+    }
+    ct.addEventListener("input", () => {
+      const q = atQuery();
+      if (q === null) { sugItems = []; return drawSug(); }
+      const ql = q.toLowerCase();
+      const local = Array.from(people.values()).filter((u) => u.name.toLowerCase().includes(ql));
+      const dmOther = room.startsWith("dm:") ? room.slice(3) : null;
+      sugItems = (dmOther ? local.filter((u) => u.id === dmOther) : local).slice(0, 6); sugIdx = 0; drawSug();
+      clearTimeout(sugTimer);
+      if (!dmOther && q.length >= 1) sugTimer = setTimeout(async () => {
+        try {
+          const r = await A.Remote.call("GET", "users?q=" + encodeURIComponent(q));
+          const ids = new Set(sugItems.map((u) => u.id));
+          sugItems = sugItems.concat(r.users.filter((u) => !ids.has(u.id))).slice(0, 6); drawSug();
+        } catch (e) { /* ignore */ }
+      }, 250);
+    });
+    ct.addEventListener("keydown", (e) => {
+      if (sug.hidden || !sugItems.length) return;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); sugIdx = (sugIdx + (e.key === "ArrowDown" ? 1 : -1) + sugItems.length) % sugItems.length; drawSug(); }
+      else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); choose(sugIdx); }
+      else if (e.key === "Escape") { sugItems = []; drawSug(); }
+    });
+    ct.addEventListener("blur", () => setTimeout(() => { sugItems = []; drawSug(); }, 150));
     document.getElementById("cf").onsubmit = async (e) => {
       e.preventDefault();
       const inp = document.getElementById("ct");
@@ -1034,7 +1117,9 @@
       if (!text && !cimg) return;
       const img = cimg;
       inp.value = ""; cimg = null; prev.innerHTML = "";
-      try { await A.Remote.call("POST", "chat", { room, text, image: img }); const pe = msgs.querySelector(".empty-chat"); if (pe) pe.remove(); await poll(); }
+      const mentions = Array.from(picked.entries()).filter(([name]) => text.includes("@" + name)).map(([, id]) => id);
+      picked.clear();
+      try { await A.Remote.call("POST", "chat", { room, text, image: img, mentions }); const pe = msgs.querySelector(".empty-chat"); if (pe) pe.remove(); await poll(); }
       catch (ex) { UI.toast(ex.message, "warn"); inp.value = text; }
     };
     void me;
@@ -1804,6 +1889,8 @@
         ["listening", ["listening"], "🎧", "Сонсох", "Үг, өгүүлбэр сонсож таних"],
         ["dialogues", ["dialogues"], "🗣️", "Харилцан яриа", "Бодит нөхцөлийн яриа сонсох"],
         ["reading", ["reading"], "📖", "Унших", "Эх уншиж асуултад хариулах"],
+        ["stories", ["stories"], "📗", "Өгүүллэг", "Үг дээр дарвал утга нь гардаг"],
+        ["culture", ["culture"], "🇲🇳", "Монгол соёл", "Наадам, Цагаан сар, Гэр…"],
         [lang === "zh" ? "writing" : "ielts/writing", ["writing", "ielts"], "✍️", lang === "zh" ? "Бичих" : "Бичих · Ярих", lang === "zh" ? "Ханз зурах, пиньинь бичих" : "IELTS Writing, Speaking"],
         ["games", ["games"], "🎮", "Тоглоом", "Үг цээжлэх хөгжилтэй тоглоомууд"]
       ]],
@@ -1879,7 +1966,7 @@
     if (!tb) { tb = document.createElement("nav"); tb.id = "tabbar"; tb.className = "tabbar"; document.body.appendChild(tb); }
     tb.hidden = !u;
     if (u) {
-      const LEARN = ["vocab", "flashcards", "review", "grammar", "listening", "dialogues", "reading", "writing", "ielts", "topics", "dictionary", "chinese", "english", "tests", "mock", "plan", "print"];
+      const LEARN = ["stories", "culture", "vocab", "flashcards", "review", "grammar", "listening", "dialogues", "reading", "writing", "ielts", "topics", "dictionary", "chinese", "english", "tests", "mock", "plan", "print"];
       const SOCIAL = ["social", "chat", "friends", "u", "leaderboard", "duels"];
       tb.innerHTML = `
         <div class="tb-sheet" id="tbsheet" hidden>${groups.map(([t, ic, items]) => `<h6>${ic} ${t}</h6><div class="tb-grid">${items.map(([h, keys, i, tt]) => `<a href="#/${h}" class="${keys.includes(cur) ? "on" : ""}"><span>${i}</span>${tt}${cnt(h) ? `<i class="nbadge">${cnt(h)}</i>` : ""}</a>`).join("")}</div>`).join("")}
