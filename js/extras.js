@@ -292,20 +292,26 @@
       const ws = words();
       const area = document.getElementById("print-area");
       document.getElementById("pcnt").textContent = ws.length + " үг";
-      const head = `<div class="pr-head"><b>${esc(title())}</b><span>Хичээл · ${ws.length} үг · ${new Date().toLocaleDateString("mn-MN")}</span></div>`;
+      const date = new Date().toISOString().slice(0, 10).replace(/-/g, ".");
+      const head = `<div class="pr-brand">
+          <img src="img/logo.png" alt="">
+          <div class="pr-bn"><b>ХИЧЭЭЛ</b><span>Хятад · Англи хэл сурах платформ</span></div>
+          <div class="pr-meta"><b>${esc(title())}</b><span>${ws.length} үг · ${date}</span></div>
+        </div><div class="pr-rule"></div>`;
+      const foot = `<div class="pr-foot"><span><img src="img/logo.png" alt=""> Хичээл · ${esc(location.host)}</span><span>${date}</span></div>`;
       area.className = `print-area sz-${opt.size}`;
       if (!ws.length) { area.innerHTML = `<p class="muted center">Үг алга.</p>`; return; }
       if (opt.fmt === "table" || opt.fmt === "test") {
         const test = opt.fmt === "test";
-        area.innerHTML = head + `<table class="pr-table"><thead><tr><th>#</th><th>Үг</th>${lang === "zh" && opt.py ? "<th>Пиньинь</th>" : ""}<th>${test ? "Утгыг бичнэ үү" : "Утга"}</th>${opt.ex && !test ? "<th>Жишээ</th>" : ""}</tr></thead><tbody>${ws.map((w, i) => `<tr>
+        area.innerHTML = foot + head + `<table class="pr-table"><thead><tr><th>#</th><th>Үг</th>${lang === "zh" && opt.py ? "<th>Пиньинь</th>" : ""}<th>${test ? "Утгыг бичнэ үү" : "Утга"}</th>${opt.ex && !test ? "<th>Жишээ</th>" : ""}</tr></thead><tbody>${ws.map((w, i) => `<tr>
           <td>${i + 1}</td><td class="pr-term ${lang}">${esc(w.term)}</td>${lang === "zh" && opt.py ? `<td>${test ? "" : esc(w.reading)}</td>` : ""}
           <td>${test ? "" : opt.mn ? esc(w.meaning) : ""}</td>${opt.ex && !test ? `<td class="pr-ex">${esc(w.example || w.gloss || "")}</td>` : ""}</tr>`).join("")}</tbody></table>
-          ${test ? `<div class="pr-break"></div><div class="pr-head"><b>Хариу — ${esc(title())}</b></div><ol class="pr-key">${ws.map((w) => `<li><b class="${lang}">${esc(w.term)}</b> ${lang === "zh" ? esc(w.reading) + " · " : ""}${esc(w.meaning)}</li>`).join("")}</ol>` : ""}`;
+          ${test ? `<div class="pr-break"></div><div class="pr-brand small"><img src="img/logo.png" alt=""><div class="pr-bn"><b>ХИЧЭЭЛ</b><span>Хариу</span></div><div class="pr-meta"><b>${esc(title())}</b></div></div><div class="pr-rule"></div><ol class="pr-key">${ws.map((w) => `<li><b class="${lang}">${esc(w.term)}</b> ${lang === "zh" ? esc(w.reading) + " · " : ""}${esc(w.meaning)}</li>`).join("")}</ol>` : ""}`;
       } else {
         // Хуудас бүр 12 карт: нүүр тал (үг), ар тал (утга) толин тусгал байрлалаар
         const per = 12, pages = [];
         for (let i = 0; i < ws.length; i += per) pages.push(ws.slice(i, i + per));
-        area.innerHTML = pages.map((pg) => {
+        area.innerHTML = foot + pages.map((pg) => {
           const front = pg.map((w) => `<div class="pc"><span class="pc-t ${lang}">${esc(w.term)}</span></div>`).join("") + "<div class='pc empty'></div>".repeat(per - pg.length);
           const rows = [];
           for (let r = 0; r < per / 3; r++) rows.push(pg.slice(r * 3, r * 3 + 3).concat(new Array(3).fill(null)).slice(0, 3).reverse());
