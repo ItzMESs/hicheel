@@ -1,6 +1,6 @@
 /* Хичээл — service worker: офлайн кэш ба push мэдэгдэл */
-const CACHE = "hicheel-v21";
-const CORE = ["/", "/index.html", "/css/style.css?v=21", "/manifest.json", "/img/logo-zh.png", "/img/logo-zh-dark.png"];
+const CACHE = "hicheel-v22";
+const CORE = ["/", "/index.html", "/css/style.css?v=22", "/manifest.json", "/img/logo-zh.png", "/img/logo-zh-dark.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).catch(() => {}).then(() => self.skipWaiting()));
