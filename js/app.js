@@ -105,10 +105,9 @@
           <button class="btn full">Нэвтрэх</button>
         </form>
         <p class="center small"><a href="#/forgot">Нууц үгээ мартсан уу?</a></p>
-        ${googleBtn()}
         <p class="muted center">Бүртгэлгүй юу? <a href="#/register">Бүртгүүлэх</a></p>
       </div>`;
-    if (A.query.err) document.getElementById("err").textContent = A.query.err === "banned" ? "Таны бүртгэл хаагдсан байна." : "Google-ээр нэвтэрч чадсангүй. Дахин оролдоно уу.";
+    if (A.query.err) document.getElementById("err").textContent = A.query.err === "banned" ? "Таны бүртгэл хаагдсан байна." : "Нэвтэрч чадсангүй. Дахин оролдоно уу.";
     document.getElementById("f").onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
@@ -122,10 +121,6 @@
     };
   };
 
-  function googleBtn() {
-    if (!A.Remote.on || !A.Remote.features.google) return "";
-    return `<div class="or-line"><span>эсвэл</span></div><a class="btn ghost full google-btn" href="/api/auth/google"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg> Google-ээр нэвтрэх</a>`;
-  }
 
   Pages.register = function () {
     view().innerHTML = `
@@ -140,7 +135,6 @@
           <div class="error" id="err"></div>
           <button class="btn full">Бүртгүүлэх</button>
         </form>
-        ${googleBtn()}
         <p class="muted center">Бүртгэлтэй юу? <a href="#/login">Нэвтрэх</a></p>
         <p class="note">${A.Remote.on ? "🔒 Бүртгэл, ахиц тань серверт найдвартай хадгалагдах тул аль ч төхөөрөмжөөс нэвтэрч болно." : "ℹ️ Сервер холбогдоогүй тул бүртгэл, ахиц энэ хөтөч дээр хадгалагдана."}</p>
       </div>`;
@@ -1593,9 +1587,7 @@
             <span class="timer" id="wt">${t.minutes}:00</span>
             <button class="btn ghost small" id="wstart">⏱ Цаг эхлүүлэх</button>
             <button class="btn small" id="wsave">💾 Хадгалах</button>
-            ${A.Remote.on && A.Remote.features.ai ? `<button class="btn small ai-btn" id="wai">🤖 AI үнэлгээ</button>` : ""}
           </div>
-          <div id="aiw"></div>
         </div>
         <aside>
           <div class="card"><h4>💡 Зөвлөгөө</h4><ul>${t.tips.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
@@ -1611,8 +1603,6 @@
     ta.oninput = count; count();
     const save = (quiet) => { Progress.update((p) => { p.writing[t.id] = ta.value; }); if (!quiet) UI.toast("Хадгалагдлаа", "ok"); };
     document.getElementById("wsave").onclick = () => save();
-    const wai = document.getElementById("wai");
-    if (wai) wai.onclick = () => { save(true); A.aiWriting(document.getElementById("aiw"), t, ta.value, wai); };
     let auto = setInterval(() => { if (!document.body.contains(ta)) return clearInterval(auto); save(true); }, 15000);
     let tm = null;
     document.getElementById("wstart").onclick = () => {
@@ -1707,8 +1697,7 @@
       [lang === "zh" ? "writing" : "ielts/writing", ["writing", "ielts"], "✍️", lang === "zh" ? "Бичих" : "Бичих · Ярих"],
       ["grammar", ["grammar"], "✏️", "Дүрэм"],
       ["games", ["games"], "🎮", "Тоглоом"],
-      ["tests", ["tests", "mock"], "📝", "Тест"],
-      ["tutor", ["tutor"], "🤖", "AI багш"]
+      ["tests", ["tests", "mock"], "📝", "Тест"]
     ];
   }
   const THEME_ICON = { system: "🖥️", light: "☀️", dark: "🌙" };

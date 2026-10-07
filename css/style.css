@@ -997,25 +997,7 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
 .dlg-t { font-size: 1.08rem; }
 .dlg-hidden { color: var(--muted); letter-spacing: .2em; }
 
-/* хиймэл оюун */
-.ai-wait { text-align: center; padding: 22px; animation: aipulse 1.4s ease-in-out infinite; }
-@keyframes aipulse { 50% { opacity: .55; } }
-.ai-result { margin-top: 14px; }
-.ai-band { display: flex; align-items: baseline; gap: 12px; padding: 12px 16px; background: var(--ink); color: var(--bg); margin-bottom: 12px; }
-.ai-band b { font-family: "Unbounded", sans-serif; font-size: 2.2rem; line-height: 1; }
-.ai-band small { margin-left: auto; opacity: .7; }
-.corr-list { display: grid; gap: 8px; }
 .corr { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-left: 3px solid var(--primary); background: var(--card-2); margin-top: 6px; }
-.corr del { color: var(--bad); }
-.corr ins { color: var(--ok); text-decoration: none; font-weight: 600; }
-.corr small { color: var(--muted); }
-.ai-msg details { font-size: .85rem; color: var(--muted); margin-top: 4px; }
-.ai-msg .corr { color: var(--ink); }
-.tutor-shell .croom.on { border-color: var(--primary); background: var(--soft); }
-.chat-form .ibtn.on, .btn.mic.on { background: var(--primary); color: #fff; animation: aipulse 1s infinite; }
-.speak-eval textarea { width: 100%; margin: 10px 0; }
-.model-ans { background: var(--card-2); padding: 10px 12px; }
-.card.warn { border-color: var(--warn); }
 
 /* тулаан */
 .duel-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 8px; flex-wrap: wrap; }

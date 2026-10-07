@@ -137,7 +137,7 @@ on("GET", "health", async () => {
   await db().$queryRaw`SELECT 1`;
   return {
     ok: true,
-    features: { google: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET), email: !!process.env.RESEND_API_KEY, ai: !!process.env.ANTHROPIC_API_KEY, push: true }
+    features: { email: !!process.env.RESEND_API_KEY, push: true }
   };
 });
 
@@ -623,49 +623,6 @@ on("POST", "auth/reset", async (req, res, { body }) => {
   return { user: meUser(user) };
 });
 
-/* --- Google-ээр нэвтрэх (OAuth 2.0) --- */
-function redirect(res, url, cookie) {
-  res.statusCode = 302;
-  res.setHeader("Location", url);
-  if (cookie) res.setHeader("Set-Cookie", cookie);
-  res.end();
-}
-on("GET", "auth/google", async (req, res) => {
-  const id = process.env.GOOGLE_CLIENT_ID;
-  if (!id) fail(503, "Google нэвтрэлт тохируулаагүй байна.");
-  const state = crypto.randomBytes(16).toString("hex");
-  const params = new URLSearchParams({ client_id: id, redirect_uri: origin(req) + "/api/auth/google/callback", response_type: "code", scope: "openid email profile", state, prompt: "select_account" });
-  const secure = origin(req).startsWith("https") ? "; Secure" : "";
-  redirect(res, "https://accounts.google.com/o/oauth2/v2/auth?" + params, `g_state=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600${secure}`);
-});
-on("GET", "auth/google/callback", async (req, res, { query }) => {
-  const back = origin(req) + "/#/";
-  try {
-    if (!query.code || !query.state || query.state !== cookies(req).g_state) return redirect(res, back + "login?err=google");
-    const tr = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ code: String(query.code), client_id: process.env.GOOGLE_CLIENT_ID, client_secret: process.env.GOOGLE_CLIENT_SECRET, redirect_uri: origin(req) + "/api/auth/google/callback", grant_type: "authorization_code" })
-    });
-    const tok = await tr.json();
-    if (!tok.id_token) return redirect(res, back + "login?err=google");
-    // id_token-ийг Google-ээс TLS-ээр шууд авсан тул payload-ийг уншихад хангалттай
-    const info = JSON.parse(Buffer.from(tok.id_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
-    if (info.aud !== process.env.GOOGLE_CLIENT_ID || !info.email || info.email_verified === false) return redirect(res, back + "login?err=google");
-    const email = String(info.email).toLowerCase();
-    let user = await db().user.findFirst({ where: { googleId: info.sub } }) || await db().user.findUnique({ where: { email } });
-    if (user && user.banned) return redirect(res, back + "login?err=banned");
-    if (!user) {
-      user = await db().user.create({ data: { email, name: str(info.name || email.split("@")[0], 40), googleId: info.sub, passwordHash: await bcrypt.hash(crypto.randomBytes(24).toString("hex"), 10) } });
-    } else if (!user.googleId) {
-      user = await db().user.update({ where: { id: user.id }, data: { googleId: info.sub } });
-    }
-    redirect(res, back + "dashboard", sessionCookie(req, user.id));
-  } catch (e) {
-    console.error(e);
-    redirect(res, back + "login?err=google");
-  }
-});
-
 /* --- Сторй (24 цаг) --- */
 on("GET", "stories", async (req) => {
   const me = await currentUser(req, true);
@@ -780,112 +737,6 @@ on("POST", "push/test", async (req) => {
   const me = await currentUser(req, true);
   await sendPush(me.id, { title: "Хичээл", body: "🔔 Мэдэгдэл амжилттай ажиллаж байна!", link: "#/dashboard" });
   return { ok: true };
-});
-
-/* --- Хиймэл оюун (Anthropic Claude) --- */
-const AI_MODEL = process.env.AI_MODEL || "claude-opus-5-5";
-let anthropic = null;
-function ai() {
-  if (!process.env.ANTHROPIC_API_KEY) fail(503, "Хиймэл оюуны үйлчилгээ тохируулаагүй байна (ANTHROPIC_API_KEY).");
-  if (!anthropic) { const Anthropic = require("@anthropic-ai/sdk"); anthropic = new (Anthropic.default || Anthropic)(); }
-  return anthropic;
-}
-async function aiQuota(me, kind) {
-  const max = parseInt(process.env.AI_DAILY_LIMIT || "30", 10);
-  const n = await db().aiUse.count({ where: { userId: me.id, createdAt: { gt: new Date(Date.now() - 864e5) } } });
-  if (n >= max && !isAdmin(me)) fail(429, `Өдрийн хиймэл оюуны хязгаар (${max}) дууссан байна. Маргааш дахин оролдоно уу.`);
-  await db().aiUse.create({ data: { userId: me.id, kind } });
-}
-// Claude-оос JSON хариу авах (structured output). Татгалзвал серверийн fallback өөр загвараар дахин оролдоно.
-async function aiJson({ system, messages, schema, effort, maxTokens }) {
-  const Anthropic = require("@anthropic-ai/sdk");
-  const A0 = Anthropic.default || Anthropic;
-  let r;
-  try {
-    r = await ai().beta.messages.create({
-      model: AI_MODEL,
-      max_tokens: maxTokens || 4000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      system,
-      messages,
-      output_config: { effort: effort || "low", format: { type: "json_schema", schema } }
-    });
-  } catch (e) {
-    if (e instanceof A0.RateLimitError) fail(429, "Хиймэл оюун одоо ачаалалтай байна. Түр хүлээгээд дахин оролдоно уу.");
-    if (e instanceof A0.AuthenticationError) fail(503, "ANTHROPIC_API_KEY буруу байна.");
-    if (e instanceof A0.BadRequestError) { console.error(e.message); fail(400, "Хиймэл оюуны хүсэлт буруу байна."); }
-    if (e instanceof A0.APIError) { console.error(e.status, e.message); fail(502, "Хиймэл оюуны алдаа гарлаа."); }
-    throw e;
-  }
-  if (r.stop_reason === "refusal") fail(422, "Хиймэл оюун энэ хүсэлтэд хариулахаас татгалзлаа.");
-  const text = r.content.filter((b) => b.type === "text").map((b) => b.text).join("");
-  try { return JSON.parse(text); } catch (e) { fail(502, "Хиймэл оюуны хариуг уншиж чадсангүй."); }
-}
-const S = (props, req) => ({ type: "object", properties: props, required: req || Object.keys(props), additionalProperties: false });
-const STR = { type: "string" }, NUM = { type: "number" };
-
-on("POST", "ai/writing", async (req, res, { body }) => {
-  const me = await currentUser(req, true);
-  const essay = str(body.essay, 6000), prompt = str(body.prompt, 1500), task = body.task === 1 ? 1 : 2;
-  const words = (essay.match(/\S+/g) || []).length;
-  if (words < 40) fail(400, "Эссе хэт богино байна (40+ үг).");
-  await aiQuota(me, "writing");
-  const crit = { band: NUM, comment: STR };
-  const out = await aiJson({
-    effort: "medium",
-    maxTokens: 6000,
-    system: `You are a certified IELTS examiner. Grade the candidate's IELTS Academic Writing Task ${task} response strictly according to the official public band descriptors (${task === 1 ? "Task Achievement" : "Task Response"}, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy). Use half bands (e.g. 6.5). The overall band is the mean of the four criteria rounded to the nearest half band. Penalise responses under ${task === 1 ? 150 : 250} words. Write every comment, strength, improvement and explanation in Mongolian (Cyrillic) so a Mongolian learner understands; keep quoted English text in English. Give up to 8 concrete sentence-level corrections taken from the essay.`,
-    messages: [{ role: "user", content: `Task prompt:\n${prompt}\n\nCandidate response (${words} words):\n${essay}` }],
-    schema: S({
-      overall: NUM, task: crit, coherence: crit, lexical: crit, grammar: crit,
-      strengths: { type: "array", items: STR }, improvements: { type: "array", items: STR },
-      corrections: { type: "array", items: S({ original: STR, corrected: STR, explanation: STR }) },
-      summary: STR
-    })
-  });
-  return { result: out, words };
-});
-
-on("POST", "ai/speaking", async (req, res, { body }) => {
-  const me = await currentUser(req, true);
-  const lang = body.lang === "zh" ? "zh" : "en";
-  const transcript = str(body.transcript, 3000), question = str(body.question, 500);
-  if ((transcript.match(/\S+/g) || []).length < 3 && transcript.length < 6) fail(400, "Хариулт хэт богино байна.");
-  await aiQuota(me, "speaking");
-  const out = await aiJson({
-    effort: "low",
-    system: lang === "en"
-      ? "You are an IELTS Speaking examiner. You receive a speech-to-text transcript of a candidate's spoken answer (pronunciation cannot be judged from text, so assess Fluency & Coherence, Lexical Resource and Grammatical Range & Accuracy only, and say so). Give an estimated band (half bands). Write feedback in Mongolian (Cyrillic). Provide an improved model answer in natural English at roughly one band higher."
-      : "You are an HSKK (Chinese speaking test) examiner. You receive a speech-to-text transcript of a learner's spoken Chinese answer. Pronunciation and tones cannot be judged from text; assess content, vocabulary, grammar and fluency. Give a score out of 100. Write feedback in Mongolian (Cyrillic). Provide an improved model answer in simplified Chinese with pinyin.",
-    messages: [{ role: "user", content: `Question: ${question}\nTranscript: ${transcript}` }],
-    schema: S({ score: NUM, scale: STR, feedback: STR, strengths: { type: "array", items: STR }, improvements: { type: "array", items: STR }, better_answer: STR })
-  });
-  return { result: out };
-});
-
-on("POST", "ai/tutor", async (req, res, { body }) => {
-  const me = await currentUser(req, true);
-  const lang = body.lang === "zh" ? "zh" : "en";
-  const level = str(body.level, 10) || (lang === "zh" ? "HSK 2" : "B1");
-  const topic = str(body.topic, 120);
-  const hist = (Array.isArray(body.messages) ? body.messages : []).slice(-16)
-    .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: str(m.content, 1500) }))
-    .filter((m) => m.content);
-  if (!hist.length || hist[hist.length - 1].role !== "user") fail(400, "Мессеж хоосон байна.");
-  while (hist.length && hist[0].role !== "user") hist.shift();
-  await aiQuota(me, "tutor");
-  const out = await aiJson({
-    effort: "low",
-    maxTokens: 2000,
-    system: (lang === "zh"
-      ? `You are a friendly Chinese conversation partner for a Mongolian learner at ${level} level. Reply in simple simplified Chinese suited to ${level} (1-3 short sentences) and keep the conversation going with a question. Put pinyin for your reply in "reading" and a Mongolian translation in "translation_mn".`
-      : `You are a friendly English conversation partner for a Mongolian learner at CEFR ${level} level, helping them prepare for IELTS Speaking. Reply in natural English suited to ${level} (1-3 short sentences) and keep the conversation going with a question. Put a Mongolian translation in "translation_mn" and leave "reading" empty.`) +
-      ` If the learner's last message contains mistakes, put a corrected version of their message in "correction" and a short explanation in Mongolian in "explanation_mn"; otherwise leave both empty.` + (topic ? ` Conversation topic: ${topic}.` : ""),
-    messages: hist,
-    schema: S({ reply: STR, reading: STR, translation_mn: STR, correction: STR, explanation_mn: STR })
-  });
-  return { result: out };
 });
 
 /* ---------------- Үндсэн handler ---------------- */

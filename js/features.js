@@ -219,7 +219,7 @@
         <div class="card test-intro">
           <h3>${esc(c.short)} · ${esc(L.label)} жишиг шалгалт</h3>
           <ol class="mock-plan">${plan.map((s) => `<li><b>${esc(s.t)}</b> — ${s.n ? s.n + " асуулт, " : ""}${s.min} минут</li>`).join("")}</ol>
-          <p class="muted small">${lang === "zh" ? "Оноог HSK-ийн хуваарьт (хэсэг бүр 100) шилжүүлж, тэнцсэн эсэхийг тооцно." : "Хэсэг бүрийн оноог IELTS band оноонд шилжүүлж тооцно." + (Remote.on && Remote.features.ai ? " Writing-ийг хиймэл оюун үнэлнэ." : " Writing хэсгийг өөрөө үнэлнэ.")}</p>
+          <p class="muted small">${lang === "zh" ? "Оноог HSK-ийн хуваарьт (хэсэг бүр 100) шилжүүлж, тэнцсэн эсэхийг тооцно." : "Хэсэг бүрийн оноог IELTS band оноонд шилжүүлж тооцно." + " Writing хэсгийг өөрөө үнэлнэ."}</p>
           <button class="btn big" id="mstart">Шалгалт эхлэх</button>
         </div>
         <div id="mz"></div>
@@ -274,7 +274,7 @@
       let left = s.min * 60;
       box.innerHTML = `<div class="card"><span class="badge">Writing Task 2 · ${s.min} мин · 250+ үг</span><h3>${esc(t.title)}</h3><p>${esc(t.prompt)}</p>
         <textarea class="input essay" id="messay" placeholder="Эссэгээ энд бичнэ үү..."></textarea>
-        <div class="row between"><span id="mwc" class="wc">0 үг</span><span class="timer" id="mwt"></span><button class="btn" id="mdone">Дуусгах</button></div><div id="maiw"></div></div>`;
+        <div class="row between"><span id="mwc" class="wc">0 үг</span><span class="timer" id="mwt"></span><button class="btn" id="mdone">Дуусгах</button></div></div>`;
       const ta = document.getElementById("messay");
       ta.oninput = () => (document.getElementById("mwc").textContent = (ta.value.trim().match(/\S+/g) || []).length + " үг");
       const tm = setInterval(() => {
@@ -287,11 +287,7 @@
         clearInterval(tm);
         const words = (ta.value.trim().match(/\S+/g) || []).length;
         Progress.update((p) => { p.writing = p.writing || {}; p.writing["mock-" + Date.now()] = ta.value; });
-        if (Remote.on && Remote.features.ai && words >= 40) {
-          const r = await A.aiWriting(document.getElementById("maiw"), t, ta.value, document.getElementById("mdone"));
-          if (r) scores.write = { band: r.overall };
-        }
-        if (!scores.write) {
+        {
           const self = parseFloat(prompt("Writing хэсгээ band шалгуураар өөрөө үнэлнэ үү (жишээ: 5.5):", words >= 250 ? "6" : "5")) || 5;
           scores.write = { band: Math.max(1, Math.min(9, Math.round(self * 2) / 2)) };
         }
@@ -384,163 +380,6 @@
     const qs = d.questions.map((q) => Object.assign(Quiz.Gen.grammar(q), { type: "Харилцан яриа" }));
     Quiz.run(document.getElementById("dq"), qs, { onFinish: (sc) => Progress.update((p) => { p.listening++; p.xp += sc * 3; A.bump(p, "listening"); }), onRetry: () => P.dialogues(id) });
   };
-
-  /* =====================================================================
-     Хиймэл оюун: эссэ үнэлгээ, ярианы үнэлгээ, AI багш
-     ===================================================================== */
-  const aiOff = () => !(Remote.on && Remote.features.ai);
-  const aiOffHtml = `<div class="card center empty"><div class="f-icon">🤖</div><h2>Хиймэл оюун тохируулаагүй байна</h2><p class="muted">Админ Vercel дээр <code>ANTHROPIC_API_KEY</code>-г нэмсний дараа AI багш, эссэ болон ярианы үнэлгээ ажиллана.</p></div>`;
-
-  A.aiWriting = async function (box, t, essay, btn) {
-    if (btn) { btn.disabled = true; btn.textContent = "⏳ Үнэлж байна..."; }
-    box.innerHTML = `<div class="card ai-wait">🤖 Хиймэл оюун таны эссэг IELTS шалгуураар үнэлж байна... (20–40 секунд)</div>`;
-    try {
-      const { result: r, words } = await Remote.call("POST", "ai/writing", { prompt: t.prompt, essay, task: t.task });
-      Progress.count("ai");
-      const row = (k, name) => `<tr><td>${name}</td><td><b>${r[k].band}</b></td><td>${esc(r[k].comment)}</td></tr>`;
-      box.innerHTML = `<div class="card ai-result">
-        <div class="ai-band"><span>Overall band</span><b>${r.overall}</b><small>${words} үг</small></div>
-        <p>${esc(r.summary)}</p>
-        <div class="table-wrap"><table class="table"><thead><tr><th>Шалгуур</th><th>Band</th><th>Тайлбар</th></tr></thead><tbody>
-          ${row("task", t.task === 1 ? "Task Achievement" : "Task Response")}${row("coherence", "Coherence & Cohesion")}${row("lexical", "Lexical Resource")}${row("grammar", "Grammatical Range & Accuracy")}
-        </tbody></table></div>
-        <div class="grid cards2"><div><h4>✅ Сайн тал</h4><ul>${r.strengths.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div><div><h4>📈 Сайжруулах</h4><ul>${r.improvements.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div></div>
-        ${r.corrections.length ? `<h4>✏️ Засвар</h4><div class="corr-list">${r.corrections.map((c) => `<div class="corr"><del>${esc(c.original)}</del><ins>${esc(c.corrected)}</ins><small>${esc(c.explanation)}</small></div>`).join("")}</div>` : ""}
-        <p class="muted small">Хиймэл оюуны үнэлгээ нь ойролцоо бөгөөд албан ёсны IELTS оноо биш.</p></div>`;
-      return r;
-    } catch (e) {
-      box.innerHTML = `<div class="card warn">⚠️ ${esc(e.message)}</div>`;
-      return null;
-    } finally { if (btn) { btn.disabled = false; btn.textContent = "🤖 AI үнэлгээ"; } }
-  };
-
-  const HSKK_Q = ["请介绍一下你自己。", "你周末一般做什么？", "你喜欢什么运动？为什么？", "请介绍一下你的家乡。", "你觉得学习汉语难吗？为什么？", "你最喜欢的季节是什么？", "请说说你最近读的一本书或看的一部电影。", "你认为网上购物有什么优点和缺点？", "如果有一个月的假期，你想做什么？", "你怎么看待人工智能对教育的影响？"];
-
-  P.tutor = function (tab) {
-    const lang = A.track();
-    tab = tab === "speak" ? "speak" : "chat";
-    view().innerHTML = `
-      ${H("🤖 AI багш", lang === "zh" ? "Хиймэл оюунтай хятадаар ярилцаж, алдаагаа засуулаарай" : "Хиймэл оюунтай англиар ярилцаж, IELTS Speaking-д бэлдээрэй")}
-      <div class="tabs"><a class="tab ${tab === "chat" ? "on" : ""}" href="#/tutor">💬 Ярилцах</a><a class="tab ${tab === "speak" ? "on" : ""}" href="#/tutor/speak">🎤 Ярианы үнэлгээ</a></div>
-      <div id="tz"></div>`;
-    const box = document.getElementById("tz");
-    if (!Remote.on) { A.needServer(); return; }
-    if (aiOff()) { box.innerHTML = aiOffHtml; return; }
-    if (tab === "speak") return speakEval(box, lang);
-    tutorChat(box, lang);
-  };
-
-  const tutorState = { zh: [], en: [] };
-  function tutorChat(box, lang) {
-    const lvl = lang === "zh" ? A.COURSES[A.pick.course].levelLabel(A.pick.level) : A.pick.level;
-    const topics = lang === "zh" ? ["自我介绍", "购物", "旅游", "饮食", "学校生活", "工作"] : ["Hometown", "Work & study", "Travel", "Technology", "Environment", "Free time"];
-    box.innerHTML = `
-      <div class="chat-shell tutor-shell">
-        <aside class="chat-side card">
-          <h3>Сэдэв</h3>
-          ${topics.map((t) => `<button class="croom" data-topic="${esc(t)}">${esc(t)}</button>`).join("")}
-          <p class="muted small">Түвшин: <b>${esc(lang === "zh" ? lvl : A.pick.level)}</b> (зүүн дээд хэсгээс сольж болно)</p>
-          <button class="btn ghost small full" id="treset">🧹 Шинээр эхлэх</button>
-        </aside>
-        <section class="chat-main card">
-          <div class="chat-head">🤖 ${lang === "zh" ? "汉语老师 · Хятад хэлний AI багш" : "English tutor · IELTS Speaking"}</div>
-          <div class="chat-msgs" id="tmsgs"></div>
-          <form class="chat-form" id="tf"><button type="button" class="ibtn" id="tmic" title="Яриад бичих">🎤</button><input class="input" id="tin" maxlength="1000" placeholder="${lang === "zh" ? "用中文写... (эсвэл монголоор асуу)" : "Write in English..."}" autocomplete="off"><button class="btn">Илгээх</button></form>
-        </section>
-      </div>`;
-    const msgs = document.getElementById("tmsgs");
-    let topic = "";
-    function render() {
-      const h = tutorState[lang];
-      msgs.innerHTML = h.length ? h.map((m) => m.role === "user"
-        ? `<div class="msg mine"><div class="bubble-msg"><div>${esc(m.content)}</div></div></div>`
-        : `<div class="msg"><span class="av av-letter" style="width:32px;height:32px">🤖</span><div class="bubble-msg ai-msg">
-            <div class="${lang}">${esc(m.content)}</div>${m.reading ? `<div class="s-read">${esc(m.reading)}</div>` : ""}
-            <details><summary>Орчуулга</summary>${esc(m.translation_mn || "")}</details>
-            ${m.correction ? `<div class="corr"><b>✏️ Засвар:</b> <ins>${esc(m.correction)}</ins><small>${esc(m.explanation_mn || "")}</small></div>` : ""}
-            <button class="icon-btn" data-say="${esc(m.content)}" data-lang="${lang}">🔊</button></div></div>`).join("")
-        : `<p class="muted center">${lang === "zh" ? "Сэдэв сонгох эсвэл «你好！» гэж бичээд яриагаа эхлээрэй." : "Сэдэв сонгох эсвэл «Hi!» гэж бичээд яриагаа эхлээрэй."}</p>`;
-      A.bindCommon(msgs);
-      msgs.scrollTop = msgs.scrollHeight;
-    }
-    async function send(text) {
-      tutorState[lang].push({ role: "user", content: text });
-      render();
-      msgs.insertAdjacentHTML("beforeend", `<div class="msg" id="typing"><div class="bubble-msg">🤖 ···</div></div>`);
-      msgs.scrollTop = msgs.scrollHeight;
-      try {
-        const { result } = await Remote.call("POST", "ai/tutor", { lang, level: lang === "zh" ? lvl : A.pick.level, topic, messages: tutorState[lang].map((m) => ({ role: m.role, content: m.content })) });
-        tutorState[lang].push(Object.assign({ role: "assistant", content: result.reply }, result));
-        Progress.count("ai");
-        Speech.speak(result.reply, lang);
-      } catch (e) { tutorState[lang].pop(); UI.toast(e.message, "warn"); }
-      render();
-    }
-    document.getElementById("tf").onsubmit = (e) => { e.preventDefault(); const i = document.getElementById("tin"); const v = i.value.trim(); if (v) { i.value = ""; send(v); } };
-    box.querySelectorAll("[data-topic]").forEach((b) => (b.onclick = () => { topic = b.dataset.topic; box.querySelectorAll("[data-topic]").forEach((x) => x.classList.toggle("on", x === b)); send(lang === "zh" ? `我们聊聊「${topic}」吧。` : `Let's talk about ${topic}.`); }));
-    document.getElementById("treset").onclick = () => { tutorState[lang] = []; render(); };
-    micInput(document.getElementById("tmic"), lang, (t) => { document.getElementById("tin").value = t; });
-    render();
-  }
-  function micInput(btn, lang, onText, continuous) {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { btn.disabled = true; btn.title = "Хөтөч яриа таних боломжгүй (Chrome/Edge ашиглана уу)"; return null; }
-    let r = null;
-    btn.onclick = () => {
-      if (r) { r.stop(); return; }
-      r = new SR();
-      r.lang = lang === "zh" ? "zh-CN" : "en-GB";
-      r.continuous = !!continuous; r.interimResults = true;
-      let finalText = "";
-      r.onresult = (e) => {
-        let interim = "";
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          if (e.results[i].isFinal) finalText += e.results[i][0].transcript + (lang === "zh" ? "" : " ");
-          else interim += e.results[i][0].transcript;
-        }
-        onText((finalText + interim).trim());
-      };
-      r.onerror = (e) => { if (e.error === "not-allowed") UI.toast("Микрофоны зөвшөөрөл өгнө үү.", "warn"); };
-      r.onend = () => { r = null; btn.classList.remove("on"); };
-      btn.classList.add("on");
-      r.start();
-    };
-    return true;
-  }
-  function speakEval(box, lang) {
-    const qs = lang === "zh" ? HSKK_Q : window.IELTS_PRACTICE.speaking.flatMap((s) => s.part1.concat([s.part2.cue], s.part3));
-    let qi = Math.floor(Math.random() * qs.length);
-    box.innerHTML = `<div class="card speak-eval">
-      <div class="row between"><span class="badge">${lang === "zh" ? "HSKK маягийн асуулт" : "IELTS Speaking"}</span><button class="btn ghost small" id="snq">🔀 Өөр асуулт</button></div>
-      <h3 class="${lang}" id="sq"></h3>
-      <div class="row"><button class="btn audio small" id="ssay">🔊 Асуултыг сонсох</button></div>
-      <p class="muted small">🎤 дээр дарж хариултаа чангаар хэлнэ үү (дахин дарж зогсооно). Бичвэрийг засаж болно. Дуудлагыг биш, агуулга, үг, дүрэм, чөлөөтэй байдлыг үнэлнэ.</p>
-      <div class="row"><button class="btn mic" id="smic">🎤 Ярих</button></div>
-      <textarea class="input" id="stx" rows="5" placeholder="Таны хариулт энд гарна..."></textarea>
-      <div class="row center"><button class="btn" id="seval">🤖 Үнэлүүлэх</button></div>
-      <div id="sres"></div></div>`;
-    const setQ = () => (document.getElementById("sq").textContent = qs[qi]);
-    setQ();
-    document.getElementById("snq").onclick = () => { qi = (qi + 1 + Math.floor(Math.random() * (qs.length - 1))) % qs.length; setQ(); document.getElementById("sres").innerHTML = ""; document.getElementById("stx").value = ""; };
-    document.getElementById("ssay").onclick = () => Speech.speak(qs[qi], lang);
-    const mb = document.getElementById("smic");
-    micInput(mb, lang, (t) => (document.getElementById("stx").value = t), true);
-    document.getElementById("seval").onclick = async () => {
-      const tx = document.getElementById("stx").value.trim();
-      const res = document.getElementById("sres");
-      if (!tx) return UI.toast("Эхлээд хариултаа хэлэх эсвэл бичнэ үү.", "warn");
-      res.innerHTML = `<div class="card ai-wait">🤖 Үнэлж байна...</div>`;
-      try {
-        const { result: r } = await Remote.call("POST", "ai/speaking", { lang, question: qs[qi], transcript: tx });
-        Progress.count("ai");
-        res.innerHTML = `<div class="ai-result"><div class="ai-band"><span>${lang === "zh" ? "Оноо" : "Ойролцоо band"}</span><b>${r.score}</b><small>${esc(r.scale)}</small></div>
-          <p>${esc(r.feedback)}</p>
-          <div class="grid cards2"><div><h4>✅ Сайн тал</h4><ul>${r.strengths.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div><div><h4>📈 Сайжруулах</h4><ul>${r.improvements.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div></div>
-          <h4>💡 Жишиг хариулт ${A.speakBtn(r.better_answer, lang)}</h4><p class="${lang} model-ans">${esc(r.better_answer)}</p></div>`;
-        A.bindCommon(res);
-      } catch (e) { res.innerHTML = `<div class="card warn">⚠️ ${esc(e.message)}</div>`; }
-    };
-  }
 
   /* =====================================================================
      Үгийн тулаан (duel)
