@@ -191,6 +191,7 @@
     view().innerHTML = `
       ${pageHead("Сайн уу, " + esc(u.name) + "! 👋", "Өнөөдөр юу сурах вэ?")}
       <div id="quest-mount"></div>
+      <div id="plan-mount"></div>
       <div class="dash-top">
         <div class="card hero-card">
           <div>
@@ -238,6 +239,7 @@
       ${testTable(p.tests.slice(-5).reverse())}`;
     bindCommon(view());
     if (A.questWidget) A.questWidget(document.getElementById("quest-mount"));
+    if (A.planWidget) A.planWidget(document.getElementById("plan-mount"));
     function stat(i, v, l) { return `<div class="stat card"><div class="s-icon">${i}</div><div class="s-val">${v}</div><div class="s-lbl">${l}</div></div>`; }
   };
 
@@ -414,7 +416,7 @@
     return `<div class="table-wrap"><table class="table words">
       <thead><tr><th></th><th>Үг</th><th>${words[0].lang === "zh" ? "Пиньинь" : "Аймаг"}</th><th>Утга</th><th class="hide-sm">${words[0].lang === "zh" ? "English" : "Жишээ"}</th><th></th></tr></thead>
       <tbody>${words.map((w) => `<tr>
-        <td class="nowrap">${speakBtn(w.term, w.lang)}${w.lang === "zh" ? strokeBtn(w) : ""}</td>
+        <td class="nowrap">${speakBtn(w.term, w.lang)}${w.lang === "zh" ? strokeBtn(w) : ""}${A.relBtn ? A.relBtn(w) : ""}</td>
         <td class="w-term ${w.lang}">${esc(w.term)}</td>
         <td class="w-read">${esc(w.reading)}</td>
         <td>${w.noMn ? `<span class="tag">EN</span> ` : ""}${esc(w.meaning)}</td>
@@ -637,7 +639,7 @@
         ? `<p class="muted">${list.length} үг олдлоо${list.length > shown.length ? " (эхний 120)" : ""}</p><div class="dict-list">${shown.map(({ w, tags }) => `
           <div class="card entry">
             <div class="e-head">
-              ${speakBtn(w.term, w.lang)}${w.lang === "zh" ? strokeBtn(w) : ""}
+              ${speakBtn(w.term, w.lang)}${w.lang === "zh" ? strokeBtn(w) : ""}${A.relBtn ? A.relBtn(w) : ""}
               <span class="e-term ${w.lang}">${esc(w.term)}</span>
               <span class="e-read">${esc(w.reading)}</span>
               <button class="icon-btn fav ${p.favorites.includes(w.id) ? "on" : ""}" data-fav="${esc(w.id)}" title="Хадгалах">★</button>
@@ -1715,8 +1717,10 @@
       ["Сурах", "📚", [
         ["flashcards", ["flashcards", "review"], "🃏", "Флаш карт", "Anki давталт — мартахаас өмнө сануулна"],
         ["vocab", ["vocab", "chinese", "english"], "📚", "Үгсийн сан", lang === "zh" ? "HSK түвшин бүрийн үгс" : "IELTS түвшин бүрийн үгс"],
+        ["topics", ["topics"], "🧳", "Мэргэжлийн үгс", "Аялал, бизнес, эмнэлэг, худалдаа, IT"],
         ["grammar", ["grammar"], "✏️", "Дүрэм", "Тайлбар, жишээ, шалгах асуулт"],
-        ["dictionary", ["dictionary"], "🔎", "Толь бичиг", "Бүх үгээс хайх"]
+        ["dictionary", ["dictionary"], "🔎", "Толь бичиг", "Бүх үгээс хайх"],
+        ["print", ["print"], "🖨️", "Хэвлэх", "Үгсээ хүснэгт, карт, PDF болгох"]
       ]],
       ["Дадлага", "🎯", [
         ["listening", ["listening"], "🎧", "Сонсох", "Үг, өгүүлбэр сонсож таних"],
@@ -1726,6 +1730,7 @@
         ["games", ["games"], "🎮", "Тоглоом", "Үг цээжлэх хөгжилтэй тоглоомууд"]
       ]],
       ["Шалгалт", "📝", [
+        ["plan", ["plan"], "📅", "Сурах төлөвлөгөө", "Шалгалт хүртэл өдөрт хэдэн үг"],
         ["tests", ["tests"], "📝", "Тест", "Түвшний тест, дүнгийн түүх"],
         ["mock", ["mock"], "🏁", "Жишиг шалгалт", lang === "zh" ? "Бүтэн HSK, цагтай" : "Бүтэн IELTS, цагтай"],
         ["quests", ["quests"], "🎯", "Даалгавар", "Өдрийн даалгавар, тэмдэг"],

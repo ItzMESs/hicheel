@@ -104,7 +104,7 @@
     const d = todayData(p);
     return [
       { id: "rev", icon: "🃏", t: `Флаш карт ${p.goal} давтах`, n: d.reviews || 0, goal: p.goal, xp: 20, href: "#/flashcards" },
-      { id: "words", icon: "📚", t: "5 шинэ үг цээжлэх", n: d.words || 0, goal: 5, xp: 15, href: "#/vocab" },
+      (() => { const g = (A.planDaily && A.planDaily(p)) || 5; return { id: "words", icon: "📚", t: `${g} шинэ үг цээжлэх${p.plan ? " (төлөвлөгөө)" : ""}`, n: d.words || 0, goal: g, xp: 15, href: "#/vocab" }; })(),
       { id: "listen", icon: "🎧", t: "1 сонсголын дасгал хийх", n: d.listening || 0, goal: 1, xp: 10, href: "#/listening" },
       { id: "game", icon: "🎮", t: "2 тоглоом тоглох", n: d.games || 0, goal: 2, xp: 10, href: "#/games" },
       { id: "test", icon: "📝", t: "1 тест өгөх", n: d.tests || 0, goal: 1, xp: 15, href: "#/tests" }
