@@ -86,6 +86,7 @@
         </li>`).join("");
       el.innerHTML = `
         <div class="result card">
+          <span class="tamga ${pct >= 60 ? "" : "re"}" aria-hidden="true">${pct >= 60 ? "ТЭНЦЛЭЭ" : "ДАХИН"}</span>
           <div class="result-score ${pct >= 60 ? "pass" : "fail"}">${pct}%</div>
           <h3>${score} / ${total} зөв</h3>
           <p>${pct >= 90 ? "Гайхалтай! 🎉" : pct >= 60 ? "Сайн байна! Тэнцлээ 👍" : "Дахин давтаад үзээрэй 💪"}</p>

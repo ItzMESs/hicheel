@@ -50,7 +50,7 @@
   P.forgot = function () {
     const can = Remote.on && Remote.features.email;
     view().innerHTML = `
-      <div class="auth card">
+      <div class="auth card mn-card"><div class="mn-side" aria-hidden="true"><span>ᠬᠢᠴᠢᠶᠡᠯ</span></div>
         <i class="hamar big" aria-hidden="true"></i>
         <h2>Нууц үг сэргээх</h2>
         ${can ? `<p class="muted center">Бүртгэлтэй имэйлээ оруулбал нууц үг солих холбоос илгээнэ.</p>
@@ -70,7 +70,7 @@
   };
   P.reset = function (token) {
     view().innerHTML = `
-      <div class="auth card">
+      <div class="auth card mn-card"><div class="mn-side" aria-hidden="true"><span>ᠬᠢᠴᠢᠶᠡᠯ</span></div>
         <i class="hamar big" aria-hidden="true"></i>
         <h2>Шинэ нууц үг</h2>
         <form id="rf">
@@ -311,7 +311,7 @@
           <div class="mock-secs"><div class="card"><b>Listening</b><span>${lb}</span></div><div class="card"><b>Reading</b><span>${rb}</span></div>${wb ? `<div class="card"><b>Writing</b><span>${wb}</span></div>` : ""}</div>`;
       }
       Progress.update((p) => { p.mocks = (p.mocks || []).concat([{ name, result, date: Date.now() }]); p.xp += 50; A.bump(p, "tests"); });
-      box.innerHTML = `<div class="result card"><h2>🏁 Шалгалт дууслаа</h2>${html}<p class="muted">+50 XP</p><div class="row center"><button class="btn" onclick="location.reload()">Дахин өгөх</button><a class="btn ghost" href="#/dashboard">Самбар</a></div></div>`;
+      box.innerHTML = `<div class="result card"><span class="tamga" aria-hidden="true">ДУУСЛАА</span><h2>🏁 Шалгалт дууслаа</h2>${html}<p class="muted">+50 XP</p><div class="row center"><button class="btn" onclick="location.reload()">Дахин өгөх</button><a class="btn ghost" href="#/dashboard">Самбар</a></div></div>`;
     }
     intro();
   }

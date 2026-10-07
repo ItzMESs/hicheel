@@ -105,9 +105,10 @@
   /* ---------- Нэвтрэх / Бүртгүүлэх ---------- */
   Pages.login = function () {
     view().innerHTML = `
-      <div class="auth card orn-c">
+      <div class="auth card orn-c mn-card"><div class="mn-side" aria-hidden="true"><span>ᠬᠢᠴᠢᠶᠡᠯ</span></div>
         <i class="hamar big" aria-hidden="true"></i>
         <h2>Нэвтрэх</h2>
+        <p class="muted center mn-motto">Эрдэм бол чандмань</p>
         <form id="f">
           <label>Имэйл<input class="input" name="email" type="email" required autocomplete="email" /></label>
           <label>Нууц үг<input class="input" name="password" type="password" required autocomplete="current-password" /></label>
@@ -134,7 +135,7 @@
 
   Pages.register = function () {
     view().innerHTML = `
-      <div class="auth card orn-c">
+      <div class="auth card orn-c mn-card"><div class="mn-side" aria-hidden="true"><span>ᠬᠢᠴᠢᠶᠡᠯ</span></div>
         <i class="hamar big" aria-hidden="true"></i>
         <h2>Бүртгүүлэх</h2>
         <form id="f">
