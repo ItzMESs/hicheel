@@ -1378,3 +1378,15 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
 .nm-item .av { flex: none; border-radius: 50%; }
 .nm-body { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .nm-req { display: flex; gap: 4px; align-items: center; flex: none; }
+.chat-promo { margin: 8px 12px 0; padding: 10px 12px; display: flex; align-items: center; gap: 10px; border: 1.5px solid #c9952a; border-left-width: 5px; background: var(--card); font-size: .9rem; }
+.chat-promo .cp-body { flex: 1; min-width: 0; line-height: 1.5; }
+.chat-promo .cp-body b { color: var(--primary); margin-right: 4px; }
+.chat-promo .btn { flex: none; }
+@media (max-width: 600px) { .chat-promo { flex-wrap: wrap; } .chat-promo .btn { width: 100%; } }
+/* Бараан горимд өөрийн мессеж уншигдахуйц */
+.msg.mine .bubble-msg { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.msg.mine .bubble-msg .mh span, .msg.mine .bubble-msg .msg-more { color: inherit; opacity: .7; }
+@media (max-width: 600px) {
+  .chat-welcome, .chat-pin, .chat-promo { font-size: .8rem; padding: 8px 10px; margin: 6px 8px 0; }
+  .chat-promo .cp-body { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+}

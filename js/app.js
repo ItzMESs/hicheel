@@ -952,8 +952,9 @@
     function drawBanner(pin) {
       const b = document.getElementById("cbanner");
       if (!b) return;
-      b.innerHTML = (WELCOME[room] ? `<div class="chat-welcome">${esc(WELCOME[room])}</div>` : "") +
+      b.innerHTML = (WELCOME[room] ? `<div class="chat-welcome">${esc(WELCOME[room])}</div>` : "") + `<div id="cpromo"></div>` +
         (pin ? `<div class="chat-pin"><span class="pin-ic">📌</span><div><b>${esc(pin.user.name)}</b> ${linkify(pin.text)}</div>${me && me.isAdmin ? `<button class="icon-btn" data-unpin="${esc(pin.id)}" title="Тогтоолтыг болиулах">✕</button>` : ""}</div>` : "");
+      if (!room.startsWith("dm:") && A.chatPromo) A.chatPromo(b.querySelector("#cpromo"));
       const up = b.querySelector("[data-unpin]");
       if (up) up.onclick = async () => { await A.Remote.call("POST", `chat/${up.dataset.unpin}/pin`, {}); drawBanner(null); };
     }

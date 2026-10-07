@@ -890,6 +890,10 @@ async function getBank() {
   const row = await db().setting.findUnique({ where: { key: "bank" } });
   return row ? JSON.parse(row.value) : { bank: "", account: "", holder: "", note: "" };
 }
+async function getPromo() {
+  const row = await db().setting.findUnique({ where: { key: "promo" } });
+  return row ? JSON.parse(row.value) : { on: true, text: "" };
+}
 const planOut = (p) => ({ id: p.id, name: p.name, description: p.description, price: p.price, months: p.months, langs: p.langs, active: p.active, sort: p.sort });
 const orderOut = (o) => ({ id: o.id, code: o.code, amount: o.amount, months: o.months, langs: o.langs, status: o.status, note: o.note, createdAt: o.createdAt, decidedAt: o.decidedAt, plan: o.plan ? { id: o.plan.id, name: o.plan.name } : null, user: o.user ? { ...publicUser(o.user), email: o.user.email } : undefined });
 async function grantPremium(userId, langs, months) {
@@ -903,7 +907,7 @@ async function grantPremium(userId, langs, months) {
 on("GET", "plans", async () => {
   if ((await db().plan.count()) === 0) await db().plan.createMany({ data: DEFAULT_PLANS });
   const plans = await db().plan.findMany({ where: { active: true }, orderBy: [{ sort: "asc" }, { price: "asc" }] });
-  return { plans: plans.map(planOut), bank: await getBank() };
+  return { plans: plans.map(planOut), bank: await getBank(), promo: await getPromo() };
 });
 on("GET", "orders", async (req) => {
   const me = await currentUser(req, true);
@@ -935,7 +939,7 @@ on("GET", "admin/plans", async (req) => {
   await adminUser(req);
   if ((await db().plan.count()) === 0) await db().plan.createMany({ data: DEFAULT_PLANS });
   const plans = await db().plan.findMany({ orderBy: [{ sort: "asc" }, { price: "asc" }] });
-  return { plans: plans.map(planOut), bank: await getBank() };
+  return { plans: plans.map(planOut), bank: await getBank(), promo: await getPromo() };
 });
 on("POST", "admin/plans", async (req, res, { body }) => {
   await adminUser(req);
@@ -948,6 +952,12 @@ on("POST", "admin/plans", async (req, res, { body }) => {
   if (!data.price) fail(400, "Үнэ оруулна уу.");
   const p = body.id ? await db().plan.update({ where: { id: str(body.id, 40) }, data }) : await db().plan.create({ data });
   return { plan: planOut(p) };
+});
+on("POST", "admin/promo", async (req, res, { body }) => {
+  await adminUser(req);
+  const promo = { on: body.on !== false, text: str(body.text, 500) };
+  await db().setting.upsert({ where: { key: "promo" }, create: { key: "promo", value: JSON.stringify(promo) }, update: { value: JSON.stringify(promo) } });
+  return { promo };
 });
 on("POST", "admin/bank", async (req, res, { body }) => {
   await adminUser(req);

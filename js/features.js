@@ -687,6 +687,20 @@
   }
   const ST = { pending: ["⏳ Шалгаж байна", ""], paid: ["✔ Идэвхжсэн", "pass"], rejected: ["✘ Татгалзсан", "fail"], cancelled: ["Цуцалсан", ""] };
 
+  // Чатын дээд хэсэгт багцын сурталчилгаа (багцгүй хэрэглэгчдэд)
+  let plansCache = null;
+  A.chatPromo = async function (el) {
+    if (!el) return;
+    const u = Auth.current() || {};
+    if (u.isAdmin || (A.hasAccess("zh") && A.hasAccess("en"))) return;
+    try { plansCache = plansCache || (await Remote.call("GET", "plans")); } catch (e) { return; }
+    const { plans, promo } = plansCache;
+    if (!promo || promo.on === false || !plans.length) return;
+    const best = plans.find((p) => p.langs === "all") || plans[0];
+    const auto = `💎 «${best.name}» багц ердөө ${money(best.price)} — ${best.description || "бүх түвшний хичээл нээгдэнэ"}. Данс руу шилжүүлээд гүйлгээний утга дээр кодоо бичихэд л болно. Баярлалаа!`;
+    el.innerHTML = `<div class="chat-promo"><span class="cp-ic">📌</span><div class="cp-body"><b>Хичээл</b> ${esc(promo.text || auto)}</div><a class="btn small" href="#/pricing">Багц авах →</a></div>`;
+  };
+
   P.pricing = async function () {
     if (A.needServer()) return;
     view().innerHTML = `${H("💎 Багц", "Бүх түвшний үг, дүрэм, тест, тоглоом, сонсгол, жишиг шалгалтыг нээгээрэй")}<div id="prc"><p class="muted">Ачаалж байна...</p></div>`;
@@ -764,7 +778,7 @@
   }
 
   async function adminPlans(ab) {
-    const { plans, bank } = await Remote.call("GET", "admin/plans");
+    const { plans, bank, promo } = await Remote.call("GET", "admin/plans");
     const form = (p) => `<form class="card plan-form" data-id="${p ? esc(p.id) : ""}">
       <div class="grid cards2">
         <label>Нэр<input class="input" name="name" value="${p ? esc(p.name) : ""}" required maxlength="80" placeholder="Хятад хэл · 1 сар"></label>
@@ -787,9 +801,20 @@
         </div>
         <button class="btn">Хадгалах</button>
       </form>
+      <h2 class="section-title">📢 Чатын сурталчилгаа</h2>
+      <form class="card" id="promof">
+        <label class="check"><input type="checkbox" name="on" ${promo.on !== false ? "checked" : ""}> Багцгүй хэрэглэгчдэд чатын дээд хэсэгт харуулах</label>
+        <label>Зарын текст (хоосон бол багцын мэдээллээс автоматаар бичнэ)<textarea class="input" name="text" rows="3" maxlength="500" placeholder="Жишээ: Алтан гишүүний нэг жилийн эрх энэ 7 хоногийг дуустал 70% хямдарч 69,900₮ боллоо! Та яараарай.">${esc(promo.text || "")}</textarea></label>
+        <button class="btn">Хадгалах</button>
+      </form>
       <h2 class="section-title">📦 Багцууд</h2>
       ${plans.map(form).join("")}
       <h3>Шинэ багц</h3>${form(null)}`;
+    ab.querySelector("#promof").onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try { await Remote.call("POST", "admin/promo", { on: fd.get("on") === "on", text: fd.get("text") }); plansCache = null; UI.toast("Сурталчилгаа хадгалагдлаа", "ok"); } catch (ex) { UI.toast(ex.message, "warn"); }
+    };
     ab.querySelector("#bankf").onsubmit = async (e) => {
       e.preventDefault();
       try { await Remote.call("POST", "admin/bank", Object.fromEntries(new FormData(e.target))); UI.toast("Данс хадгалагдлаа", "ok"); } catch (ex) { UI.toast(ex.message, "warn"); }
