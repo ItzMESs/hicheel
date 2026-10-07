@@ -1708,16 +1708,35 @@
   }
 
   // Дээд цэс: [зам, идэвхжих хэсэг, дүрс, нэр]
-  function navFor(lang) {
+  // Бүлэглэсэн цэс: [нэр, дүрс, [[зам, идэвхжих хэсэг, дүрс, нэр, тайлбар], ...]]
+  function navGroups(lang) {
+    const remote = A.Remote.on;
     return [
-      ["flashcards", ["flashcards", "review"], "🃏", "Флаш карт"],
-      ["vocab", ["vocab", "chinese", "english", "dictionary"], "📚", "Үгсийн сан"],
-      ["listening", ["listening"], "🎧", "Сонсох"],
-      ["reading", ["reading"], "📖", "Унших"],
-      [lang === "zh" ? "writing" : "ielts/writing", ["writing", "ielts"], "✍️", lang === "zh" ? "Бичих" : "Бичих · Ярих"],
-      ["grammar", ["grammar"], "✏️", "Дүрэм"],
-      ["games", ["games"], "🎮", "Тоглоом"],
-      ["tests", ["tests", "mock"], "📝", "Тест"]
+      ["Сурах", "📚", [
+        ["flashcards", ["flashcards", "review"], "🃏", "Флаш карт", "Anki давталт — мартахаас өмнө сануулна"],
+        ["vocab", ["vocab", "chinese", "english"], "📚", "Үгсийн сан", lang === "zh" ? "HSK түвшин бүрийн үгс" : "IELTS түвшин бүрийн үгс"],
+        ["grammar", ["grammar"], "✏️", "Дүрэм", "Тайлбар, жишээ, шалгах асуулт"],
+        ["dictionary", ["dictionary"], "🔎", "Толь бичиг", "Бүх үгээс хайх"]
+      ]],
+      ["Дадлага", "🎯", [
+        ["listening", ["listening"], "🎧", "Сонсох", "Үг, өгүүлбэр сонсож таних"],
+        ["dialogues", ["dialogues"], "🗣️", "Харилцан яриа", "Бодит нөхцөлийн яриа сонсох"],
+        ["reading", ["reading"], "📖", "Унших", "Эх уншиж асуултад хариулах"],
+        [lang === "zh" ? "writing" : "ielts/writing", ["writing", "ielts"], "✍️", lang === "zh" ? "Бичих" : "Бичих · Ярих", lang === "zh" ? "Ханз зурах, пиньинь бичих" : "IELTS Writing, Speaking"],
+        ["games", ["games"], "🎮", "Тоглоом", "Үг цээжлэх хөгжилтэй тоглоомууд"]
+      ]],
+      ["Шалгалт", "📝", [
+        ["tests", ["tests"], "📝", "Тест", "Түвшний тест, дүнгийн түүх"],
+        ["mock", ["mock"], "🏁", "Жишиг шалгалт", lang === "zh" ? "Бүтэн HSK, цагтай" : "Бүтэн IELTS, цагтай"],
+        ["quests", ["quests"], "🎯", "Даалгавар", "Өдрийн даалгавар, тэмдэг"],
+        ...(remote ? [["duels", ["duels"], "⚔️", "Үгийн тулаан", "Найзтайгаа өрсөлдөх"]] : [])
+      ]],
+      ...(remote ? [["Нийгэм", "👥", [
+        ["social", ["social"], "📰", "Сошиал", "Пост, сторй"],
+        ["chat", ["chat"], "💬", "Чат", "Нийтийн болон хувийн чат"],
+        ["friends", ["friends", "u"], "👥", "Найзууд", "Найзын хүсэлт, хайлт"],
+        ["leaderboard", ["leaderboard"], "🏆", "Тэргүүлэгчид", "XP-ээр эрэмбэлсэн жагсаалт"]
+      ]]] : [["Бусад", "🏆", [["leaderboard", ["leaderboard"], "🏆", "Тэргүүлэгчид", "XP-ээр эрэмбэлсэн жагсаалт"]]]])
     ];
   }
   const THEME_ICON = { system: "🖥️", light: "☀️", dark: "🌙" };
@@ -1733,8 +1752,42 @@
       m.querySelector(".lg-l").src = `img/logo-${lang}.png`;
       m.querySelector(".lg-d").src = `img/logo-${lang}-dark.png`;
     });
-    document.getElementById("top-nav").innerHTML = u ? navFor(lang).map(([h, keys, i, t], k) =>
-      `<a href="#/${h}" class="${keys.includes(cur) ? "on" : ""} ${k === 0 ? "primary" : ""}"><span class="ni">${i}</span><span>${t}</span>${h === "flashcards" && due ? `<span class="nbadge">${due}</span>` : ""}</a>`).join("") : "";
+    const groups = u ? navGroups(lang) : [];
+    const cnt = (h) => (h === "flashcards" ? due : h === "friends" ? badges.incoming : 0);
+    const item = ([h, keys, i, t, d]) => `<a href="#/${h}" class="nd-item ${keys.includes(cur) ? "on" : ""}"><span class="nd-ic">${i}</span><span class="nd-tx"><b>${t}</b><small>${d}</small></span>${cnt(h) ? `<span class="nbadge">${cnt(h)}</span>` : ""}</a>`;
+    const topNav = document.getElementById("top-nav");
+    topNav.classList.toggle("grouped", !!u);
+    topNav.innerHTML = u ? `<a href="#/dashboard" class="ng-home ${cur === "dashboard" ? "on" : ""}">🏠 Нүүр</a>` + groups.map(([t, ic, items], gi) => {
+      const on = items.some((x) => x[1].includes(cur));
+      const n = items.reduce((k, x) => k + cnt(x[0]), 0);
+      return `<div class="ng ${on ? "on" : ""}"><button class="ng-btn" data-g="${gi}" aria-haspopup="true"><span>${ic}</span> ${t}${n ? `<span class="nbadge">${n}</span>` : ""} <i class="caret">▾</i></button>
+        <div class="ndrop">${items.map(item).join("")}</div></div>`;
+    }).join("") : "";
+    topNav.querySelectorAll(".ng-btn").forEach((b) => (b.onclick = (e) => {
+      e.stopPropagation();
+      const g = b.parentNode, open = !g.classList.contains("open");
+      topNav.querySelectorAll(".ng.open").forEach((x) => x.classList.remove("open"));
+      g.classList.toggle("open", open);
+    }));
+    // Утасны доод таб цэс
+    let tb = document.getElementById("tabbar");
+    if (!tb) { tb = document.createElement("nav"); tb.id = "tabbar"; tb.className = "tabbar"; document.body.appendChild(tb); }
+    tb.hidden = !u;
+    if (u) {
+      const learnHref = due ? "#/review" : "#/vocab";
+      tb.innerHTML = `
+        <div class="tb-sheet" id="tbsheet" hidden>${groups.map(([t, ic, items]) => `<h6>${ic} ${t}</h6><div class="tb-grid">${items.map(([h, keys, i, tt]) => `<a href="#/${h}" class="${keys.includes(cur) ? "on" : ""}"><span>${i}</span>${tt}${cnt(h) ? `<i class="nbadge">${cnt(h)}</i>` : ""}</a>`).join("")}</div>`).join("")}
+          <h6>👤 Би</h6><div class="tb-grid"><a href="#/profile"><span>👤</span>Профайл</a>${A.Remote.on ? `<a href="#/pricing"><span>💎</span>Багц</a>` : ""}<a href="#/${lang === "zh" ? "chinese" : "english"}"><span>🎓</span>Түвшнүүд</a></div></div>
+        <div class="tb-row">
+          <a href="#/dashboard" class="${cur === "dashboard" ? "on" : ""}"><span>🏠</span>Нүүр</a>
+          <a href="#/flashcards" class="${["flashcards", "review"].includes(cur) ? "on" : ""}"><span>🃏</span>Карт${due ? `<i class="nbadge">${due}</i>` : ""}</a>
+          <a href="${learnHref}" class="tb-mid"><span>▶</span>Сурах</a>
+          <a href="#/games" class="${cur === "games" ? "on" : ""}"><span>🎮</span>Тоглоом</a>
+          <button id="tball"><span>☰</span>Бүгд</button>
+        </div>`;
+      const sh = document.getElementById("tbsheet"), all = document.getElementById("tball");
+      all.onclick = (e) => { e.stopPropagation(); sh.hidden = !sh.hidden; all.classList.toggle("on", !sh.hidden); all.innerHTML = sh.hidden ? "<span>☰</span>Бүгд" : "<span>✕</span>Хаах"; };
+    }
     const pr = u ? Progress.get() : null;
     document.getElementById("top-actions").innerHTML = (u
       ? `<div class="track-sw" role="group" aria-label="Хэл сонгох">
@@ -1742,12 +1795,7 @@
           <button data-t="en" class="${lang === "en" ? "on" : ""}" title="Англи хэл">${FLAG.en}<span class="tw">Англи</span></button>
         </div>
         <div class="icon-bar">
-          <a class="ibtn" href="#/leaderboard" title="Тэргүүлэгчид">🏆</a>
-          ${A.Remote.on ? `<a class="ibtn" href="#/social" title="Сошиал">📰</a>
-          <a class="ibtn" href="#/chat" title="Чат">💬</a>
-          <a class="ibtn" href="#/duels" title="Үгийн тулаан">⚔️</a>
-          <a class="ibtn" href="#/friends" title="Найзууд">👥<span class="ibadge" id="fbadge" ${badges.incoming ? "" : "hidden"}>${badges.incoming}</span></a>
-          <div class="nwrap"><button class="ibtn" id="nbell" title="Мэдэгдэл">🔔<span class="ibadge" id="nbadge" ${badges.unread ? "" : "hidden"}>${badges.unread}</span></button><div class="nmenu card" id="nmenu" hidden></div></div>` : ""}
+          ${A.Remote.on ? `<span id="fbadge" hidden></span><div class="nwrap"><button class="ibtn" id="nbell" title="Мэдэгдэл">🔔<span class="ibadge" id="nbadge" ${badges.unread ? "" : "hidden"}>${badges.unread}</span></button><div class="nmenu card" id="nmenu" hidden></div></div>` : ""}
           <button class="ibtn" id="theme" title="Өнгөний горим">${THEME_ICON[A.Theme.get()]}</button>
         </div>
         <div class="pwrap">
@@ -1808,6 +1856,9 @@
 
   window.addEventListener("hashchange", route);
   document.addEventListener("click", (e) => {
+    document.querySelectorAll(".ng.open").forEach((g) => { if (!g.contains(e.target)) g.classList.remove("open"); });
+    const sh = document.getElementById("tbsheet");
+    if (sh && !sh.hidden && !e.target.closest("#tabbar")) { const b = document.getElementById("tball"); if (b) b.click(); }
     const m = document.getElementById("pmenu");
     if (m && !m.hidden && !e.target.closest(".pwrap")) m.hidden = true;
     const n = document.getElementById("nmenu");
