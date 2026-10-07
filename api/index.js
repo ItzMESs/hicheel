@@ -594,7 +594,15 @@ async function sendMail(to, subject, html) {
     headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
     body: JSON.stringify({ from: process.env.MAIL_FROM || "Хичээл <onboarding@resend.dev>", to: [to], subject, html })
   });
-  if (!r.ok) { console.error("resend", r.status, await r.text().catch(() => "")); fail(502, "Имэйл илгээж чадсангүй."); }
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    console.error("resend", r.status, txt);
+    // Resend-ийн алдааг ойлгомжтой болгох
+    if (/own email address|verify a domain|domain is not verified/i.test(txt)) fail(502, "Имэйл илгээж чадсангүй: Resend туршилтын горимд зөвхөн Resend бүртгэлийн имэйл рүү илгээх боломжтой. Бүх хэрэглэгчид илгээхийн тулд Resend дээр домэйн баталгаажуулж, MAIL_FROM-оо тохируулна уу.");
+    if (r.status === 401 || (r.status === 403 && /api key/i.test(txt))) fail(502, "Имэйл илгээж чадсангүй: RESEND_API_KEY буруу эсвэл хүчингүй болсон байна.");
+    if (r.status === 422 && /from/i.test(txt)) fail(502, "Имэйл илгээж чадсангүй: MAIL_FROM хаяг буруу эсвэл баталгаажаагүй домэйн байна.");
+    fail(502, "Имэйл илгээж чадсангүй.");
+  }
 }
 on("POST", "auth/forgot", async (req, res, { body }) => {
   const email = str(body.email, 120).toLowerCase();
