@@ -1390,3 +1390,7 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
   .chat-welcome, .chat-pin, .chat-promo { font-size: .8rem; padding: 8px 10px; margin: 6px 8px 0; }
   .chat-promo .cp-body { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 }
+/* Шинэ лого: хээтэй дугуй доторх өлзий */
+.logo-pic { width: 48px; height: 48px; }
+.logo-pic img { object-fit: contain; }
+.boot-logo { width: 96px; height: 96px; object-fit: contain; }

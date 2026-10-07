@@ -1,5 +1,5 @@
 /* Хичээл — service worker: офлайн кэш ба push мэдэгдэл */
-const CACHE = "hicheel-v28";
+const CACHE = "hicheel-v30";
 const CORE = ["/", "/index.html", "/css/style.css?v=25", "/manifest.json", "/img/logo-zh.png", "/img/logo-zh-dark.png"];
 
 self.addEventListener("install", (e) => {
@@ -31,8 +31,8 @@ self.addEventListener("push", (e) => {
   try { d = e.data ? e.data.json() : {}; } catch (x) { d = { body: e.data && e.data.text() }; }
   e.waitUntil(self.registration.showNotification(d.title || "Хичээл", {
     body: d.body || "",
-    icon: "/img/logo-zh.png",
-    badge: "/img/logo-zh.png",
+    icon: "/img/icon-192.png",
+    badge: "/img/icon-64.png",
     tag: d.tag || undefined,
     data: { link: d.link || "#/notifications" }
   }));
