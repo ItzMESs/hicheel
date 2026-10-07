@@ -399,6 +399,15 @@
     Quiz.run(document.getElementById(id), qs, { onRetry: retry, onFinish: (sc) => Progress.update((p) => { p.xp += sc * xp; p.reading = (p.reading || 0) + 1; A.bump(p, "reading"); }) });
   }
 
+  // Эрхтэй хэрэглэгчид өгөгдөл ачаалагдаагүй бол дахин оролдох
+  function notLoaded(back, again) {
+    view().innerHTML = `<a class="back" href="${back}">← Буцах</a><div class="card center empty"><div class="f-icon">⏳</div><h2>Хичээл ачаалагдсангүй</h2><p class="muted">Интернэт холболтоо шалгаад дахин оролдоно уу.</p><button class="btn" id="reload-c">↻ Дахин ачаалах</button></div>`;
+    document.getElementById("reload-c").onclick = async () => {
+      A.contentLoaded.zh = false; A.contentLoaded.en = false;
+      await A.loadContent(); again();
+    };
+  }
+
   /* ---------- Өгүүллэг ---------- */
   const storyOpen = (s) => A.hasAccess(s.tier ? "zh" : "en") || s.tier === 1 || s.level === "A1";
   P.stories = function (id) {
@@ -413,7 +422,8 @@
           <a class="card level-card story-card" href="#/stories/${esc(x.id)}"><span class="badge">${storyOpen(x) ? "" : "🔒 "}${esc(g)}</span><h3 class="${lang}">${esc(x.title)}</h3><p class="muted">${esc(x.title_mn)}</p></a>`).join("")}</div>`).join("") : `<p class="muted">Өгүүллэг удахгүй нэмэгдэнэ.</p>`}`;
       return;
     }
-    if (!storyOpen(s) || !s.tokens) { view().innerHTML = `<a class="back" href="#/stories">← Бүх өгүүллэг</a>` + A.paywall("Энэ өгүүллэг багцад багтана."); return; }
+    if (!storyOpen(s)) { view().innerHTML = `<a class="back" href="#/stories">← Бүх өгүүллэг</a>` + A.paywall("Энэ өгүүллэг багцад багтана."); return; }
+    if (!s.tokens) return notLoaded("#/stories", () => P.stories(id));
     view().innerHTML = `<a class="back" href="#/stories">← Бүх өгүүллэг</a>
       ${H(`<span class="${lang}">${esc(s.title)}</span>`, `${esc(s.title_mn)} · ${lang === "zh" ? ZH_TIER_LBL[s.tier] : s.level}`)}
       <article class="card passage story-read" id="rd"></article>
@@ -435,7 +445,8 @@
       return;
     }
     const L = c[lang];
-    if (!open || !L || !L.tokens) { view().innerHTML = `<a class="back" href="#/culture">← Монгол соёл</a>` + A.paywall(`«${c.title_mn}» хичээл багцад багтана.`); return; }
+    if (!open) { view().innerHTML = `<a class="back" href="#/culture">← Монгол соёл</a>` + A.paywall(`«${c.title_mn}» хичээл багцад багтана.`); return; }
+    if (!L || !L.tokens) return notLoaded("#/culture", () => P.culture(id));
     view().innerHTML = `<a class="back" href="#/culture">← Монгол соёл</a>
       ${H(`${c.icon} ${esc(c.title_mn)} · <span class="${lang}">${esc(L.title)}</span>`, esc(c.desc_mn || ""))}
       <article class="card passage" id="rd"></article>

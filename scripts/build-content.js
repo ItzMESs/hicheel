@@ -90,6 +90,9 @@ W.CULTURE = W.CULTURE.map((c) => {
   return { id: c.id, icon: c.icon, title_mn: c.title_mn, desc_mn: c.desc_mn, zh: { title: c.zh && c.zh.title }, en: { title: c.en && c.en.title } };
 });
 
+// Хамгаалагдсан өгөгдлийн хувилбар: агуулга өөрчлөгдөхөд хөтөч хуучин кэшээ ашиглахгүй
+counts.version = require("crypto").createHash("sha1").update(JSON.stringify(priv)).digest("hex").slice(0, 10);
+
 const js = (k, v) => `window.${k} = ${JSON.stringify(v)};\n`;
 const pub = "/* АВТОМАТААР ҮҮСГЭСЭН (scripts/build-content.js) — гараар бүү засаарай. Эх: data-src/ */\n" +
   ["HSK2", "HSK3", "ZH_EXTRA", "ZH_READING", "IELTS", "IELTS_PRACTICE", "DIALOGUES", "TOPICS", "WORD_REL", "STORIES", "CULTURE"].map((k) => js(k, W[k])).join("") + js("CONTENT_COUNTS", counts);

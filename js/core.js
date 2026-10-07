@@ -443,7 +443,8 @@
     if (!Remote.on || !Auth.current()) return;
     for (const lang of ["zh", "en"]) {
       if (contentLoaded[lang] || !hasAccess(lang)) continue;
-      try { applyContent(lang, await Remote.call("GET", "content/" + lang)); } catch (e) { console.warn("content", lang, e.message); }
+      const ver = (window.CONTENT_COUNTS && window.CONTENT_COUNTS.version) || Date.now();
+      try { applyContent(lang, await Remote.call("GET", "content/" + lang + "?v=" + ver)); } catch (e) { console.warn("content", lang, e.message); }
     }
   }
   function fullLevel(courseId, level) {
