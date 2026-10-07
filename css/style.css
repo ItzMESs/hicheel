@@ -692,3 +692,194 @@ h3.mt { margin-top: 18px; }
 .chat-form .ibtn { flex: none; margin: 0; }
 .nm-head span { display: flex; gap: 2px; }
 .nm-ask { margin: 2px 0 8px; }
+
+/* =====================================================================
+   МОНГОЛ ЗАГВАР — хар, цагаан, өлзий ба алхан хээ (сүүлд ачаалагдаж бусдыг дарна)
+   ===================================================================== */
+:root, :root[data-track="en"] {
+  --bg: #ffffff; --card: #ffffff; --card-2: #f6f6f4; --ink: #0a0a0a; --muted: #6b6b6b; --line: #e4e4e0;
+  --primary: #c51811; --primary-2: #c51811; --soft: #f7eceb; --accent: #0a0a0a;
+  --zh: #c51811; --en: #0a0a0a; --ok: #1d7a46; --bad: #c51811; --warn: #a86400;
+  --radius: 0px; --shadow: none; --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.12);
+  --hee: url("../img/alhan.svg"); --ulzii: url("../img/ulzii.svg");
+  --display: "Unbounded", "Manrope", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #000; --card: #0b0b0b; --card-2: #141414; --ink: #f4f4f2; --muted: #9a9a96; --line: #262626; --soft: #2a0d0b; --en: #f4f4f2; --accent: #f4f4f2; --hee: url("../img/alhan-w.svg"); }
+}
+:root[data-theme="dark"] { --bg: #000; --card: #0b0b0b; --card-2: #141414; --ink: #f4f4f2; --muted: #9a9a96; --line: #262626; --soft: #2a0d0b; --en: #f4f4f2; --accent: #f4f4f2; --hee: url("../img/alhan-w.svg"); }
+
+body { background: var(--bg); }
+h1, h2, h3, .page-head h1, .section-title, .logo-txt, .hero h1 { font-family: var(--display); letter-spacing: -0.01em; }
+h1, .page-head h1 { font-weight: 800; text-transform: uppercase; }
+h2, .section-title { font-weight: 600; }
+h3 { font-weight: 600; font-size: 1.02rem; }
+.card, .table-wrap, .opt, .tile, .chip, .input, .seg, .tabs, .track-sw, .ss, .flashcard .face, .modal-box, .pmenu, .nmenu, .bubble-msg, .cmt-b, .hz-tile, .quick-grid a, .lv-pick button, .side-src button, .icon-btn, .ibtn, .react, .r-text.small, .note, .badge, .pill, .tag, .stroke-cell, .goal-ring span, .post-img, .chat-img, .img-prev img { border-radius: 0 !important; }
+.card { border: 1px solid var(--line); box-shadow: none; }
+.card:hover { box-shadow: none; }
+
+/* Өлзий тэмдэг (mask — өнгө нь currentColor) */
+.ulzii, .page-head h1::before, .page-head h1::after, .section-title::before, .orn::before, .orn::after {
+  content: ""; display: inline-block; width: 0.9em; height: 0.9em; background: currentColor;
+  -webkit-mask: var(--ulzii) center / contain no-repeat; mask: var(--ulzii) center / contain no-repeat; vertical-align: -0.08em;
+}
+.page-head h1 { display: inline-flex; align-items: center; gap: 0.5em; font-size: clamp(1.25rem, 2.6vw, 1.75rem); }
+.page-head h1::before, .page-head h1::after { color: var(--primary); width: 0.75em; height: 0.75em; }
+.section-title { display: flex; align-items: center; gap: 0.5em; }
+.section-title::before { color: var(--primary); width: 0.8em; height: 0.8em; }
+
+/* Алхан хээний зурвас */
+.hee { height: 12px; background: var(--hee) repeat-x left center / 24px 12px; opacity: 0.9; }
+
+/* Дээд мөр */
+.topbar { background: var(--bg); backdrop-filter: none; border-bottom: 0; }
+.topbar::after { content: ""; display: block; height: 12px; background: var(--hee) repeat-x left center / 24px 12px; border-top: 1px solid var(--ink); }
+.logo-mark { border-radius: 0; background: var(--ink); color: var(--bg); width: 40px; height: 40px; font-size: 1.15rem; }
+.logo-txt { text-transform: uppercase; font-weight: 800; font-size: 1rem; letter-spacing: 0.04em; }
+.logo-txt small { font-family: "Manrope", sans-serif; text-transform: none; letter-spacing: 0; }
+.top-nav a { font-family: var(--display); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.04em; font-weight: 600; border-radius: 0; color: var(--muted); padding: 10px 11px; }
+.top-nav a:hover { background: none; color: var(--ink); }
+.top-nav a.on { background: none; box-shadow: inset 0 -3px 0 var(--ink); color: var(--ink); }
+.top-nav a.primary { background: var(--ink); color: var(--bg); }
+.top-nav a.primary.on { background: var(--primary); color: #fff; box-shadow: none; }
+.top-nav .ni { border-radius: 0; }
+.nbadge, .ibadge { border-radius: 0; background: var(--primary); }
+.track-sw { padding: 0; gap: 0; border: 1.5px solid var(--ink); }
+.track-sw button { border-radius: 0; font-family: var(--display); font-size: 0.68rem; text-transform: uppercase; padding: 7px 10px; }
+.track-sw button.on { background: var(--ink); color: var(--bg); }
+.flag { border-radius: 0; }
+.flag.en { background: var(--ink); color: var(--bg); }
+.ibtn { border: 1.5px solid var(--ink); background: var(--bg); width: 38px; height: 38px; }
+.ibtn:hover { background: var(--ink); color: var(--bg); }
+.avatar-btn { border: 1.5px solid var(--ink); border-radius: 0; }
+.avatar-btn .av, .pm-head .av { border-radius: 0; }
+.av { border-radius: 0; }
+.av-letter { background: var(--ink); color: var(--bg); }
+
+/* Товчнууд */
+.btn {
+  border-radius: 0; background: var(--ink); color: var(--bg); box-shadow: none; border: 1.5px solid var(--ink);
+  font-family: var(--display); text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.06em; font-weight: 600; padding: 11px 18px;
+}
+.btn:hover { box-shadow: none; background: var(--primary); border-color: var(--primary); color: #fff; text-decoration: none; }
+.btn.big { font-size: 0.8rem; padding: 15px 26px; }
+.btn.small { font-size: 0.64rem; padding: 7px 12px; }
+.btn.ghost, .btn.audio, .btn.light { background: var(--bg); color: var(--ink); border: 1.5px solid var(--ink); }
+.btn.ghost:hover, .btn.audio:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn.mic { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn.danger { background: var(--primary); border-color: var(--primary); }
+.btn.success { background: var(--ok); border-color: var(--ok); }
+:root[data-track="en"] .btn { box-shadow: none; }
+.icon-btn:hover { background: var(--card-2); }
+.icon-btn.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+[data-fav].on { background: var(--primary); color: #fff; border-color: var(--primary); }
+.input { border-radius: 0; background: var(--bg); border: 1.5px solid var(--line); }
+.input:focus { outline: 0; border-color: var(--ink); }
+
+/* Таб, сегмент */
+.tabs { background: none; border: 0; border-bottom: 1.5px solid var(--ink); padding: 0; gap: 0; width: 100%; }
+.tab { border-radius: 0; font-family: var(--display); text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em; padding: 11px 16px; }
+.tab.on { background: var(--ink); color: var(--bg); }
+.seg { border: 1.5px solid var(--ink); }
+.seg button, .seg a { font-family: var(--display); text-transform: uppercase; font-size: 0.66rem; letter-spacing: 0.04em; }
+.seg button.on, .seg a.on { background: var(--ink); color: var(--bg); }
+.pk-tabs { border-bottom: 1.5px solid var(--ink); }
+.pk-tabs button { font-family: var(--display); font-size: 0.64rem; }
+.pk-tabs button.on { background: var(--ink); color: var(--bg); border-bottom-color: var(--ink); }
+.lv-pick button { border-left-width: 3px; }
+.lv-pick button b { font-family: var(--display); font-weight: 600; font-size: 0.85rem; }
+.lv-pick button.on { border-left-color: var(--primary); background: var(--card-2); box-shadow: none; }
+.lv-pick button.on b { color: var(--ink); }
+.lv-pick button.on::after { content: ""; margin-left: auto; width: 14px; height: 14px; background: var(--primary); -webkit-mask: var(--ulzii) center / contain no-repeat; mask: var(--ulzii) center / contain no-repeat; }
+.side-src button { border: 1.5px solid var(--line); }
+.side-src button.on { border-color: var(--ink); background: var(--ink); color: var(--bg); box-shadow: none; }
+
+/* Нүүр хуудас */
+.hero h1 { text-transform: uppercase; font-size: clamp(1.8rem, 4.4vw, 3.2rem); line-height: 1.12; }
+.grad { background: none; -webkit-background-clip: initial; background-clip: initial; color: var(--primary); }
+.bubble { border-radius: 0; box-shadow: none; font-family: var(--display); }
+.bubble.zh { background: var(--primary); }
+.bubble.en { background: var(--ink); color: var(--bg); }
+.bubble.mn { background: var(--bg); color: var(--ink); border: 2px solid var(--ink); }
+.hero-art::before { content: ""; position: absolute; inset: 20px 30px; background: var(--ink); opacity: 0.06; -webkit-mask: var(--ulzii) center / contain no-repeat; mask: var(--ulzii) center / contain no-repeat; }
+.feature:hover, .level-card:hover, .mode:hover { transform: none; box-shadow: none; border-color: var(--ink); }
+.f-icon { border-radius: 0; background: var(--card-2); border: 1.5px solid var(--ink); }
+
+/* Самбар */
+.hero-card {
+  background: var(--ink); color: var(--bg); position: relative; overflow: hidden;
+}
+.hero-card::after { content: ""; position: absolute; right: -40px; bottom: -40px; width: 240px; height: 240px; background: var(--bg); opacity: 0.07; -webkit-mask: var(--ulzii) center / contain no-repeat; mask: var(--ulzii) center / contain no-repeat; pointer-events: none; }
+.hero-card > * { position: relative; z-index: 1; }
+.hero-card .btn.light { background: var(--primary); color: #fff; border-color: var(--primary); }
+.goal-ring.light { --ring: var(--primary); --track: rgba(255, 255, 255, 0.18); }
+.goal-ring.light span { color: var(--bg); }
+.goal-ring.light small { color: var(--muted); }
+.s-icon { border-radius: 0; background: var(--card-2); }
+.stat { border-top: 3px solid var(--ink); }
+.bar i, .bar i.met { border-radius: 0; background: var(--ink); }
+.bar i:not(.met) { background: var(--line); }
+.mini-bar, .mini-bar i, .progressbar, .progressbar div { border-radius: 0; }
+.mini-bar i, .progressbar div { background: var(--primary); }
+.eyebrow { font-family: var(--display); }
+
+/* Түвшний карт */
+.lv-badge { border-radius: 0; font-family: var(--display); }
+.lv-badge.zh { background: var(--primary); }
+.lv-badge.en { background: var(--ink); color: var(--bg); }
+
+/* Асуулт, карт */
+.opt { border-width: 1.5px; font-weight: 500; }
+.opt:hover:not(:disabled) { background: var(--card-2); border-color: var(--ink); }
+.opt.correct { border-color: var(--ok); background: rgba(29, 122, 70, 0.1); }
+.opt.wrong { border-color: var(--bad); background: rgba(197, 24, 17, 0.08); }
+.q-term, .srs-front:not(.zh), .fc-term:not(.zh), .wotd-term:not(.zh) { font-family: var(--display); }
+.flashcard .back { background: var(--ink); color: var(--bg); }
+.srs-card { border: 1.5px solid var(--ink); }
+.srs-card::before { content: ""; position: absolute; left: 16px; top: 16px; width: 20px; height: 20px; background: var(--primary); -webkit-mask: var(--ulzii) center / contain no-repeat; mask: var(--ulzii) center / contain no-repeat; }
+.rate { border-radius: 0; font-family: var(--display); font-size: 0.78rem; }
+.rate.again { background: #c51811; }
+.rate.hard { background: #6b6b6b; }
+.rate.good { background: #0a0a0a; }
+.rate.easy { background: #1d7a46; }
+:root[data-theme="dark"] .rate.good { background: #f4f4f2; color: #000; }
+.result-score { font-family: var(--display); }
+.timer { border-radius: 0; font-family: var(--display); }
+.goal-ring::before { -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px)); mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px)); }
+.goal-ring:not(.light) { --ring: var(--primary); }
+
+/* Профайл, сошиал, чат */
+.profile-hero { background: var(--card); border: 1.5px solid var(--ink); position: relative; }
+.profile-hero::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 12px; background: var(--hee) repeat-x left center / 24px 12px; }
+.ph-avatar .av { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink); }
+.ph-upload { border-radius: 0; background: var(--ink); }
+.pod { border-top: 3px solid var(--ink); }
+.pod.p1 { background: var(--card); border: 1.5px solid var(--ink); border-top: 4px solid var(--primary); }
+.pod-xp { font-family: var(--display); }
+.pod.me, .lb-row.me { outline: 2px solid var(--primary); }
+.msg.mine .bubble-msg { background: var(--ink); color: var(--bg); }
+.croom.on { background: var(--ink); color: var(--bg); }
+.react.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chat-head { font-family: var(--display); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
+.nm-item.unread { background: var(--card-2); border-left: 3px solid var(--primary); }
+
+/* Хүснэгт, грамматик */
+.table th { font-family: var(--display); font-size: 0.64rem; background: var(--ink); color: var(--bg); }
+.g-n { border-radius: 0; background: var(--ink); color: var(--bg); font-family: var(--display); }
+details.grammar[open] { border-color: var(--ink); }
+.r-mn { border-left-color: var(--ink); }
+
+/* Хөл */
+.footer { border-top: 0; padding-top: 0; position: relative; }
+.footer::before { content: ""; display: block; height: 12px; margin-bottom: 18px; background: var(--hee) repeat-x left center / 24px 12px; border-bottom: 1px solid var(--ink); }
+.footer::after { content: ""; display: block; width: 26px; height: 26px; margin: 10px auto 0; background: var(--primary); -webkit-mask: var(--ulzii) center / contain no-repeat; mask: var(--ulzii) center / contain no-repeat; }
+.toast { border-radius: 0; font-family: var(--display); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.boot .logo-mark { border-radius: 0; }
+.btn, .btn.small, .btn.big, .btn.full { border-radius: 0; }
+.page-head h1::before, .page-head h1::after { width: 1em; height: 1em; }
+.section-title::before { width: 1em; height: 1em; }
+.top-nav a { font-size: 0.64rem; padding: 10px 9px; letter-spacing: 0.02em; }
+@media (max-width: 1640px) {
+  .icon-bar .ibtn[href="#/leaderboard"], .icon-bar .ibtn[href="#/social"], .icon-bar .ibtn[href="#/chat"], .icon-bar .ibtn[href="#/friends"] { display: none; }
+}
+@media (max-width: 1360px) { .track-sw button .tw { display: none; } .logo-txt { display: none; } }
