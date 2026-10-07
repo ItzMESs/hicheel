@@ -191,6 +191,7 @@
     const mx = Math.max(p.goal, ...days.map((d) => p.activity[d.key] || 0));
     view().innerHTML = `
       ${pageHead("Сайн уу, " + esc(u.name) + "! 👋", "Өнөөдөр юу сурах вэ?")}
+      <div id="today-mount" class="mob-only"></div>
       <div id="quest-mount"></div>
       <div id="plan-mount"></div>
       <div class="dash-top">
@@ -240,6 +241,7 @@
       ${testTable(p.tests.slice(-5).reverse())}`;
     bindCommon(view());
     if (A.questWidget) A.questWidget(document.getElementById("quest-mount"));
+    if (A.todayPanel) A.todayPanel(document.getElementById("today-mount"));
     if (A.planWidget) A.planWidget(document.getElementById("plan-mount"));
     function stat(i, v, l) { return `<div class="stat card"><div class="s-icon">${i}</div><div class="s-val">${v}</div><div class="s-lbl">${l}</div></div>`; }
   };
@@ -1772,6 +1774,7 @@
     if ((name === "login" || name === "register" || name === "home") && u) { location.replace("#/dashboard"); return; }
     if (window.speechSynthesis) speechSynthesis.cancel();
     if (u) ensurePick();
+    document.body.className = document.body.className.replace(/\bpg-[\w-]+/g, "").trim() + " pg-" + name;
     const fn = Pages[name] || Pages.notfound;
     fn.apply(null, parts.slice(1));
     renderNav();
@@ -1876,19 +1879,21 @@
     if (!tb) { tb = document.createElement("nav"); tb.id = "tabbar"; tb.className = "tabbar"; document.body.appendChild(tb); }
     tb.hidden = !u;
     if (u) {
-      const learnHref = due ? "#/review" : "#/vocab";
+      const LEARN = ["vocab", "flashcards", "review", "grammar", "listening", "dialogues", "reading", "writing", "ielts", "topics", "dictionary", "chinese", "english", "tests", "mock", "plan", "print"];
+      const SOCIAL = ["social", "chat", "friends", "u", "leaderboard", "duels"];
       tb.innerHTML = `
         <div class="tb-sheet" id="tbsheet" hidden>${groups.map(([t, ic, items]) => `<h6>${ic} ${t}</h6><div class="tb-grid">${items.map(([h, keys, i, tt]) => `<a href="#/${h}" class="${keys.includes(cur) ? "on" : ""}"><span>${i}</span>${tt}${cnt(h) ? `<i class="nbadge">${cnt(h)}</i>` : ""}</a>`).join("")}</div>`).join("")}
-          <h6>👤 Би</h6><div class="tb-grid"><a href="#/profile"><span>👤</span>Профайл</a>${A.Remote.on ? `<a href="#/pricing"><span>💎</span>Багц</a>` : ""}<a href="#/${lang === "zh" ? "chinese" : "english"}"><span>🎓</span>Түвшнүүд</a></div></div>
+          <h6>👤 Би</h6><div class="tb-grid"><a href="#/profile"><span>👤</span>Профайл</a>${A.Remote.on ? `<a href="#/pricing"><span>💎</span>Багц</a>` : ""}<a href="#/${lang === "zh" ? "chinese" : "english"}"><span>🎓</span>Түвшнүүд</a><button type="button" id="tbtheme"><span>${THEME_ICON[A.Theme.get()]}</span>Өнгө</button></div></div>
         <div class="tb-row">
-          <a href="#/dashboard" class="${cur === "dashboard" ? "on" : ""}"><span>🏠</span>Нүүр</a>
-          <a href="#/flashcards" class="${["flashcards", "review"].includes(cur) ? "on" : ""}"><span>🃏</span>Карт${due ? `<i class="nbadge">${due}</i>` : ""}</a>
-          <a href="${learnHref}" class="tb-mid"><span>▶</span>Сурах</a>
+          <a href="#/dashboard" class="${cur === "dashboard" ? "on" : ""}"><span>🏠</span>Өнөөдөр${due ? `<i class="nbadge">${due}</i>` : ""}</a>
+          <a href="#/vocab" class="${LEARN.includes(cur) ? "on" : ""}"><span>📚</span>Сурах</a>
           <a href="#/games" class="${cur === "games" ? "on" : ""}"><span>🎮</span>Тоглоом</a>
+          ${A.Remote.on ? `<a href="#/social" class="${SOCIAL.includes(cur) ? "on" : ""}"><span>💬</span>Нийгэм${badges.incoming ? `<i class="nbadge">${badges.incoming}</i>` : ""}</a>` : `<a href="#/leaderboard" class="${cur === "leaderboard" ? "on" : ""}"><span>🏆</span>Тэргүүлэгч</a>`}
           <button id="tball"><span>☰</span>Бүгд</button>
         </div>`;
       const sh = document.getElementById("tbsheet"), all = document.getElementById("tball");
       all.onclick = (e) => { e.stopPropagation(); sh.hidden = !sh.hidden; all.classList.toggle("on", !sh.hidden); all.innerHTML = sh.hidden ? "<span>☰</span>Бүгд" : "<span>✕</span>Хаах"; };
+      document.getElementById("tbtheme").onclick = (e) => { e.stopPropagation(); const th = document.getElementById("theme"); if (th) th.click(); };
     }
     const pr = u ? Progress.get() : null;
     document.getElementById("top-actions").innerHTML = (u

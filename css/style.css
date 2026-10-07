@@ -1394,3 +1394,59 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
 .logo-pic { width: 48px; height: 48px; }
 .logo-pic img { object-fit: contain; }
 .boot-logo { width: 96px; height: 96px; object-fit: contain; }
+
+/* ===================== Утас: B · Өнөөдрийн даалгавар ===================== */
+.mob-only { display: none; }
+@media (max-width: 800px) {
+  .mob-only { display: block; }
+  /* Самбар: «Өнөөдөр» самбар гол байр эзэлнэ */
+  body.pg-dashboard #quest-mount, body.pg-dashboard .hero-card, body.pg-dashboard .stats { display: none !important; }
+  body.pg-dashboard .page-head h1 { font-size: 1.15rem; }
+  body.pg-dashboard .page-head .hamar, body.pg-dashboard .page-head p { display: none; }
+  body.pg-dashboard .dash-top { grid-template-columns: 1fr; }
+  body.pg-dashboard { padding-bottom: 140px; }
+  .td-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .td-stats a { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border: 2px solid var(--ink); border-top: 5px solid var(--primary); background: var(--card); color: var(--ink); text-decoration: none; }
+  .td-stats b { font-family: var(--display); font-size: 1rem; }
+  .td-stats small { font-size: .68rem; color: var(--muted); }
+  .td-h { font-family: var(--display); font-size: 1.2rem; margin: 4px 0 10px; }
+  .td-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+  .td-task { display: flex; align-items: center; gap: 12px; padding: 12px; border: 2px solid var(--ink); background: var(--card); }
+  .td-task.done { opacity: .6; border-color: var(--line); }
+  .td-ic { font-size: 1.5rem; flex: none; }
+  .td-b { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .td-b b { font-size: .92rem; }
+  .td-b small { color: var(--muted); font-size: .74rem; }
+  .td-b .mini-bar { margin: 5px 0 0; }
+  .td-go { flex: none; background: var(--primary); color: #fff; border: 0; padding: 8px 12px; font: 800 .68rem var(--display); text-transform: uppercase; text-decoration: none; cursor: pointer; }
+  .td-go:hover { text-decoration: none; }
+  .td-ok { flex: none; width: 32px; height: 32px; display: grid; place-items: center; background: var(--ok); color: #fff; font-weight: 800; }
+  .td-fab { position: fixed; left: 14px; right: 14px; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 70; display: block; text-align: center; padding: 15px; background: var(--primary); color: #fff; font: 800 .9rem var(--display); text-transform: uppercase; box-shadow: 0 5px 0 var(--ink); text-decoration: none; }
+  .td-fab:hover { text-decoration: none; }
+  /* Дээд мөр: зөвхөн хэрэгтэй товчнууд */
+  .top-actions #theme { display: none; }
+  .tb-grid button { position: relative; border: 1.5px solid var(--line); background: var(--card); padding: 10px 4px; text-align: center; font: 700 .72rem "Manrope", sans-serif; color: var(--ink); display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
+  .tb-grid button span { font-size: 1.35rem; }
+  /* Үгийн жагсаалт: хүснэгтийн оронд мөр карт */
+  table.words thead { display: none; }
+  table.words, table.words tbody { display: block; }
+  table.words tr { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "t m a" "t r a" "s s s"; align-items: center; column-gap: 12px; background: var(--card); border: 1.5px solid var(--line); padding: 10px 12px; margin-bottom: 6px; }
+  table.words td { border: 0 !important; padding: 0 !important; }
+  table.words td.w-term { grid-area: t; font-size: 1.5rem; min-width: 52px; }
+  table.words td.w-read { grid-area: r; color: var(--primary); font-size: .82rem; }
+  table.words td:nth-child(4) { grid-area: m; font-weight: 700; }
+  table.words td:first-child { grid-area: s; display: flex; gap: 4px; margin-top: 4px; }
+  table.words td:last-child { grid-area: a; }
+  table.words .hide-sm { display: none; }
+  .table-wrap:has(table.words) { border: 0; background: none; overflow: visible; }
+}
+@media (max-width: 800px) {
+  .page-head .hamar { display: none; }
+  .page-head p { font-size: .82rem; margin-top: 2px; }
+  .page-head h1 { font-size: 1.15rem; }
+  .lvl-side { display: flex; flex-direction: column; gap: 8px; }
+  .lvl-side > a.btn { display: inline-flex; width: auto; padding: 9px 10px; font-size: .7rem; }
+  .lvl-side:has(> a.btn) { display: grid; grid-template-columns: 1fr 1fr; }
+  .lvl-side:has(> a.btn) > .picker, .lvl-side:has(> a.btn) > .card, .lvl-side:has(> a.btn) > .lock-note { grid-column: 1 / -1; }
+  .lock-note { padding: 8px 10px; font-size: .78rem; }
+}
