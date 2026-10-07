@@ -51,7 +51,7 @@
     document.querySelectorAll("#pk-lv button").forEach((b) => (b.onclick = () => { pick.level = b.dataset.l; savePick(); onChange(); }));
   }
 
-  const pageHead = (title, sub) => `<header class="page-head"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</header>`;
+  const pageHead = (title, sub) => `<header class="page-head"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}<i class="hamar" aria-hidden="true"></i></header>`;
   const strokeBtn = (w) => `<button class="icon-btn" data-stroke="${esc(w.term)}" data-read="${esc(w.reading)}" title="Зурааны дараалал" aria-label="Зурааны дараалал">✍️</button>`;
   const speakBtn = (text, lang) => `<button class="icon-btn" data-say="${esc(text)}" data-lang="${lang}" title="Сонсох" aria-label="Сонсох">🔊</button>`;
 
@@ -72,6 +72,7 @@
           </div>
         </div>
         <div class="hero-art" aria-hidden="true">
+          <div class="hero-ulzii"></div>
           <div class="bubble zh">你好</div><div class="bubble en">Hello</div><div class="bubble mn">Сайн уу</div>
         </div>
       </section>
@@ -94,7 +95,8 @@
   /* ---------- Нэвтрэх / Бүртгүүлэх ---------- */
   Pages.login = function () {
     view().innerHTML = `
-      <div class="auth card">
+      <div class="auth card orn-c">
+        <i class="hamar big" aria-hidden="true"></i>
         <h2>Нэвтрэх</h2>
         <form id="f">
           <label>Имэйл<input class="input" name="email" type="email" required autocomplete="email" /></label>
@@ -119,7 +121,8 @@
 
   Pages.register = function () {
     view().innerHTML = `
-      <div class="auth card">
+      <div class="auth card orn-c">
+        <i class="hamar big" aria-hidden="true"></i>
         <h2>Бүртгүүлэх</h2>
         <form id="f">
           <label>Нэр<input class="input" name="name" required autocomplete="name" /></label>
@@ -1672,7 +1675,10 @@
     const due = u ? A.SRS.allDue() : 0;
     const lang = track();
     document.documentElement.dataset.track = lang;
-    document.querySelectorAll(".logo-mark").forEach((m) => (m.textContent = lang === "zh" ? "学" : "Aa"));
+    document.querySelectorAll(".logo-pic").forEach((m) => {
+      m.querySelector(".lg-l").src = `img/logo-${lang}.png`;
+      m.querySelector(".lg-d").src = `img/logo-${lang}-dark.png`;
+    });
     document.getElementById("top-nav").innerHTML = u ? navFor(lang).map(([h, keys, i, t], k) =>
       `<a href="#/${h}" class="${keys.includes(cur) ? "on" : ""} ${k === 0 ? "primary" : ""}"><span class="ni">${i}</span><span>${t}</span>${h === "flashcards" && due ? `<span class="nbadge">${due}</span>` : ""}</a>`).join("") : "";
     const pr = u ? Progress.get() : null;
@@ -1750,7 +1756,7 @@
   });
   document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("burger").onclick = () => document.body.classList.toggle("menu-open");
-    view().innerHTML = `<div class="boot"><div class="logo-mark">学</div><p class="muted">Ачаалж байна...</p></div>`;
+    view().innerHTML = `<div class="boot"><img class="boot-logo" src="img/logo-zh.png" alt=""><p class="muted">Ачаалж байна...</p></div>`;
     A.track = track;
     A.Remote.init().finally(() => { route(); refreshBadges(); });
   });

@@ -883,3 +883,54 @@ details.grammar[open] { border-color: var(--ink); }
   .icon-bar .ibtn[href="#/leaderboard"], .icon-bar .ibtn[href="#/social"], .icon-bar .ibtn[href="#/chat"], .icon-bar .ibtn[href="#/friends"] { display: none; }
 }
 @media (max-width: 1360px) { .track-sw button .tw { display: none; } .logo-txt { display: none; } }
+
+/* ===== Лого (PNG) ===== */
+.logo-pic { background: none !important; width: 42px; height: 42px; padding: 0; display: block; }
+.logo-pic img { width: 100%; height: 100%; display: block; }
+.logo-pic .lg-d { display: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .logo-pic .lg-l { display: none; } :root:not([data-theme="light"]) .logo-pic .lg-d { display: block; } }
+:root[data-theme="dark"] .logo-pic .lg-l { display: none; }
+:root[data-theme="dark"] .logo-pic .lg-d { display: block; }
+.boot-logo { width: 84px; height: 84px; margin: 0 auto; animation: pulse 1.4s infinite; }
+
+/* ===== Хээний сан ===== */
+:root { --ulzii: url("../img/ulzii-solid.svg"); --ulzii-r: url("../img/ulzii.svg"); --hamar: url("../img/hamar.svg"); --corner: url("../img/corner.svg"); }
+
+/* Хамар хээ — гарчгийн доор */
+.hamar { display: block; width: 84px; height: 28px; margin-top: 10px; background: var(--primary); -webkit-mask: var(--hamar) left center / contain no-repeat; mask: var(--hamar) left center / contain no-repeat; }
+.hamar.big { width: 120px; height: 40px; margin: 0 auto 12px; -webkit-mask-position: center; mask-position: center; }
+
+/* Булангийн хээ: асуулт, үр дүн, унших карт, нэвтрэх хэсэг */
+.quiz.card, .result.card, .test-intro, .passage, .auth { position: relative; }
+.quiz.card::before, .result.card::before, .test-intro::before, .passage::before, .auth::before,
+.quiz.card::after, .result.card::after, .test-intro::after, .passage::after, .auth::after {
+  content: ""; position: absolute; width: 26px; height: 26px; background: var(--ink); pointer-events: none;
+  -webkit-mask: var(--corner) center / contain no-repeat; mask: var(--corner) center / contain no-repeat;
+}
+.quiz.card::before, .result.card::before, .test-intro::before, .passage::before, .auth::before { left: 6px; top: 6px; }
+.quiz.card::after, .result.card::after, .test-intro::after, .passage::after, .auth::after { right: 6px; bottom: 6px; transform: rotate(180deg); }
+.quiz.card, .result.card, .test-intro, .passage, .auth { border: 1.5px solid var(--ink); padding: 28px; }
+
+/* Самбарын хар карт: өлзий тор + том сүлжмэл өлзий */
+.hero-card { background-color: var(--ink); background-image: url("../img/tile-w.svg"); background-size: 60px 60px; }
+:root[data-theme="dark"] .hero-card { background-image: url("../img/tile.svg"); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hero-card { background-image: url("../img/tile.svg"); } }
+.hero-card::after { -webkit-mask-image: var(--ulzii-r); mask-image: var(--ulzii-r); opacity: 0.12; width: 260px; height: 260px; }
+
+/* Нүүр хуудасны том өлзий */
+.hero-ulzii { position: absolute; inset: 0; margin: auto; width: 240px; height: 240px; background: var(--ink); opacity: 0.08; -webkit-mask: var(--ulzii-r) center / contain no-repeat; mask: var(--ulzii-r) center / contain no-repeat; }
+.hero-art::before { display: none; }
+
+/* Хоосон төлөв, профайл, тэргүүлэгчдийн 1-р байр */
+.empty .f-icon { border: 0; background: none; width: 80px; height: 80px; font-size: 0; }
+.empty .f-icon::before { content: ""; display: block; width: 80px; height: 80px; background: var(--primary); -webkit-mask: var(--ulzii-r) center / contain no-repeat; mask: var(--ulzii-r) center / contain no-repeat; }
+.pod.p1 .pod-medal { position: relative; }
+.pod.p1::before { content: ""; position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; background: var(--primary); opacity: 0.85; -webkit-mask: var(--ulzii-r) center / contain no-repeat; mask: var(--ulzii-r) center / contain no-repeat; }
+.pod { position: relative; }
+.profile-hero::after { content: ""; position: absolute; right: 20px; bottom: 16px; width: 110px; height: 110px; background: var(--ink); opacity: 0.07; -webkit-mask: var(--ulzii-r) center / contain no-repeat; mask: var(--ulzii-r) center / contain no-repeat; pointer-events: none; }
+
+/* Хөл хэсэг: хамар хээ + сүлжмэл өлзий */
+.footer::after { width: 38px; height: 38px; -webkit-mask-image: var(--ulzii-r); mask-image: var(--ulzii-r); }
+
+/* Дүрмийн нээлттэй карт: зүүн талд улаан зураас */
+details.grammar[open] { border-left: 4px solid var(--primary); }
