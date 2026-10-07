@@ -34,7 +34,7 @@
     const me = Auth.current();
     const menu = document.createElement("div");
     menu.className = "msg-menu card";
-    menu.innerHTML = (me && me.isAdmin ? `<button data-a="pin">📌 Тогтоох / болиулах</button>` : "") + (mine || (me && me.isAdmin) ? `<button data-a="del">🗑 Устгах</button>` : "") +
+    menu.innerHTML = (mine || (me && me.isAdmin) ? `<button data-a="del">🗑 Устгах</button>` : "") +
       (mine ? "" : `<button data-a="rep">⚑ Мэдээлэх</button><button data-a="block">🚫 Хэрэглэгчийг блоклох</button>`);
     bubble.appendChild(menu);
     const close = (e) => { if (!menu.contains(e.target) && e.target !== btn) { menu.remove(); document.removeEventListener("click", close, true); } };
@@ -692,7 +692,7 @@
   A.chatPromo = async function (el) {
     if (!el) return;
     const u = Auth.current() || {};
-    if (u.isAdmin || (A.hasAccess("zh") && A.hasAccess("en"))) return;
+    if (!u.isAdmin && A.hasAccess("zh") && A.hasAccess("en")) return; // админ хэрхэн харагдахыг шалгаж болно
     try { plansCache = plansCache || (await Remote.call("GET", "plans")); } catch (e) { return; }
     const { plans, promo } = plansCache;
     if (!promo || promo.on === false || !plans.length) return;
