@@ -202,7 +202,7 @@
           </div>
           <div class="goal-ring light" style="--p:${goalPct}"><span>${done}<small>/${p.goal}</small></span></div>
         </div>
-        ${wotd ? `<div class="card wotd">
+        ${wotd ? `<div class="card wotd"><i class="wotd-cloud" aria-hidden="true"></i>
           <span class="eyebrow">Өдрийн үг · ${esc(wotd.course === "ielts" ? "IELTS " + wotd.level : COURSES[wotd.course].short + " " + wotd.level)}</span>
           <div class="wotd-term ${wotd.lang}">${esc(wotd.term)}</div>
           <div class="w-read">${esc(wotd.reading)}</div>

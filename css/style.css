@@ -1242,3 +1242,57 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
   .pr-break { break-after: page; page-break-after: always; }
   .pr-table tr { break-inside: avoid; }
 }
+
+/* ===================== Дизайн A: хар цагаан + улаан, илүү их хээ ===================== */
+:root { --bg: #fbfaf7; --hee-r: url("../img/alhan-r.svg"); --cloud: url("../img/cloud.svg"); }
+:root[data-theme="dark"] { --bg: #000; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #000; } }
+.topbar { background: var(--bg); }
+/* Толгой ба хөлийн алхан хээний өргөн тууз */
+.topbar::after { height: 22px; background: var(--card) var(--hee) repeat-x 0 3px / 36px 18px; border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); }
+.footer::before { height: 22px; background: var(--card) var(--hee) repeat-x 0 3px / 36px 18px; border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); }
+
+/* Гол картууд: улаан булангийн хээ */
+.card.wotd, .level-card, .topic-card, .lvl-strip, .prem-status, .plan-res, .dlg-player, .tp-card, .paywall, .plan.card, .how-pay, .profile-hero, .print-opts { position: relative; border: 2px solid var(--ink); }
+.card.wotd::before, .level-card::before, .topic-card::before, .lvl-strip::before, .prem-status::before, .plan-res::before, .dlg-player::before, .tp-card::before, .paywall::before, .plan.card::before, .how-pay::before, .print-opts::before,
+.card.wotd::after, .level-card::after, .topic-card::after, .lvl-strip::after, .prem-status::after, .plan-res::after, .dlg-player::after, .tp-card::after, .paywall::after, .plan.card::after, .how-pay::after, .print-opts::after {
+  content: ""; position: absolute; width: 28px; height: 28px; background: var(--primary); pointer-events: none;
+  -webkit-mask: var(--corner) center / contain no-repeat; mask: var(--corner) center / contain no-repeat;
+}
+.card.wotd::before, .level-card::before, .topic-card::before, .lvl-strip::before, .prem-status::before, .plan-res::before, .dlg-player::before, .tp-card::before, .paywall::before, .plan.card::before, .how-pay::before, .print-opts::before { left: 5px; top: 5px; }
+.card.wotd::after, .level-card::after, .topic-card::after, .lvl-strip::after, .prem-status::after, .plan-res::after, .dlg-player::after, .tp-card::after, .paywall::after, .plan.card::after, .how-pay::after, .print-opts::after { right: 5px; bottom: 5px; transform: rotate(180deg); }
+.quiz.card::before, .result.card::before, .test-intro::before, .passage::before, .auth::before,
+.quiz.card::after, .result.card::after, .test-intro::after, .passage::after, .auth::after { background: var(--primary); width: 28px; height: 28px; }
+.quiz.card, .result.card, .test-intro, .passage, .auth { border-width: 2px; }
+.plan.card .plan-flag { z-index: 2; }
+
+/* Өдрийн үг: үүлэн хээ */
+.wotd-cloud { position: absolute; right: 26px; bottom: 22px; width: 120px; height: 46px; background: var(--ink); opacity: .14; -webkit-mask: var(--cloud) center / contain no-repeat; mask: var(--cloud) center / contain no-repeat; pointer-events: none; }
+
+/* Самбарын хар карт: доод талд улаан алхан хээ */
+.hero-card { border: 2px solid var(--ink); background-image: var(--hee-r), url("../img/tile-w.svg"); background-repeat: repeat-x, repeat; background-position: 0 calc(100% - 4px), 0 0; background-size: 36px 18px, 60px 60px; padding-bottom: 46px; }
+.hero-card::before { content: ""; position: absolute; left: 0; right: 0; bottom: 24px; height: 2px; background: var(--primary); }
+:root[data-theme="dark"] .hero-card { background-image: var(--hee-r), url("../img/tile.svg"); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hero-card { background-image: var(--hee-r), url("../img/tile.svg"); } }
+
+/* Статистик: зузаан хүрээ + улаан дээд зураас */
+.stat { border: 2px solid var(--ink); border-top: 6px solid var(--primary); }
+.stat .s-icon { border-radius: 0; background: var(--card-2); }
+
+/* Түвшний карт, сонголт */
+.level-card { transition: transform .15s, box-shadow .15s; }
+.level-card:hover { transform: translate(-3px, -3px); box-shadow: 6px 6px 0 var(--ink); border-color: var(--ink); }
+.lv-pick button.on { box-shadow: inset 4px 0 0 var(--primary); }
+.lv-chip { border: 2px solid var(--ink); padding: 8px 10px; background: var(--card); }
+.lv-chip:hover { border-color: var(--primary); text-decoration: none; }
+
+/* Хэсгийн гарчгийн доор жижиг хамар хээ */
+.section-title { position: relative; padding-bottom: 14px; }
+.section-title::after { content: ""; position: absolute; left: 0; bottom: 0; width: 64px; height: 10px; background: var(--primary); -webkit-mask: var(--hee) repeat-x left center / 20px 10px; mask: var(--hee) repeat-x left center / 20px 10px; }
+
+/* Товч: улаан идэвхтэй сүүдэр */
+.btn:not(.ghost):not(.light):hover { box-shadow: 4px 4px 0 var(--primary); transform: translate(-2px, -2px); }
+.btn { transition: transform .12s, box-shadow .12s; }
+
+/* Хуудасны гарчгийн доорх хамар хээг томруулах */
+.page-head .hamar { width: 110px; height: 36px; }
