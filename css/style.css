@@ -684,3 +684,11 @@ h3.mt { margin-top: 18px; }
 .cmt-b { background: var(--card-2); border-radius: 12px; padding: 8px 12px; font-size: 0.9rem; flex: 1; }
 .cmt-b a b { color: var(--ink); }
 .cmt-form { display: flex; gap: 8px; }
+
+/* Чатын зураг */
+.chat-img { display: block; max-width: 260px; max-height: 300px; border-radius: 12px; margin: 4px 0; cursor: zoom-in; object-fit: cover; }
+.chat-prev { margin: 8px 12px 0; }
+.chat-prev img { max-height: 120px; }
+.chat-form .ibtn { flex: none; margin: 0; }
+.nm-head span { display: flex; gap: 2px; }
+.nm-ask { margin: 2px 0 8px; }

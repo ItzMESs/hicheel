@@ -295,17 +295,18 @@ on("GET", "chat", async (req, res, { query }) => {
   const where = { room };
   if (query.after) where.createdAt = { gt: new Date(String(query.after)) };
   const msgs = await db().chatMessage.findMany({ where, orderBy: { createdAt: "desc" }, take: 60, include: { user: true } });
-  return { room, messages: msgs.reverse().map((m) => ({ id: m.id, text: m.text, createdAt: m.createdAt, user: publicUser(m.user), mine: m.userId === me.id })) };
+  return { room, messages: msgs.reverse().map((m) => ({ id: m.id, text: m.text, image: m.image || null, createdAt: m.createdAt, user: publicUser(m.user), mine: m.userId === me.id })) };
 });
 on("POST", "chat", async (req, res, { body }) => {
   const me = await currentUser(req, true);
   const room = await checkRoom(me, str(body.room || "public", 80));
   const text = str(body.text, 1000);
-  if (!text) fail(400, "Хоосон зурвас.");
-  const m = await db().chatMessage.create({ data: { room, userId: me.id, text } });
+  const image = body.image ? (isDataImage(body.image, 900_000) ? body.image : fail(400, "Зураг буруу эсвэл хэт том байна.")) : null;
+  if (!text && !image) fail(400, "Хоосон зурвас.");
+  const m = await db().chatMessage.create({ data: { room, userId: me.id, text, image } });
   if (room.startsWith("dm:")) {
     const other = room.slice(3).split(":").find((x) => x !== me.id);
-    await notify(other, `💬 ${me.name}: ${text.slice(0, 80)}`, `#/chat/dm/${me.id}`);
+    await notify(other, `💬 ${me.name}: ${text ? text.slice(0, 80) : "📷 Зураг илгээлээ"}`, `#/chat/dm/${me.id}`);
   }
   return { id: m.id };
 });

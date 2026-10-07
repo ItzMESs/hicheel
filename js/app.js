@@ -898,7 +898,8 @@
         <section class="chat-main card">
           <div class="chat-head" id="chead">${room === "public" ? "🌐 Нийтийн чат" : room === "zh" ? "中 Хятадаар чатлъя — 用中文聊天吧！" : room === "en" ? "EN English chat — let's practise!" : "💬 Хувийн чат"}</div>
           <div class="chat-msgs" id="msgs"><p class="muted center">Ачаалж байна...</p></div>
-          <form class="chat-form" id="cf"><input class="input" id="ct" maxlength="1000" placeholder="Зурвас бичих..." autocomplete="off"><button class="btn">Илгээх</button></form>
+          <div id="cimg-prev"></div>
+          <form class="chat-form" id="cf"><label class="ibtn" title="Зураг илгээх">📷<input type="file" id="cimg" accept="image/*" hidden></label><input class="input" id="ct" maxlength="1000" placeholder="Зурвас бичих..." autocomplete="off"><button class="btn">Илгээх</button></form>
         </section>
       </div>`;
     A.Remote.call("GET", "chat/rooms").then((d) => {
@@ -909,7 +910,7 @@
       if (cur) document.getElementById("chead").innerHTML = `${avatarHtml(cur, 28)} ${esc(cur.name)}`;
     }).catch(() => {});
     const msgs = document.getElementById("msgs");
-    let last = null, seen = new Set();
+    let last = null, seen = new Set(), first = true;
     async function poll() {
       if (!document.body.contains(msgs)) return clearInterval(iv);
       try {
@@ -920,8 +921,10 @@
           if (seen.has(m.id)) return;
           seen.add(m.id);
           last = m.createdAt;
-          msgs.insertAdjacentHTML("beforeend", `<div class="msg ${m.mine ? "mine" : ""}">${m.mine ? "" : `<a href="#/u/${esc(m.user.id)}">${avatarHtml(m.user, 32)}</a>`}<div class="bubble-msg"><div class="mh">${m.mine ? "" : `<b>${esc(m.user.name)}</b>`}<span>${timeAgo(m.createdAt)}</span></div><div>${linkify(m.text)}</div></div></div>`);
+          msgs.insertAdjacentHTML("beforeend", `<div class="msg ${m.mine ? "mine" : ""}">${m.mine ? "" : `<a href="#/u/${esc(m.user.id)}">${avatarHtml(m.user, 32)}</a>`}<div class="bubble-msg"><div class="mh">${m.mine ? "" : `<b>${esc(m.user.name)}</b>`}<span>${timeAgo(m.createdAt)}</span></div>${m.image ? `<img class="chat-img" src="${esc(m.image)}" alt="" loading="lazy">` : ""}${m.text ? `<div>${linkify(m.text)}</div>` : ""}</div></div>`);
+          if (!first && !m.mine) Notify.ding();
         });
+        first = false;
         if (!seen.size) msgs.innerHTML = `<p class="muted center empty-chat">Одоогоор зурвас алга. Анхны зурвасаа бичээрэй! 👋</p>`;
         if (atBottom || d.messages.length) msgs.scrollTop = msgs.scrollHeight;
       } catch (e) {
@@ -931,13 +934,26 @@
     }
     const iv = setInterval(poll, 4000);
     await poll();
+    let cimg = null;
+    const prev = document.getElementById("cimg-prev");
+    document.getElementById("cimg").onchange = async (e) => {
+      try {
+        cimg = await resizeImage(e.target.files[0], { size: 1080 }, 0.8);
+        prev.innerHTML = `<div class="img-prev chat-prev"><img src="${cimg}" alt=""><button type="button" class="icon-btn" id="cimg-x">✕</button></div>`;
+        document.getElementById("cimg-x").onclick = () => { cimg = null; prev.innerHTML = ""; };
+      } catch (ex) { UI.toast(ex.message, "warn"); }
+      e.target.value = "";
+    };
+    msgs.addEventListener("click", (e) => { const im = e.target.closest(".chat-img"); if (im) window.open(im.src, "_blank"); });
     document.getElementById("cf").onsubmit = async (e) => {
       e.preventDefault();
       const inp = document.getElementById("ct");
       const text = inp.value.trim();
-      if (!text) return;
-      inp.value = "";
-      try { await A.Remote.call("POST", "chat", { room, text }); const pe = msgs.querySelector(".empty-chat"); if (pe) pe.remove(); await poll(); } catch (ex) { UI.toast(ex.message, "warn"); inp.value = text; }
+      if (!text && !cimg) return;
+      const img = cimg;
+      inp.value = ""; cimg = null; prev.innerHTML = "";
+      try { await A.Remote.call("POST", "chat", { room, text, image: img }); const pe = msgs.querySelector(".empty-chat"); if (pe) pe.remove(); await poll(); }
+      catch (ex) { UI.toast(ex.message, "warn"); inp.value = text; }
     };
     void me;
   };
@@ -1055,8 +1071,46 @@
     }
   }
 
+  /* ---------- Мэдэгдэл: дуу, хөтчийн мэдэгдэл ---------- */
+  const Notify = {
+    get sound() { try { return localStorage.getItem("hicheel_sound") !== "off"; } catch (e) { return true; } },
+    set sound(v) { try { localStorage.setItem("hicheel_sound", v ? "on" : "off"); } catch (e) { /* ignore */ } },
+    ctx: null,
+    ding() {
+      if (!this.sound) return;
+      try {
+        this.ctx = this.ctx || new (window.AudioContext || window.webkitAudioContext)();
+        const c = this.ctx, t = c.currentTime;
+        [880, 1320].forEach((f, i) => {
+          const o = c.createOscillator(), g = c.createGain();
+          o.type = "sine"; o.frequency.value = f;
+          g.gain.setValueAtTime(0.0001, t + i * 0.12);
+          g.gain.exponentialRampToValueAtTime(0.18, t + i * 0.12 + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.12 + 0.25);
+          o.connect(g).connect(c.destination);
+          o.start(t + i * 0.12); o.stop(t + i * 0.12 + 0.3);
+        });
+      } catch (e) { /* ignore */ }
+    },
+    canPush() { return "Notification" in window; },
+    async ask() {
+      if (!this.canPush()) return UI.toast("Таны хөтөч мэдэгдэл дэмжихгүй байна.", "warn");
+      const r = await Notification.requestPermission();
+      UI.toast(r === "granted" ? "Мэдэгдэл асаалаа 🔔" : "Мэдэгдлийг хөтөч дээрээ зөвшөөрөөгүй байна.", r === "granted" ? "ok" : "warn");
+    },
+    show(n) {
+      if (!this.canPush() || Notification.permission !== "granted" || document.visibilityState === "visible") return;
+      try {
+        const x = new Notification("Хичээл", { body: n.text, tag: n.id, icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23111'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' fill='white'%3E学%3C/text%3E%3C/svg%3E" });
+        x.onclick = () => { window.focus(); if (n.link) location.hash = n.link.replace(/^#/, ""); x.close(); };
+      } catch (e) { /* ignore */ }
+    }
+  };
+  const baseTitle = document.title;
+
   /* ---------- Мэдэгдэл ---------- */
   const badges = { unread: 0, incoming: 0 };
+  let seenNotif = null;
   let lastBadge = 0;
   async function refreshBadges(force) {
     if (!A.Remote.on || !Auth.current()) return;
@@ -1065,17 +1119,27 @@
     try {
       const d = await A.Remote.call("GET", "notifications");
       badges.unread = d.unread; badges.incoming = d.incoming; badges.list = d.list;
+      // Шинэ (өмнө нь хараагүй) мэдэгдэл ирвэл дуугаргаж, хөтчийн мэдэгдэл үзүүлнэ
+      const fresh = d.list.filter((n) => !n.read && seenNotif && !seenNotif.has(n.id));
+      if (fresh.length) { Notify.ding(); fresh.slice(0, 3).forEach((n) => Notify.show(n)); }
+      seenNotif = new Set(d.list.map((n) => n.id));
+      document.title = d.unread ? `(${d.unread}) ${baseTitle}` : baseTitle;
       const nb = document.getElementById("nbadge"), fb = document.getElementById("fbadge");
       if (nb) { nb.textContent = d.unread; nb.hidden = !d.unread; }
       if (fb) { fb.textContent = d.incoming; fb.hidden = !d.incoming; }
     } catch (e) { /* ignore */ }
   }
-  setInterval(refreshBadges, 60000);
+  setInterval(refreshBadges, 20000);
   function notifMenu() {
     const box = document.getElementById("nmenu");
     const list = badges.list || [];
-    box.innerHTML = `<div class="nm-head"><b>Мэдэгдэл</b>${list.length ? `<button class="icon-btn" id="nclear" title="Цэвэрлэх">🧹</button>` : ""}</div>` +
+    const perm = Notify.canPush() ? Notification.permission : "denied";
+    box.innerHTML = `<div class="nm-head"><b>Мэдэгдэл</b><span><button class="icon-btn" id="nsound" title="Дуу">${Notify.sound ? "🔊" : "🔇"}</button>${list.length ? `<button class="icon-btn" id="nclear" title="Цэвэрлэх">🧹</button>` : ""}</span></div>` +
+      (perm === "default" ? `<button class="btn small full nm-ask" id="nask">🔔 Хөтчийн мэдэгдэл асаах</button>` : "") +
       (list.length ? list.map((n) => `<a class="nm-item ${n.read ? "" : "unread"}" href="${esc(n.link || "#/dashboard")}"><span>${esc(n.text)}</span><small class="muted">${timeAgo(n.createdAt)}</small></a>`).join("") : `<p class="muted small center">Мэдэгдэл алга.</p>`);
+    document.getElementById("nsound").onclick = (e) => { e.stopPropagation(); Notify.sound = !Notify.sound; if (Notify.sound) Notify.ding(); notifMenu(); };
+    const ask = document.getElementById("nask");
+    if (ask) ask.onclick = async (e) => { e.stopPropagation(); await Notify.ask(); notifMenu(); };
     const c = document.getElementById("nclear");
     if (c) c.onclick = async (e) => { e.preventDefault(); e.stopPropagation(); await A.Remote.call("DELETE", "notifications"); badges.list = []; badges.unread = 0; notifMenu(); refreshBadges(); };
     if (badges.unread) A.Remote.call("POST", "notifications/read", {}).then(() => { badges.unread = 0; const nb = document.getElementById("nbadge"); if (nb) nb.hidden = true; }).catch(() => {});
