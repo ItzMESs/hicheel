@@ -327,10 +327,12 @@
   P.dialogues = function (id) {
     const lang = A.track();
     const list = window.DIALOGUES.filter((d) => d.lang === lang);
+    const dOpen = (x) => A.hasAccess(lang) || (lang === "zh" ? x.tier === 1 : x.level === "A1");
     const d = list.find((x) => x.id === id);
+    if (d && !dOpen(d)) { view().innerHTML = `<a class="back" href="#/dialogues">← Бүх яриа</a>` + A.paywall("Энэ харилцан яриа багцад багтана."); return; }
     if (!d) {
       view().innerHTML = `${H("🗣️ Харилцан яриа", "Амьдралын бодит нөхцөлийн яриаг сонсоод асуултад хариулаарай")}
-        <div class="grid cards3">${list.map((x) => `<a class="card level-card" href="#/dialogues/${x.id}"><span class="badge">${lang === "zh" ? "Түвшин " + x.tier : x.level}</span><h3 class="${lang}">${esc(x.title)}</h3><p>${esc(x.scene)}</p><span class="muted small">${x.lines.length} мөр · ${x.questions.length} асуулт</span></a>`).join("")}</div>`;
+        <div class="grid cards3">${list.map((x) => `<a class="card level-card" href="#/dialogues/${x.id}"><span class="badge">${dOpen(x) ? "" : "🔒 "}${lang === "zh" ? "Түвшин " + x.tier : x.level}</span><h3 class="${lang}">${esc(x.title)}</h3><p>${esc(x.scene)}</p><span class="muted small">${x.lines.length} мөр · ${x.questions.length} асуулт</span></a>`).join("")}</div>`;
       return;
     }
     const show = { text: false, mn: false };
@@ -575,12 +577,14 @@
         <a class="tab ${tab === "posts" ? "on" : ""}" href="#/admin/posts">📰 Пост</a>
         <a class="tab ${tab === "chat" ? "on" : ""}" href="#/admin/chat">💬 Чат</a>
         <a class="tab ${tab === "announce" ? "on" : ""}" href="#/admin/announce">📢 Зарлал</a>
+        <a class="tab ${tab === "orders" ? "on" : ""}" href="#/admin/orders">💳 Захиалга</a>
+        <a class="tab ${tab === "plans" ? "on" : ""}" href="#/admin/plans">📦 Багц ба данс</a>
       </div>
       <div id="ab"></div>`;
     const ab = document.getElementById("ab");
     Remote.call("GET", "admin/stats").then((s0) => {
       const st = (i, v, l) => `<div class="stat card"><div class="s-icon">${i}</div><div class="s-val">${v}</div><div class="s-lbl">${l}</div></div>`;
-      document.getElementById("ast").innerHTML = st("👥", s0.users, "Нийт хэрэглэгч") + st("🟢", s0.active24, "24 цагт идэвхтэй") + st("📅", s0.active7, "7 хоногт идэвхтэй") + st("🆕", s0.newUsers, "7 хоногт шинэ") + st("📰", s0.posts, "Пост") + st("💬", s0.messages, "Чат мессеж") + st("⚑", s0.reports, "Шийдээгүй мэдээлэл") + st("🚫", s0.banned, "Хаагдсан");
+      document.getElementById("ast").innerHTML = st("👥", s0.users, "Нийт хэрэглэгч") + st("🟢", s0.active24, "24 цагт идэвхтэй") + st("📅", s0.active7, "7 хоногт идэвхтэй") + st("🆕", s0.newUsers, "7 хоногт шинэ") + st("📰", s0.posts, "Пост") + st("💬", s0.messages, "Чат мессеж") + st("⚑", s0.reports, "Шийдээгүй мэдээлэл") + st("🚫", s0.banned, "Хаагдсан") + st("💳", s0.orders, "Батлах захиалга") + st("💎", s0.premium, "Багцтай хэрэглэгч");
     }).catch((e) => UI.toast(e.message, "warn"));
     const act = async (fn) => { try { await fn(); UI.toast("Амжилттай", "ok"); P.admin(tab); } catch (e) { UI.toast(e.message, "warn"); } };
     if (tab === "reports") {
@@ -595,13 +599,21 @@
       ab.innerHTML = `<input class="input" id="aq" placeholder="Нэр эсвэл имэйлээр хайх..."><div id="aul"></div>`;
       const load = async () => {
         const { users } = await Remote.call("GET", "admin/users?q=" + encodeURIComponent(document.getElementById("aq").value));
-        document.getElementById("aul").innerHTML = `<div class="table-wrap"><table class="table"><thead><tr><th></th><th>Нэр</th><th>Имэйл</th><th>XP</th><th>Сүүлд</th><th>Төлөв</th><th></th></tr></thead><tbody>${users.map((u) => `<tr>
+        document.getElementById("aul").innerHTML = `<div class="table-wrap"><table class="table"><thead><tr><th></th><th>Нэр</th><th>Имэйл</th><th>XP</th><th>Сүүлд</th><th>Багц</th><th>Төлөв</th><th></th></tr></thead><tbody>${users.map((u) => `<tr>
           <td>${A.avatarHtml(u, 30)}</td><td><a href="#/u/${esc(u.id)}">${esc(u.name)}</a></td><td>${esc(u.email)}</td><td>${u.xp}</td><td class="nowrap">${A.timeAgo(u.lastSeen)}</td>
+          <td class="nowrap small">${premTxt(u.premium) || "—"} <button class="icon-btn" data-prem="${u.id}" title="Багц олгох/хасах">💎</button></td>
           <td>${u.banned ? `<span class="pill fail">Хаагдсан</span>` : u.isAdmin ? `<span class="pill pass">Админ</span>` : "Идэвхтэй"}</td>
           <td class="nowrap"><button class="btn small ${u.banned ? "ghost" : "danger"}" data-ban="${u.id}" data-v="${u.banned ? 0 : 1}">${u.banned ? "Нээх" : "Хаах"}</button> <button class="btn ghost small" data-adm="${u.id}" data-v="${u.isAdmin ? 0 : 1}">${u.isAdmin ? "Админ хасах" : "Админ болгох"}</button> <button class="icon-btn" data-del="${u.id}" title="Устгах">🗑</button></td></tr>`).join("")}</tbody></table></div>`;
         const box2 = document.getElementById("aul");
         box2.querySelectorAll("[data-ban]").forEach((b) => (b.onclick = () => act(() => Remote.call("POST", `admin/users/${b.dataset.ban}/ban`, { banned: b.dataset.v === "1" }))));
         box2.querySelectorAll("[data-adm]").forEach((b) => (b.onclick = () => act(() => Remote.call("POST", `admin/users/${b.dataset.adm}/admin`, { isAdmin: b.dataset.v === "1" }))));
+        box2.querySelectorAll("[data-prem]").forEach((b) => (b.onclick = () => {
+          const langs = prompt("Аль хэл? zh = хятад, en = англи, all = хоёулаа", "all");
+          if (!langs) return;
+          const months = prompt("Хэдэн сараар олгох вэ? (хасах бол -1)", "1");
+          if (months === null) return;
+          act(() => Remote.call("POST", `admin/users/${b.dataset.prem}/premium`, { langs: langs.trim(), months: +months }));
+        }));
         box2.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => { if (confirm("Хэрэглэгчийг бүрмөсөн устгах уу?")) act(() => Remote.call("DELETE", `admin/users/${b.dataset.del}`)); }));
       };
       let t;
@@ -615,6 +627,8 @@
         <td><button class="icon-btn" data-del="${x.id}" title="Устгах">🗑</button></td></tr>`).join("")}</tbody></table></div>`;
       ab.querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => { if (confirm("Устгах уу?")) act(() => Remote.call("DELETE", `admin/content/${tab === "chat" ? "chat" : "post"}/${b.dataset.del}`)); }));
     }
+    if (tab === "orders") return adminOrders(ab);
+    if (tab === "plans") return adminPlans(ab);
     if (tab === "announce") {
       ab.innerHTML = `<form class="card" id="anf"><label>Бүх хэрэглэгчид мэдэгдэл илгээх<textarea class="input" name="text" rows="3" maxlength="300" required placeholder="Жишээ: Шинэ HSK 4 үгс нэмэгдлээ!"></textarea></label>
         <label>Холбоос (заавал биш)<input class="input" name="link" placeholder="#/vocab"></label><button class="btn">📢 Илгээх</button></form>`;
@@ -625,6 +639,154 @@
       };
     }
   };
+
+  /* =====================================================================
+     Багц ба төлбөр
+     ===================================================================== */
+  const LANG_TXT = { zh: "🇨🇳 Хятад хэл", en: "🇬🇧 Англи хэл", all: "🇨🇳🇬🇧 Хятад + Англи" };
+  const money = (n) => Number(n || 0).toLocaleString("en-US") + "₮";
+  const ymd = (d) => new Date(d).toISOString().slice(0, 10);
+  const alive = (d) => d && new Date(d).getTime() > Date.now();
+  function premTxt(p) {
+    if (!p) return "";
+    return [alive(p.zh) ? "中 " + ymd(p.zh) : "", alive(p.en) ? "EN " + ymd(p.en) : ""].filter(Boolean).join(" · ");
+  }
+  A.paywall = function (msg) {
+    return `<div class="card paywall center"><div class="pw-ic">🔒</div><h2>Багцад багтсан хичээл</h2><p class="muted">${esc(msg || "Энэ хэсгийг үзэхийн тулд багц авна уу.")}</p>
+      <p class="small muted">HSK 1 ба IELTS A1 бүрэн үнэгүй, бусад түвшний эхний хэсгийг үнэгүй туршиж болно.</p><a class="btn big" href="#/pricing">💎 Багцууд харах</a></div>`;
+  };
+  const bankHtml = (b, code, amount) => `
+    <div class="pay-box">
+      <div class="pay-row"><span>Банк</span><b>${esc(b.bank || "—")}</b></div>
+      <div class="pay-row"><span>Дансны дугаар</span><b class="copy" data-copy="${esc(b.account)}">${esc(b.account || "—")} ⧉</b></div>
+      <div class="pay-row"><span>Хүлээн авагч</span><b>${esc(b.holder || "—")}</b></div>
+      ${amount ? `<div class="pay-row"><span>Дүн</span><b class="copy" data-copy="${amount}">${money(amount)} ⧉</b></div>` : ""}
+      ${code ? `<div class="pay-row hl"><span>Гүйлгээний утга</span><b class="copy" data-copy="${esc(code)}">${esc(code)} ⧉</b></div>` : ""}
+      ${b.note ? `<p class="small muted">${esc(b.note)}</p>` : ""}
+    </div>`;
+  function bindCopy(el) {
+    el.querySelectorAll("[data-copy]").forEach((x) => (x.onclick = () => {
+      try { navigator.clipboard.writeText(x.dataset.copy); UI.toast("Хуулагдлаа", "ok"); } catch (e) { /* ignore */ }
+    }));
+  }
+  const ST = { pending: ["⏳ Шалгаж байна", ""], paid: ["✔ Идэвхжсэн", "pass"], rejected: ["✘ Татгалзсан", "fail"], cancelled: ["Цуцалсан", ""] };
+
+  P.pricing = async function () {
+    if (A.needServer()) return;
+    view().innerHTML = `${H("💎 Багц", "Бүх түвшний үг, дүрэм, тест, тоглоом, сонсгол, жишиг шалгалтыг нээгээрэй")}<div id="prc"><p class="muted">Ачаалж байна...</p></div>`;
+    const box = document.getElementById("prc");
+    let data, orders;
+    try {
+      [data, { orders }] = await Promise.all([Remote.call("GET", "plans"), Remote.call("GET", "orders"), Auth.refresh()]);
+    } catch (e) { box.innerHTML = `<div class="card warn">${esc(e.message)}</div>`; return; }
+    const u = Auth.current() || {};
+    const prem = u.premium || {};
+    const pend = orders.filter((o) => o.status === "pending");
+    box.innerHTML = `
+      <div class="prem-status card">
+        <div><b>Таны эрх</b></div>
+        <div class="ps-row"><span>🇨🇳 Хятад хэл</span>${alive(prem.zh) || u.isAdmin ? `<span class="pill pass">✔ ${u.isAdmin ? "Админ" : ymd(prem.zh) + " хүртэл"}</span>` : `<span class="pill">Үнэгүй (HSK 1 + эхний хэсэг)</span>`}</div>
+        <div class="ps-row"><span>🇬🇧 Англи хэл</span>${alive(prem.en) || u.isAdmin ? `<span class="pill pass">✔ ${u.isAdmin ? "Админ" : ymd(prem.en) + " хүртэл"}</span>` : `<span class="pill">Үнэгүй (A1 + эхний хэсэг)</span>`}</div>
+      </div>
+      ${pend.length ? `<h2 class="section-title">Төлбөр хүлээгдэж буй захиалга</h2>${pend.map((o) => `<div class="card order-card">
+        <div class="row between"><b>${esc(o.plan ? o.plan.name : "")}</b><span class="pill">⏳ Шалгаж байна</span></div>
+        <p class="small">Доорх данс руу <b>${money(o.amount)}</b> шилжүүлж, гүйлгээний утга дээр <b>${esc(o.code)}</b> кодыг заавал бичнэ үү. Админ шалгаад баталгаажуулмагц мэдэгдэл ирж, хичээл нээгдэнэ.</p>
+        ${bankHtml(data.bank, o.code, o.amount)}
+        <button class="btn ghost small" data-cancel="${o.id}">Захиалга цуцлах</button></div>`).join("")}` : ""}
+      <h2 class="section-title">Багцууд</h2>
+      <div class="plan-grid">${data.plans.map((p) => `<div class="card plan ${p.langs === "all" ? "best" : ""}">
+        ${p.langs === "all" ? `<span class="plan-flag">Хамгийн ашигтай</span>` : ""}
+        <span class="badge">${LANG_TXT[p.langs] || ""}</span>
+        <h3>${esc(p.name)}</h3>
+        <div class="plan-price">${money(p.price)}<small> / ${p.months} сар</small></div>
+        <p class="muted">${esc(p.description)}</p>
+        <ul class="plan-feat"><li>Бүх түвшний үгс ба дүрэм</li><li>Хязгааргүй тест, тоглоом, сонсгол</li><li>Бүтэн жишиг шалгалт</li><li>Харилцан яриа, унших сэдвүүд</li></ul>
+        <button class="btn full" data-buy="${p.id}">Худалдаж авах</button></div>`).join("") || `<p class="muted">Одоогоор багц алга.</p>`}</div>
+      <div class="card how-pay"><h3>Хэрхэн худалдаж авах вэ?</h3><ol><li>Багцаа сонгоод «Худалдаж авах» дарна.</li><li>Гарч ирсэн данс руу дүнгээ шилжүүлж, <b>гүйлгээний утга дээр кодоо</b> бичнэ.</li><li>Админ шалгаад баталгаажуулмагц (ихэвчлэн хэдэн цагийн дотор) мэдэгдэл ирж, хичээл нээгдэнэ.</li></ol></div>
+      ${orders.some((o) => o.status !== "pending") ? `<h2 class="section-title">Захиалгын түүх</h2><div class="table-wrap"><table class="table"><thead><tr><th>Огноо</th><th>Багц</th><th>Дүн</th><th>Код</th><th>Төлөв</th></tr></thead><tbody>${orders.filter((o) => o.status !== "pending").map((o) => `<tr><td>${ymd(o.createdAt)}</td><td>${esc(o.plan ? o.plan.name : "")}</td><td>${money(o.amount)}</td><td>${esc(o.code)}</td><td><span class="pill ${ST[o.status][1]}">${ST[o.status][0]}</span>${o.note ? `<small class="muted"> ${esc(o.note)}</small>` : ""}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
+    bindCopy(box);
+    box.querySelectorAll("[data-buy]").forEach((b) => (b.onclick = async () => {
+      const p = data.plans.find((x) => x.id === b.dataset.buy);
+      if (!data.bank.account) return UI.toast("Дансны мэдээлэл тохируулагдаагүй байна. Админтай холбогдоно уу.", "warn");
+      if (!confirm(`«${p.name}» — ${money(p.price)}. Захиалга үүсгэх үү?`)) return;
+      try { await Remote.call("POST", "orders", { planId: p.id }); UI.toast("Захиалга үүслээ. Төлбөрөө шилжүүлнэ үү.", "ok"); P.pricing(); window.scrollTo(0, 0); }
+      catch (e) { UI.toast(e.message, "warn"); }
+    }));
+    box.querySelectorAll("[data-cancel]").forEach((b) => (b.onclick = async () => {
+      if (!confirm("Захиалгыг цуцлах уу?")) return;
+      try { await Remote.call("POST", `orders/${b.dataset.cancel}/cancel`, {}); P.pricing(); } catch (e) { UI.toast(e.message, "warn"); }
+    }));
+  };
+
+  async function adminOrders(ab) {
+    const st = (A.query && A.query.s) || "pending";
+    const q = (A.query && A.query.q) || "";
+    const r = await Remote.call("GET", `admin/orders?status=${st}&q=${encodeURIComponent(q)}`);
+    ab.innerHTML = `
+      <div class="row between wrap">
+        <div class="seg">${[["pending", "⏳ Хүлээгдэж буй"], ["paid", "✔ Баталсан"], ["rejected", "✘ Татгалзсан"], ["cancelled", "Цуцалсан"]].map(([k, t]) => `<a href="#/admin/orders?s=${k}" class="${k === st ? "on" : ""}">${t}</a>`).join("")}</div>
+        <span class="muted small">Сүүлийн 30 хоногт: <b>${r.paid30}</b> борлуулалт, <b>${money(r.revenue30)}</b></span>
+      </div>
+      <form id="oq" class="row"><input class="input grow" name="q" value="${esc(q)}" placeholder="Гүйлгээний кодоор хайх (жишээ: HAB12CD)"><button class="btn ghost">Хайх</button></form>
+      <p class="muted small">Банкны хуулга дээрх гүйлгээний утга дахь кодыг доорх кодтой, дүнг нь тулгаж шалгаад «Батлах» дарна уу.</p>
+      ${r.orders.length ? `<div class="table-wrap"><table class="table"><thead><tr><th>Огноо</th><th>Код</th><th>Хэрэглэгч</th><th>Багц</th><th>Дүн</th><th></th></tr></thead><tbody>${r.orders.map((o) => `<tr>
+        <td class="nowrap">${A.timeAgo(o.createdAt)}</td><td><b class="mono">${esc(o.code)}</b></td><td>${esc(o.user.name)}<br><small class="muted">${esc(o.user.email)}</small></td>
+        <td>${esc(o.plan ? o.plan.name : "")}<br><small class="muted">${LANG_TXT[o.langs] || ""} · ${o.months} сар</small></td><td class="nowrap"><b>${money(o.amount)}</b></td>
+        <td class="nowrap">${o.status === "pending" ? `<button class="btn small" data-ok="${o.id}">✔ Батлах</button> <button class="btn ghost small" data-no="${o.id}">Татгалзах</button>` : `<span class="pill ${ST[o.status][1]}">${ST[o.status][0]}</span>${o.note ? `<small class="muted"> ${esc(o.note)}</small>` : ""}`}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted center">Захиалга алга.</p>`}`;
+    ab.querySelector("#oq").onsubmit = (e) => { e.preventDefault(); location.hash = `#/admin/orders?s=${st}&q=${encodeURIComponent(new FormData(e.target).get("q"))}`; };
+    const redo = () => adminOrders(ab);
+    ab.querySelectorAll("[data-ok]").forEach((b) => (b.onclick = async () => {
+      const o = r.orders.find((x) => x.id === b.dataset.ok);
+      if (!confirm(`${o.code} — ${money(o.amount)} төлбөр орж ирснийг шалгасан уу? ${o.user.name}-д багцыг идэвхжүүлэх үү?`)) return;
+      try { await Remote.call("POST", `admin/orders/${o.id}/approve`, {}); UI.toast("Багц идэвхжлээ", "ok"); redo(); } catch (e) { UI.toast(e.message, "warn"); }
+    }));
+    ab.querySelectorAll("[data-no]").forEach((b) => (b.onclick = async () => {
+      const note = prompt("Татгалзсан шалтгаан (хэрэглэгчид харагдана):", "Төлбөр орж ирээгүй байна.");
+      if (note === null) return;
+      try { await Remote.call("POST", `admin/orders/${b.dataset.no}/reject`, { note }); redo(); } catch (e) { UI.toast(e.message, "warn"); }
+    }));
+  }
+
+  async function adminPlans(ab) {
+    const { plans, bank } = await Remote.call("GET", "admin/plans");
+    const form = (p) => `<form class="card plan-form" data-id="${p ? esc(p.id) : ""}">
+      <div class="grid cards2">
+        <label>Нэр<input class="input" name="name" value="${p ? esc(p.name) : ""}" required maxlength="80" placeholder="Хятад хэл · 1 сар"></label>
+        <label>Хэл<select class="input" name="langs">${Object.keys(LANG_TXT).map((k) => `<option value="${k}" ${p && p.langs === k ? "selected" : ""}>${LANG_TXT[k]}</option>`).join("")}</select></label>
+        <label>Үнэ (₮)<input class="input" name="price" type="number" min="0" step="100" value="${p ? p.price : ""}" required></label>
+        <label>Хугацаа (сар)<input class="input" name="months" type="number" min="1" max="36" value="${p ? p.months : 1}" required></label>
+      </div>
+      <label>Тайлбар<input class="input" name="description" value="${p ? esc(p.description) : ""}" maxlength="300"></label>
+      <div class="row between"><label class="check"><input type="checkbox" name="active" ${!p || p.active ? "checked" : ""}> Идэвхтэй (хэрэглэгчид харагдана)</label>
+        <span><label class="small muted">Эрэмбэ <input class="input tiny" name="sort" type="number" value="${p ? p.sort : 0}"></label> <button class="btn small">${p ? "Хадгалах" : "➕ Багц нэмэх"}</button></span></div>
+    </form>`;
+    ab.innerHTML = `
+      <h2 class="section-title">🏦 Төлбөр хүлээн авах данс</h2>
+      <form class="card" id="bankf">
+        <div class="grid cards2">
+          <label>Банк<input class="input" name="bank" value="${esc(bank.bank)}" placeholder="Хаан банк"></label>
+          <label>Дансны дугаар<input class="input" name="account" value="${esc(bank.account)}" placeholder="5000 1234 56"></label>
+          <label>Данс эзэмшигч<input class="input" name="holder" value="${esc(bank.holder)}" placeholder="Овог Нэр"></label>
+          <label>Нэмэлт тайлбар<input class="input" name="note" value="${esc(bank.note)}" placeholder="Жишээ: IBAN, утасны дугаар"></label>
+        </div>
+        <button class="btn">Хадгалах</button>
+      </form>
+      <h2 class="section-title">📦 Багцууд</h2>
+      ${plans.map(form).join("")}
+      <h3>Шинэ багц</h3>${form(null)}`;
+    ab.querySelector("#bankf").onsubmit = async (e) => {
+      e.preventDefault();
+      try { await Remote.call("POST", "admin/bank", Object.fromEntries(new FormData(e.target))); UI.toast("Данс хадгалагдлаа", "ok"); } catch (ex) { UI.toast(ex.message, "warn"); }
+    };
+    ab.querySelectorAll(".plan-form").forEach((f) => (f.onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(f);
+      const body = Object.fromEntries(fd);
+      body.active = fd.get("active") === "on";
+      if (f.dataset.id) body.id = f.dataset.id;
+      try { await Remote.call("POST", "admin/plans", body); UI.toast("Хадгалагдлаа", "ok"); adminPlans(ab); } catch (ex) { UI.toast(ex.message, "warn"); }
+    }));
+  }
 
   /* =====================================================================
      PWA (service worker) ба push мэдэгдэл

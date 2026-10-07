@@ -21,6 +21,8 @@ model User {
   banned       Boolean  @default(false)
   createdAt    DateTime @default(now())
   lastSeen     DateTime @default(now())
+  premiumZh    DateTime? // Хятад хэлний багц дуусах огноо
+  premiumEn    DateTime? // Англи хэлний багц дуусах огноо
 
   progress      Progress?
   posts         Post[]
@@ -39,6 +41,7 @@ model User {
   duelsGot      Duel[]         @relation("DuelTo")
   pushSubs      PushSub[]
   aiUses        AiUse[]
+  orders        Order[]
 
   @@index([googleId])
 }
@@ -222,4 +225,39 @@ model AiUse {
 model Setting {
   key   String @id
   value String
+}
+
+// Худалдаалах багц (админ тохируулна). langs: "zh" | "en" | "all"
+model Plan {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  price       Int
+  months      Int
+  langs       String
+  active      Boolean  @default(true)
+  sort        Int      @default(0)
+  createdAt   DateTime @default(now())
+  orders      Order[]
+}
+
+// Багц худалдан авах захиалга: данс руу шилжүүлээд админ батална
+model Order {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId    String
+  plan      Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  code      String
+  amount    Int
+  months    Int
+  langs     String
+  status    String    @default("pending") // pending | paid | rejected | cancelled
+  note      String    @default("")
+  createdAt DateTime  @default(now())
+  decidedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@index([code])
 }

@@ -1039,3 +1039,34 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
   .dlg-line { max-width: 100%; }
   .duel-row .dr-st { margin-left: 0; width: 100%; }
 }
+
+/* ===================== Багц, төлбөр ===================== */
+.lv-pick button.locked b { opacity: .75; }
+.lock-note { margin-top: 12px; padding: 12px; border: 1px dashed var(--primary); background: var(--soft); display: flex; flex-direction: column; gap: 6px; font-size: .86rem; }
+.lock-note b { color: var(--primary); }
+.paywall { padding: 36px 20px; }
+.paywall .pw-ic { font-size: 2.6rem; }
+.prem-status { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; margin-bottom: 8px; }
+.ps-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.plan { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 22px; }
+.plan.best { border: 2px solid var(--ink); }
+.plan-flag { position: absolute; top: -12px; right: 14px; background: var(--primary); color: #fff; font-size: .7rem; font-weight: 800; padding: 3px 10px; text-transform: uppercase; letter-spacing: .05em; }
+.plan h3 { margin: 6px 0 0; }
+.plan-price { font-family: "Unbounded", sans-serif; font-size: 1.7rem; line-height: 1.2; }
+.plan-price small { font-family: "Manrope", sans-serif; font-size: .85rem; color: var(--muted); }
+.plan-feat { padding-left: 18px; margin: 4px 0 12px; flex: 1; font-size: .9rem; }
+.plan-feat li::marker { content: "✔  "; color: var(--ok); }
+.pay-box { border: 1px solid var(--line); background: var(--card-2); padding: 6px 14px; margin: 10px 0; }
+.pay-row { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.pay-row:last-child { border-bottom: 0; }
+.pay-row span { color: var(--muted); }
+.pay-row.hl b { color: var(--primary); font-size: 1.1rem; letter-spacing: .06em; }
+.copy { cursor: pointer; }
+.order-card { border-color: var(--warn); margin-bottom: 12px; }
+.how-pay { margin-top: 18px; }
+.mono { font-family: ui-monospace, Menlo, monospace; letter-spacing: .05em; }
+.input.tiny { width: 70px; display: inline-block; padding: 6px 8px; }
+.row.wrap { flex-wrap: wrap; gap: 10px; }
+.plan-form { margin-bottom: 12px; }
+.pm-prem { font-weight: 700; }

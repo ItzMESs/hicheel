@@ -112,7 +112,7 @@
   function adopt(user) {
     const db = load();
     const old = db.users[user.email] || {};
-    db.users[user.email] = Object.assign({}, old, { id: user.id, name: user.name, email: user.email, bio: user.bio || "", avatarUrl: user.avatarUrl || null, isAdmin: !!user.isAdmin, created: user.created ? new Date(user.created).getTime() : old.created || Date.now(), remote: true });
+    db.users[user.email] = Object.assign({}, old, { id: user.id, name: user.name, email: user.email, bio: user.bio || "", avatarUrl: user.avatarUrl || null, isAdmin: !!user.isAdmin, premium: user.premium || {}, created: user.created ? new Date(user.created).getTime() : old.created || Date.now(), remote: true });
     db.session = user.email;
     if (!db.progress[user.email]) db.progress[user.email] = newProgress();
     save(db);
@@ -120,6 +120,7 @@
   }
 
   const Auth = {
+    async refresh() { const { user } = await Remote.call("GET", "auth/me"); return adopt(user); },
     current() {
       const db = load();
       return db.session && db.users[db.session] ? db.users[db.session] : null;
@@ -374,7 +375,33 @@
     return { id: "en:" + w[0], lang: "en", course: courseId, level, term: w[0], reading: w[4] ? w[1] + " " + w[4] : w[1], gloss: "", meaning: w[2], example: w[3] };
   }
 
+  /* ---- Багц: HSK1 / IELTS A1 үнэгүй, бусад түвшний эхний ~10% үнэгүй ---- */
+  const FREE_LEVELS = { hsk2: ["1"], hsk3: ["1"], ielts: ["A1"] };
+  function hasAccess(lang) {
+    if (!Remote.on) return true; // локал горимд төлбөргүй
+    const u = Auth.current();
+    if (!u) return false;
+    if (u.isAdmin) return true;
+    const d = u.premium && u.premium[lang];
+    return !!d && new Date(d).getTime() > Date.now();
+  }
+  function isLocked(courseId, level) {
+    return !(FREE_LEVELS[courseId] || []).includes(level) && !hasAccess(COURSES[courseId].lang);
+  }
+  const freeCount = (n, min) => Math.min(n, Math.max(min, Math.ceil(n * 0.1)));
+
   function getLevel(courseId, level) {
+    const L = fullLevel(courseId, level);
+    if (!isLocked(courseId, level)) return L;
+    return Object.assign({}, L, {
+      locked: true, total: L.words.length, totalGrammar: L.grammar.length,
+      words: L.words.slice(0, freeCount(L.words.length, 10)),
+      grammar: L.grammar.slice(0, freeCount(L.grammar.length, 1)),
+      sentences: L.sentences.slice(0, freeCount(L.sentences.length, 4)),
+      reading: null
+    });
+  }
+  function fullLevel(courseId, level) {
     const c = COURSES[courseId];
     const d = c.data();
     const words = (d.words[level] || []).map((w) => wordObj(courseId, level, w));
@@ -458,5 +485,5 @@
   // Пиньинийн аялгуу тэмдгийг арилгах (харьцуулахад)
   const stripTones = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ü/g, "v").toLowerCase().replace(/[^a-z0-9一-鿿]/g, "");
 
-  window.App = Object.assign(window.App || {}, { bump, Remote, esc, shuffle, sample, today, dayKey, SRS, Theme, Auth, Progress, COURSES, getLevel, allWords, Speech, UI, stripTones });
+  window.App = Object.assign(window.App || {}, { hasAccess, isLocked, FREE_LEVELS, bump, Remote, esc, shuffle, sample, today, dayKey, SRS, Theme, Auth, Progress, COURSES, getLevel, allWords, Speech, UI, stripTones });
 })();

@@ -39,12 +39,18 @@
         </div>` : `<div class="pk-tabs"><button class="on">IELTS · CEFR</button></div>`}
         <div class="lv-pick" id="pk-lv">
           ${c.data().levels.map((l) => {
-            const ws = getLevel(c.id, l).words;
+            const LL = getLevel(c.id, l), ws = LL.words;
             const n = ws.filter((w) => prog.learned[w.id]).length;
-            return `<button data-l="${esc(l)}" class="${l === pick.level ? "on" : ""}"><b>${esc(c.levelLabel(l).replace("HSK ", "HSK"))}</b><small>${ws.length} үг</small>${n ? `<i class="pk-done">${n}✔</i>` : ""}</button>`;
+            return `<button data-l="${esc(l)}" class="${l === pick.level ? "on" : ""} ${LL.locked ? "locked" : ""}"><b>${esc(c.levelLabel(l).replace("HSK ", "HSK"))}</b><small>${LL.total || ws.length} үг${LL.locked ? " 🔒" : ""}</small>${n ? `<i class="pk-done">${n}✔</i>` : ""}</button>`;
           }).join("")}
         </div>
+        ${lockNote(getLevel(c.id, pick.level))}
       </div>`;
+  }
+  // Түгжээтэй түвшний сануулга
+  function lockNote(L) {
+    if (!L.locked) return "";
+    return `<div class="lock-note"><b>🔒 Үнэгүй хэсэг</b><span>${L.words.length}/${L.total} үг, ${L.grammar.length}/${L.totalGrammar} дүрэм нээлттэй.</span><a class="btn small full" href="#/pricing">💎 Багц авч бүгдийг нээх</a></div>`;
   }
   function bindPicker(onChange) {
     document.querySelectorAll("#pk-ver button").forEach((b) => (b.onclick = () => { setCourse(b.dataset.c); onChange(); }));
@@ -332,6 +338,7 @@
     view().innerHTML = `
       <a class="back" href="${back}">← ${esc(L.course.title)}</a>
       ${pageHead(esc(L.course.short) + " · " + esc(L.label), esc(L.info.desc))}
+      ${lockNote(L)}
       <div class="tabs">
         <button class="tab on" data-tab="words">📚 Үгс (${L.words.length})</button>
         <button class="tab" data-tab="grammar">✏️ Дүрэм (${L.grammar.length})</button>
@@ -1198,6 +1205,7 @@
     if (lang === "zh") {
       const tier = window.ZH_EXTRA.tier[L.course.id][L.level];
       passages = (window.ZH_READING[tier] || []).map((r) => ({ title: r.title, text: r.text, py: r.py, mn: r.mn, questions: r.questions }));
+      if (L.locked) passages = passages.slice(0, 1);
     } else passages = L.reading ? [{ title: L.reading.title, text: L.reading.text, py: "", mn: "", questions: L.reading.questions }] : [];
     view().innerHTML = `
       ${pageHead("📖 Унших", "Эх уншиж, асуултад хариулж, өгүүлбэрийг сонсоорой")}
@@ -1519,8 +1527,10 @@
     }
     if (tab === "writing") {
       const t = P.writing.find((x) => x.id === id);
+      const wOpen = (x) => A.hasAccess("en") || P.writing.indexOf(x) < 2;
+      if (t && !wOpen(t)) { box.innerHTML = A.paywall("Энэ Writing даалгавар англи хэлний багцад багтана."); return; }
       if (!t) {
-        box.innerHTML = `<div class="grid cards2">${P.writing.map((x) => `<a class="card level-card" href="#/ielts/writing/${x.id}"><span class="badge">Task ${x.task} · ${x.minutes} мин · ${x.min}+ үг</span><h3>${esc(x.title)}</h3><p>${esc(x.prompt.slice(0, 120))}...</p>${Progress.get().writing[x.id] ? `<span class="pill pass">Ноорог хадгалсан</span>` : ""}</a>`).join("")}</div>`;
+        box.innerHTML = `<div class="grid cards2">${P.writing.map((x) => `<a class="card level-card" href="#/ielts/writing/${x.id}"><span class="badge">${wOpen(x) ? "" : "🔒 "}Task ${x.task} · ${x.minutes} мин · ${x.min}+ үг</span><h3>${esc(x.title)}</h3><p>${esc(x.prompt.slice(0, 120))}...</p>${Progress.get().writing[x.id] ? `<span class="pill pass">Ноорог хадгалсан</span>` : ""}</a>`).join("")}</div>`;
         return;
       }
       return writingEditor(box, t, P.criteria);
@@ -1528,8 +1538,11 @@
     const sets = P.speaking;
     const si = Math.max(0, Math.min(sets.length - 1, +id || 0));
     const s = sets[si];
+    const sOpen = (k) => A.hasAccess("en") || k < 2;
+    const segs = `<div class="seg wide">${sets.map((x, k) => `<a href="#/ielts/speaking/${k}" class="${k === si ? "on" : ""}">${sOpen(k) ? "" : "🔒 "}${esc(x.topic)}</a>`).join("")}</div>`;
+    if (!sOpen(si)) { box.innerHTML = segs + A.paywall("Энэ Speaking сэдэв англи хэлний багцад багтана."); return; }
     box.innerHTML = `
-      <div class="seg wide">${sets.map((x, k) => `<a href="#/ielts/speaking/${k}" class="${k === si ? "on" : ""}">${esc(x.topic)}</a>`).join("")}</div>
+      ${segs.trim()}
       <div class="grid cards3 speak-grid">
         <div class="card"><h3>Part 1 <small class="muted">4–5 мин</small></h3><ol class="qlist">${s.part1.map((q) => `<li>${speakBtn(q, "en")} ${esc(q)}</li>`).join("")}</ol></div>
         <div class="card cue">
@@ -1737,6 +1750,7 @@
             <div class="pm-stats"><span>⭐ ${pr.xp} XP</span><span>🔥 ${pr.streak} өдөр</span><span>🗂️ ${due} давтах</span></div>
             <a href="#/dashboard">🏠 Хянах самбар</a>
             <a href="#/profile">👤 Миний профайл</a>
+            ${A.Remote.on ? `<a href="#/pricing" class="pm-prem">💎 ${A.hasAccess("zh") && A.hasAccess("en") ? "Миний багц" : "Багц авах"}</a>` : ""}
             <a href="#/quests">🎯 Даалгавар ба тэмдэг</a>
             <a href="#/leaderboard">🏆 Тэргүүлэгчид</a>
             ${A.Remote.on ? `<a href="#/duels">⚔️ Үгийн тулаан</a>` : ""}

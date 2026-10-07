@@ -114,7 +114,7 @@ async function blockedIds(meId) {
 
 const avatarUrl = (u) => (u.avatar ? `/api/avatar?id=${u.id}&v=${u.avatarAt ? new Date(u.avatarAt).getTime() : 0}` : null);
 const publicUser = (u) => ({ id: u.id, name: u.name, avatarUrl: avatarUrl(u) });
-const meUser = (u) => ({ id: u.id, email: u.email, name: u.name, bio: u.bio, created: u.createdAt, avatarUrl: avatarUrl(u), isAdmin: isAdmin(u) });
+const meUser = (u) => ({ id: u.id, email: u.email, name: u.name, bio: u.bio, created: u.createdAt, avatarUrl: avatarUrl(u), isAdmin: isAdmin(u), premium: { zh: u.premiumZh || null, en: u.premiumEn || null } });
 const isDataImage = (s, max) => typeof s === "string" && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s) && s.length <= max;
 
 async function notify(userId, text, link) {
@@ -507,14 +507,19 @@ on("GET", "admin/stats", async (req) => {
     db().user.count({ where: { createdAt: { gt: week } } }), db().post.count(), db().chatMessage.count(),
     db().report.count({ where: { resolved: false } }), db().user.count({ where: { banned: true } })
   ]);
-  return { users, active24, active7, newUsers, posts, messages, reports, banned };
+  const now = new Date();
+  const [orders, premium] = await Promise.all([
+    db().order.count({ where: { status: "pending" } }),
+    db().user.count({ where: { OR: [{ premiumZh: { gt: now } }, { premiumEn: { gt: now } }] } })
+  ]);
+  return { users, active24, active7, newUsers, posts, messages, reports, banned, orders, premium };
 });
 on("GET", "admin/users", async (req, res, { query }) => {
   await adminUser(req);
   const q = str(query.q, 60);
   const where = q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }] } : {};
   const users = await db().user.findMany({ where, orderBy: { createdAt: "desc" }, take: 50, include: { progress: true } });
-  return { users: users.map((u) => ({ ...publicUser(u), email: u.email, banned: u.banned, isAdmin: isAdmin(u), created: u.createdAt, lastSeen: u.lastSeen, xp: u.progress ? u.progress.xp : 0 })) };
+  return { users: users.map((u) => ({ ...publicUser(u), email: u.email, banned: u.banned, isAdmin: isAdmin(u), created: u.createdAt, lastSeen: u.lastSeen, xp: u.progress ? u.progress.xp : 0, premium: { zh: u.premiumZh, en: u.premiumEn } })) };
 });
 on("POST", "admin/users/:id/ban", async (req, res, { params, body }) => {
   const me = await adminUser(req);
@@ -737,6 +742,127 @@ on("POST", "push/test", async (req) => {
   const me = await currentUser(req, true);
   await sendPush(me.id, { title: "Хичээл", body: "🔔 Мэдэгдэл амжилттай ажиллаж байна!", link: "#/dashboard" });
   return { ok: true };
+});
+
+/* --- Багц ба төлбөр (данс руу шилжүүлэг, админ батална) --- */
+const LANGS = { zh: "Хятад хэл", en: "Англи хэл", all: "Хятад + Англи" };
+const DEFAULT_PLANS = [
+  { name: "Хятад хэл · 1 сар", description: "HSK 2.0 ба 3.0-ийн бүх түвшин, үг, дүрэм, тест, тоглоом", price: 29900, months: 1, langs: "zh", sort: 1 },
+  { name: "Англи хэл · 1 сар", description: "IELTS A1–C1 бүх түвшин, Writing, Speaking дасгал", price: 29900, months: 1, langs: "en", sort: 2 },
+  { name: "Бүх хэл · 3 сар", description: "Хятад, англи хэлний бүх хичээл — хамгийн хэмнэлттэй", price: 119000, months: 3, langs: "all", sort: 3 }
+];
+async function getBank() {
+  const row = await db().setting.findUnique({ where: { key: "bank" } });
+  return row ? JSON.parse(row.value) : { bank: "", account: "", holder: "", note: "" };
+}
+const planOut = (p) => ({ id: p.id, name: p.name, description: p.description, price: p.price, months: p.months, langs: p.langs, active: p.active, sort: p.sort });
+const orderOut = (o) => ({ id: o.id, code: o.code, amount: o.amount, months: o.months, langs: o.langs, status: o.status, note: o.note, createdAt: o.createdAt, decidedAt: o.decidedAt, plan: o.plan ? { id: o.plan.id, name: o.plan.name } : null, user: o.user ? { ...publicUser(o.user), email: o.user.email } : undefined });
+async function grantPremium(userId, langs, months) {
+  const u = await db().user.findUnique({ where: { id: userId } });
+  const data = {};
+  const ext = (cur) => new Date(Math.max(Date.now(), cur ? new Date(cur).getTime() : 0) + months * 30 * 864e5);
+  if (langs === "zh" || langs === "all") data.premiumZh = ext(u.premiumZh);
+  if (langs === "en" || langs === "all") data.premiumEn = ext(u.premiumEn);
+  return db().user.update({ where: { id: userId }, data });
+}
+on("GET", "plans", async () => {
+  if ((await db().plan.count()) === 0) await db().plan.createMany({ data: DEFAULT_PLANS });
+  const plans = await db().plan.findMany({ where: { active: true }, orderBy: [{ sort: "asc" }, { price: "asc" }] });
+  return { plans: plans.map(planOut), bank: await getBank() };
+});
+on("GET", "orders", async (req) => {
+  const me = await currentUser(req, true);
+  const orders = await db().order.findMany({ where: { userId: me.id }, orderBy: { createdAt: "desc" }, take: 20, include: { plan: true } });
+  return { orders: orders.map(orderOut) };
+});
+on("POST", "orders", async (req, res, { body }) => {
+  const me = await currentUser(req, true);
+  const plan = await db().plan.findUnique({ where: { id: str(body.planId, 40) } });
+  if (!plan || !plan.active) fail(404, "Багц олдсонгүй.");
+  const pending = await db().order.count({ where: { userId: me.id, status: "pending" } });
+  if (pending >= 3) fail(429, "Танд баталгаажаагүй 3 захиалга байна. Эхлээд тэдгээрийг төлөх эсвэл цуцална уу.");
+  const ABC = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "H";
+  for (const b of crypto.randomBytes(6)) code += ABC[b % ABC.length];
+  const o = await db().order.create({ data: { userId: me.id, planId: plan.id, code, amount: plan.price, months: plan.months, langs: plan.langs }, include: { plan: true } });
+  const admins = await db().user.findMany({ where: { OR: [{ isAdmin: true }, { email: { in: ADMIN_EMAILS() } }] }, select: { id: true } });
+  for (const a of admins) await notify(a.id, `💳 Шинэ захиалга: ${me.name} — ${plan.name} (${plan.price.toLocaleString("en-US")}₮, код ${code})`, "#/admin/orders");
+  return { order: orderOut(o), bank: await getBank() };
+});
+on("POST", "orders/:id/cancel", async (req, res, { params }) => {
+  const me = await currentUser(req, true);
+  const o = await db().order.findUnique({ where: { id: params.id } });
+  if (!o || o.userId !== me.id || o.status !== "pending") fail(404, "Захиалга олдсонгүй.");
+  await db().order.update({ where: { id: o.id }, data: { status: "cancelled", decidedAt: new Date() } });
+  return { ok: true };
+});
+on("GET", "admin/plans", async (req) => {
+  await adminUser(req);
+  if ((await db().plan.count()) === 0) await db().plan.createMany({ data: DEFAULT_PLANS });
+  const plans = await db().plan.findMany({ orderBy: [{ sort: "asc" }, { price: "asc" }] });
+  return { plans: plans.map(planOut), bank: await getBank() };
+});
+on("POST", "admin/plans", async (req, res, { body }) => {
+  await adminUser(req);
+  const data = {
+    name: str(body.name, 80), description: str(body.description, 300),
+    price: Math.max(0, Math.round(+body.price || 0)), months: Math.max(1, Math.min(36, Math.round(+body.months || 1))),
+    langs: ["zh", "en", "all"].includes(body.langs) ? body.langs : "all", active: body.active !== false, sort: Math.round(+body.sort || 0)
+  };
+  if (!data.name) fail(400, "Багцын нэр оруулна уу.");
+  if (!data.price) fail(400, "Үнэ оруулна уу.");
+  const p = body.id ? await db().plan.update({ where: { id: str(body.id, 40) }, data }) : await db().plan.create({ data });
+  return { plan: planOut(p) };
+});
+on("POST", "admin/bank", async (req, res, { body }) => {
+  await adminUser(req);
+  const bank = { bank: str(body.bank, 60), account: str(body.account, 40), holder: str(body.holder, 80), note: str(body.note, 300) };
+  await db().setting.upsert({ where: { key: "bank" }, create: { key: "bank", value: JSON.stringify(bank) }, update: { value: JSON.stringify(bank) } });
+  return { bank };
+});
+on("GET", "admin/orders", async (req, res, { query }) => {
+  await adminUser(req);
+  const status = ["pending", "paid", "rejected", "cancelled"].includes(query.status) ? query.status : "pending";
+  const q = str(query.q, 40).toUpperCase();
+  const where = { status, ...(q ? { code: { contains: q } } : {}) };
+  const orders = await db().order.findMany({ where, orderBy: { createdAt: "desc" }, take: 100, include: { plan: true, user: true } });
+  const revenue = await db().order.aggregate({ where: { status: "paid", decidedAt: { gt: new Date(Date.now() - 30 * 864e5) } }, _sum: { amount: true }, _count: true });
+  return { orders: orders.map(orderOut), revenue30: revenue._sum.amount || 0, paid30: revenue._count };
+});
+on("POST", "admin/orders/:id/approve", async (req, res, { params }) => {
+  await adminUser(req);
+  const o = await db().order.findUnique({ where: { id: params.id }, include: { plan: true } });
+  if (!o || o.status !== "pending") fail(404, "Хүлээгдэж буй захиалга олдсонгүй.");
+  await db().order.update({ where: { id: o.id }, data: { status: "paid", decidedAt: new Date() } });
+  const u = await grantPremium(o.userId, o.langs, o.months);
+  const until = new Date(o.langs === "en" ? u.premiumEn : u.premiumZh).toISOString().slice(0, 10);
+  await notify(o.userId, `🎉 Таны «${o.plan ? o.plan.name : "багц"}» идэвхжлээ! ${until} хүртэл бүх хичээл нээлттэй.`, "#/pricing");
+  return { ok: true };
+});
+on("POST", "admin/orders/:id/reject", async (req, res, { params, body }) => {
+  await adminUser(req);
+  const o = await db().order.findUnique({ where: { id: params.id } });
+  if (!o || o.status !== "pending") fail(404, "Хүлээгдэж буй захиалга олдсонгүй.");
+  const note = str(body.note, 200);
+  await db().order.update({ where: { id: o.id }, data: { status: "rejected", note, decidedAt: new Date() } });
+  await notify(o.userId, `Таны ${o.code} захиалга баталгаажсангүй.${note ? " " + note : ""}`, "#/pricing");
+  return { ok: true };
+});
+on("POST", "admin/users/:id/premium", async (req, res, { params, body }) => {
+  await adminUser(req);
+  const langs = ["zh", "en", "all"].includes(body.langs) ? body.langs : "all";
+  const months = Math.round(+body.months || 0);
+  if (months < 0) {
+    const data = {};
+    if (langs !== "en") data.premiumZh = null;
+    if (langs !== "zh") data.premiumEn = null;
+    await db().user.update({ where: { id: params.id }, data });
+  } else if (months > 0) {
+    await grantPremium(params.id, langs, months);
+    await notify(params.id, `🎁 Танд ${LANGS[langs]} багц ${months} сараар нээгдлээ!`, "#/pricing");
+  }
+  const u = await db().user.findUnique({ where: { id: params.id } });
+  return { premium: { zh: u.premiumZh, en: u.premiumEn } };
 });
 
 /* ---------------- Үндсэн handler ---------------- */
