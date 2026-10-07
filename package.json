@@ -10,9 +10,13 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "web-push": "^3.6.7"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }

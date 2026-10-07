@@ -1,6 +1,37 @@
 {
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index?path=$1" }],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index?path=$1"
+    }
+  ],
   "headers": [
-    { "source": "/(.*)\\.(js|css)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }] }
-  ]
+    {
+      "source": "/(.*)\\.(js|css)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
+    }
+  ],
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60
+    }
+  }
 }

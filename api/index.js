@@ -82,16 +82,46 @@ async function currentUser(req, required) {
   const p = verify(cookies(req)[COOKIE]);
   const user = p ? await db().user.findUnique({ where: { id: p.uid } }) : null;
   if (!user && required) fail(401, "Нэвтэрнэ үү.");
+  if (user && user.banned && required) fail(403, "Таны бүртгэл админаар хаагдсан байна.");
+  if (user && Date.now() - new Date(user.lastSeen).getTime() > 5 * 60 * 1000) {
+    db().user.update({ where: { id: user.id }, data: { lastSeen: new Date() } }).catch(() => {});
+  }
   return user;
+}
+const ADMIN_EMAILS = () => String(process.env.ADMIN_EMAILS || "").toLowerCase().split(",").map((x) => x.trim()).filter(Boolean);
+const isAdmin = (u) => !!u && (u.isAdmin || ADMIN_EMAILS().includes(u.email));
+async function adminUser(req) {
+  const u = await currentUser(req, true);
+  if (!isAdmin(u)) fail(403, "Зөвхөн админ хандах эрхтэй.");
+  return u;
+}
+function origin(req) {
+  if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/+$/, "");
+  const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost:3000";
+  const proto = String(req.headers["x-forwarded-proto"] || (host.startsWith("localhost") ? "http" : "https")).split(",")[0];
+  return `${proto}://${host}`;
+}
+// Хурдны хязгаар: тухайн хугацаанд хэдэн бичлэг хийсэн бэ
+async function limit(model, userId, seconds, max, msg, field) {
+  const n = await db()[model].count({ where: { [field || "userId"]: userId, createdAt: { gt: new Date(Date.now() - seconds * 1000) } } });
+  if (n >= max) fail(429, msg || "Хэт олон удаа илгээлээ. Түр хүлээгээд дахин оролдоно уу.");
+}
+// Блоклосон / блоклогдсон хэрэглэгчдийн ID
+async function blockedIds(meId) {
+  const rows = await db().block.findMany({ where: { OR: [{ blockerId: meId }, { blockedId: meId }] } });
+  return rows.map((r) => (r.blockerId === meId ? r.blockedId : r.blockerId));
 }
 
 const avatarUrl = (u) => (u.avatar ? `/api/avatar?id=${u.id}&v=${u.avatarAt ? new Date(u.avatarAt).getTime() : 0}` : null);
 const publicUser = (u) => ({ id: u.id, name: u.name, avatarUrl: avatarUrl(u) });
-const meUser = (u) => ({ id: u.id, email: u.email, name: u.name, bio: u.bio, created: u.createdAt, avatarUrl: avatarUrl(u) });
+const meUser = (u) => ({ id: u.id, email: u.email, name: u.name, bio: u.bio, created: u.createdAt, avatarUrl: avatarUrl(u), isAdmin: isAdmin(u) });
 const isDataImage = (s, max) => typeof s === "string" && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s) && s.length <= max;
 
 async function notify(userId, text, link) {
-  try { await db().notification.create({ data: { userId, text: str(text, 300), link: link || "" } }); } catch (e) { /* ignore */ }
+  try {
+    const n = await db().notification.create({ data: { userId, text: str(text, 300), link: link || "" } });
+    await sendPush(userId, { title: "Хичээл", body: n.text, link: n.link, tag: n.id });
+  } catch (e) { /* ignore */ }
 }
 async function areFriends(a, b) {
   const f = await db().friend.findFirst({ where: { status: "accepted", OR: [{ fromId: a, toId: b }, { fromId: b, toId: a }] } });
@@ -105,7 +135,10 @@ const on = (method, pattern, fn) => routes.push({ method, re: new RegExp("^" + p
 
 on("GET", "health", async () => {
   await db().$queryRaw`SELECT 1`;
-  return { ok: true };
+  return {
+    ok: true,
+    features: { google: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET), email: !!process.env.RESEND_API_KEY, ai: !!process.env.ANTHROPIC_API_KEY, push: true }
+  };
 });
 
 /* --- Бүртгэл / нэвтрэх --- */
@@ -123,6 +156,7 @@ on("POST", "auth/login", async (req, res, { body }) => {
   const email = str(body.email, 120).toLowerCase();
   const user = await db().user.findUnique({ where: { email } });
   if (!user || !(await bcrypt.compare(String(body.password || ""), user.passwordHash))) fail(401, "Имэйл эсвэл нууц үг буруу байна.");
+  if (user.banned) fail(403, "Таны бүртгэл админаар хаагдсан байна.");
   res.setHeader("Set-Cookie", sessionCookie(req, user.id));
   return { user: meUser(user) };
 });
@@ -205,7 +239,8 @@ on("GET", "avatar", async (req, res, { query }) => {
 /* --- Хэрэглэгчид, тэргүүлэгчид --- */
 on("GET", "leaderboard", async (req, res, { query }) => {
   const me = await currentUser(req, false);
-  const where = query.track === "zh" || query.track === "en" ? { track: query.track } : {};
+  const where = { user: { banned: false } };
+  if (query.track === "zh" || query.track === "en") where.track = query.track;
   const rows = await db().progress.findMany({ where, orderBy: [{ xp: "desc" }, { updatedAt: "asc" }], take: 50, include: { user: true } });
   const list = rows.map((r, i) => ({ rank: i + 1, ...publicUser(r.user), xp: r.xp, streak: r.streak, learned: r.learned, track: r.track, me: !!me && r.userId === me.id }));
   let mine = null;
@@ -219,7 +254,8 @@ on("GET", "users", async (req, res, { query }) => {
   const me = await currentUser(req, true);
   const q = str(query.q, 40);
   if (!q) return { users: [] };
-  const users = await db().user.findMany({ where: { name: { contains: q, mode: "insensitive" }, NOT: { id: me.id } }, take: 20 });
+  const bl = await blockedIds(me.id);
+  const users = await db().user.findMany({ where: { name: { contains: q, mode: "insensitive" }, banned: false, id: { notIn: [me.id, ...bl] } }, take: 20 });
   return { users: users.map(publicUser) };
 });
 on("GET", "users/:id", async (req, res, { params }) => {
@@ -231,6 +267,7 @@ on("GET", "users/:id", async (req, res, { params }) => {
   return {
     user: { ...publicUser(u), bio: u.bio, created: u.createdAt, xp: u.progress ? u.progress.xp : 0, streak: u.progress ? u.progress.streak : 0, learned: u.progress ? u.progress.learned : 0, posts },
     friend: !rel ? "none" : rel.status === "accepted" ? "friends" : rel.fromId === me.id ? "sent" : "received",
+    blocked: !!(await db().block.findUnique({ where: { blockerId_blockedId: { blockerId: me.id, blockedId: u.id } } })),
     self: me.id === u.id
   };
 });
@@ -254,6 +291,9 @@ on("POST", "friends/request", async (req, res, { body }) => {
   if (id === me.id) fail(400, "Өөрийгөө нэмэх боломжгүй.");
   const other = await db().user.findUnique({ where: { id } });
   if (!other) fail(404, "Хэрэглэгч олдсонгүй.");
+  if ((await blockedIds(me.id)).includes(id)) fail(403, "Энэ хэрэглэгчтэй харилцах боломжгүй.");
+  const recent = await db().friend.count({ where: { fromId: me.id, createdAt: { gt: new Date(Date.now() - 3600e3) } } });
+  if (recent >= 30) fail(429, "Цагт 30-аас олон найзын хүсэлт илгээх боломжгүй.");
   const rev = await db().friend.findUnique({ where: { fromId_toId: { fromId: id, toId: me.id } } });
   if (rev) {
     await db().friend.update({ where: { id: rev.id }, data: { status: "accepted" } });
@@ -287,12 +327,15 @@ async function checkRoom(me, room) {
   if (!m) fail(400, "Өрөө буруу.");
   const other = m[1];
   if (!(await areFriends(me.id, other))) fail(403, "Зөвхөн найзууддаа хувийн зурвас бичих боломжтой.");
+  if ((await blockedIds(me.id)).includes(other)) fail(403, "Энэ хэрэглэгчтэй харилцах боломжгүй.");
   return dmRoom(me.id, other);
 }
 on("GET", "chat", async (req, res, { query }) => {
   const me = await currentUser(req, true);
   const room = await checkRoom(me, str(query.room || "public", 80));
   const where = { room };
+  const bl = await blockedIds(me.id);
+  if (bl.length) where.userId = { notIn: bl };
   if (query.after) where.createdAt = { gt: new Date(String(query.after)) };
   const msgs = await db().chatMessage.findMany({ where, orderBy: { createdAt: "desc" }, take: 60, include: { user: true } });
   return { room, messages: msgs.reverse().map((m) => ({ id: m.id, text: m.text, image: m.image || null, createdAt: m.createdAt, user: publicUser(m.user), mine: m.userId === me.id })) };
@@ -303,6 +346,10 @@ on("POST", "chat", async (req, res, { body }) => {
   const text = str(body.text, 1000);
   const image = body.image ? (isDataImage(body.image, 900_000) ? body.image : fail(400, "Зураг буруу эсвэл хэт том байна.")) : null;
   if (!text && !image) fail(400, "Хоосон зурвас.");
+  await limit("chatMessage", me.id, 60, 15, "Минутад 15-аас олон зурвас илгээх боломжгүй. Түр хүлээнэ үү.");
+  const lastMsg = await db().chatMessage.findFirst({ where: { userId: me.id }, orderBy: { createdAt: "desc" } });
+  if (lastMsg && Date.now() - new Date(lastMsg.createdAt).getTime() < 1200) fail(429, "Хэт хурдан бичиж байна.");
+  if (lastMsg && text && lastMsg.text === text && Date.now() - new Date(lastMsg.createdAt).getTime() < 30000) fail(429, "Ижил зурвасыг давтан илгээх боломжгүй.");
   const m = await db().chatMessage.create({ data: { room, userId: me.id, text, image } });
   if (room.startsWith("dm:")) {
     const other = room.slice(3).split(":").find((x) => x !== me.id);
@@ -330,6 +377,8 @@ async function postView(p, meId) {
 on("GET", "posts", async (req, res, { query }) => {
   const me = await currentUser(req, true);
   const where = query.user ? { userId: str(query.user, 40) } : {};
+  const bl = await blockedIds(me.id);
+  if (bl.length && !query.user) where.userId = { notIn: bl };
   if (query.before) where.createdAt = { lt: new Date(String(query.before)) };
   const posts = await db().post.findMany({ where, orderBy: { createdAt: "desc" }, take: 15, include: { user: true, reactions: true, _count: { select: { comments: true } } } });
   return { posts: await Promise.all(posts.map((p) => postView(p, me.id))) };
@@ -339,6 +388,7 @@ on("POST", "posts", async (req, res, { body }) => {
   const text = str(body.text, 2000);
   const image = body.image ? (isDataImage(body.image, 900_000) ? body.image : fail(400, "Зураг буруу эсвэл хэт том байна.")) : null;
   if (!text && !image) fail(400, "Пост хоосон байна.");
+  await limit("post", me.id, 3600, 10, "Цагт 10-аас олон пост оруулах боломжгүй.");
   const p = await db().post.create({ data: { userId: me.id, text, image } });
   return { id: p.id };
 });
@@ -363,14 +413,16 @@ on("POST", "posts/:id/react", async (req, res, { params, body }) => {
   return { on: !ex };
 });
 on("GET", "posts/:id/comments", async (req, res, { params }) => {
-  await currentUser(req, true);
-  const cs = await db().comment.findMany({ where: { postId: params.id }, orderBy: { createdAt: "asc" }, take: 100, include: { user: true } });
+  const me0 = await currentUser(req, true);
+  const bl = await blockedIds(me0.id);
+  const cs = await db().comment.findMany({ where: { postId: params.id, ...(bl.length ? { userId: { notIn: bl } } : {}) }, orderBy: { createdAt: "asc" }, take: 100, include: { user: true } });
   return { comments: cs.map((c) => ({ id: c.id, text: c.text, createdAt: c.createdAt, user: publicUser(c.user) })) };
 });
 on("POST", "posts/:id/comments", async (req, res, { params, body }) => {
   const me = await currentUser(req, true);
   const text = str(body.text, 1000);
   if (!text) fail(400, "Сэтгэгдэл хоосон байна.");
+  await limit("comment", me.id, 3600, 40, "Цагт 40-өөс олон сэтгэгдэл бичих боломжгүй.");
   const p = await db().post.findUnique({ where: { id: params.id } });
   if (!p) fail(404, "Пост олдсонгүй.");
   await db().comment.create({ data: { postId: p.id, userId: me.id, text } });
@@ -395,6 +447,445 @@ on("DELETE", "notifications", async (req) => {
   const me = await currentUser(req, true);
   await db().notification.deleteMany({ where: { userId: me.id } });
   return { ok: true };
+});
+
+
+/* --- Блок ба мэдээлэх (report) --- */
+on("POST", "block", async (req, res, { body }) => {
+  const me = await currentUser(req, true);
+  const id = str(body.id, 40);
+  if (id === me.id) fail(400, "Өөрийгөө блоклох боломжгүй.");
+  if (body.on === false) {
+    await db().block.deleteMany({ where: { blockerId: me.id, blockedId: id } });
+    return { blocked: false };
+  }
+  await db().block.upsert({ where: { blockerId_blockedId: { blockerId: me.id, blockedId: id } }, create: { blockerId: me.id, blockedId: id }, update: {} });
+  await db().friend.deleteMany({ where: { OR: [{ fromId: me.id, toId: id }, { fromId: id, toId: me.id }] } });
+  return { blocked: true };
+});
+on("GET", "blocks", async (req) => {
+  const me = await currentUser(req, true);
+  const rows = await db().block.findMany({ where: { blockerId: me.id }, include: { blocked: true } });
+  return { users: rows.map((r) => publicUser(r.blocked)) };
+});
+on("POST", "report", async (req, res, { body }) => {
+  const me = await currentUser(req, true);
+  const kind = ["post", "comment", "chat", "user", "story"].includes(body.kind) ? body.kind : fail(400, "Төрөл буруу.");
+  const targetId = str(body.targetId, 40);
+  await limit("report", me.id, 3600, 20, null, "reporterId");
+  let preview = "";
+  if (kind === "post") { const x = await db().post.findUnique({ where: { id: targetId } }); preview = x ? x.text : ""; }
+  if (kind === "comment") { const x = await db().comment.findUnique({ where: { id: targetId } }); preview = x ? x.text : ""; }
+  if (kind === "chat") { const x = await db().chatMessage.findUnique({ where: { id: targetId } }); preview = x ? x.text || "📷" : ""; }
+  if (kind === "user") { const x = await db().user.findUnique({ where: { id: targetId } }); preview = x ? x.name : ""; }
+  if (kind === "story") { const x = await db().story.findUnique({ where: { id: targetId } }); preview = x ? x.text || "📷" : ""; }
+  await db().report.create({ data: { reporterId: me.id, kind, targetId, reason: str(body.reason, 300), preview: str(preview, 300) } });
+  return { ok: true };
+});
+// Хэрэглэгч өөрийн мессеж, сэтгэгдлээ устгах
+on("DELETE", "chat/:id", async (req, res, { params }) => {
+  const me = await currentUser(req, true);
+  const m = await db().chatMessage.findUnique({ where: { id: params.id } });
+  if (!m || (m.userId !== me.id && !isAdmin(me))) fail(404, "Олдсонгүй.");
+  await db().chatMessage.delete({ where: { id: m.id } });
+  return { ok: true };
+});
+on("DELETE", "comments/:id", async (req, res, { params }) => {
+  const me = await currentUser(req, true);
+  const c = await db().comment.findUnique({ where: { id: params.id }, include: { post: true } });
+  if (!c || (c.userId !== me.id && c.post.userId !== me.id && !isAdmin(me))) fail(404, "Олдсонгүй.");
+  await db().comment.delete({ where: { id: c.id } });
+  return { ok: true };
+});
+
+/* --- Админ --- */
+on("GET", "admin/stats", async (req) => {
+  await adminUser(req);
+  const day = new Date(Date.now() - 864e5), week = new Date(Date.now() - 7 * 864e5);
+  const [users, active24, active7, newUsers, posts, messages, reports, banned] = await Promise.all([
+    db().user.count(), db().user.count({ where: { lastSeen: { gt: day } } }), db().user.count({ where: { lastSeen: { gt: week } } }),
+    db().user.count({ where: { createdAt: { gt: week } } }), db().post.count(), db().chatMessage.count(),
+    db().report.count({ where: { resolved: false } }), db().user.count({ where: { banned: true } })
+  ]);
+  return { users, active24, active7, newUsers, posts, messages, reports, banned };
+});
+on("GET", "admin/users", async (req, res, { query }) => {
+  await adminUser(req);
+  const q = str(query.q, 60);
+  const where = q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }] } : {};
+  const users = await db().user.findMany({ where, orderBy: { createdAt: "desc" }, take: 50, include: { progress: true } });
+  return { users: users.map((u) => ({ ...publicUser(u), email: u.email, banned: u.banned, isAdmin: isAdmin(u), created: u.createdAt, lastSeen: u.lastSeen, xp: u.progress ? u.progress.xp : 0 })) };
+});
+on("POST", "admin/users/:id/ban", async (req, res, { params, body }) => {
+  const me = await adminUser(req);
+  if (params.id === me.id) fail(400, "Өөрийгөө хаах боломжгүй.");
+  const u = await db().user.update({ where: { id: params.id }, data: { banned: !!body.banned } });
+  return { banned: u.banned };
+});
+on("POST", "admin/users/:id/admin", async (req, res, { params, body }) => {
+  const me = await adminUser(req);
+  if (!ADMIN_EMAILS().includes(me.email)) fail(403, "Админ эрх олгох нь зөвхөн үндсэн админд (ADMIN_EMAILS) боломжтой.");
+  const u = await db().user.update({ where: { id: params.id }, data: { isAdmin: !!body.isAdmin } });
+  return { isAdmin: u.isAdmin };
+});
+on("DELETE", "admin/users/:id", async (req, res, { params }) => {
+  const me = await adminUser(req);
+  if (params.id === me.id) fail(400, "Өөрийгөө устгах боломжгүй.");
+  await db().user.delete({ where: { id: params.id } });
+  return { ok: true };
+});
+on("GET", "admin/reports", async (req) => {
+  await adminUser(req);
+  const list = await db().report.findMany({ where: { resolved: false }, orderBy: { createdAt: "desc" }, take: 100, include: { reporter: true } });
+  return { reports: list.map((r) => ({ id: r.id, kind: r.kind, targetId: r.targetId, reason: r.reason, preview: r.preview, createdAt: r.createdAt, reporter: publicUser(r.reporter) })) };
+});
+on("POST", "admin/reports/:id/resolve", async (req, res, { params, body }) => {
+  await adminUser(req);
+  const r = await db().report.findUnique({ where: { id: params.id } });
+  if (!r) fail(404, "Олдсонгүй.");
+  if (body.remove) {
+    const t = r.targetId;
+    if (r.kind === "post") await db().post.deleteMany({ where: { id: t } });
+    if (r.kind === "comment") await db().comment.deleteMany({ where: { id: t } });
+    if (r.kind === "chat") await db().chatMessage.deleteMany({ where: { id: t } });
+    if (r.kind === "story") await db().story.deleteMany({ where: { id: t } });
+    if (r.kind === "user") await db().user.updateMany({ where: { id: t }, data: { banned: true } });
+  }
+  await db().report.updateMany({ where: { kind: r.kind, targetId: r.targetId }, data: { resolved: true } });
+  return { ok: true };
+});
+on("GET", "admin/content", async (req, res, { query }) => {
+  await adminUser(req);
+  if (query.kind === "chat") {
+    const m = await db().chatMessage.findMany({ orderBy: { createdAt: "desc" }, take: 60, include: { user: true } });
+    return { items: m.map((x) => ({ id: x.id, kind: "chat", text: x.text || (x.image ? "📷 Зураг" : ""), room: x.room, createdAt: x.createdAt, user: publicUser(x.user) })) };
+  }
+  const p = await db().post.findMany({ orderBy: { createdAt: "desc" }, take: 40, include: { user: true } });
+  return { items: p.map((x) => ({ id: x.id, kind: "post", text: x.text || (x.image ? "📷 Зураг" : ""), createdAt: x.createdAt, user: publicUser(x.user) })) };
+});
+on("DELETE", "admin/content/:kind/:id", async (req, res, { params }) => {
+  await adminUser(req);
+  const map = { post: "post", chat: "chatMessage", comment: "comment", story: "story" };
+  if (!map[params.kind]) fail(400, "Төрөл буруу.");
+  await db()[map[params.kind]].deleteMany({ where: { id: params.id } });
+  return { ok: true };
+});
+on("POST", "admin/announce", async (req, res, { body }) => {
+  await adminUser(req);
+  const text = str(body.text, 300);
+  if (!text) fail(400, "Хоосон байна.");
+  const users = await db().user.findMany({ where: { banned: false }, select: { id: true } });
+  await db().notification.createMany({ data: users.map((u) => ({ userId: u.id, text: "📢 " + text, link: str(body.link, 200) })) });
+  return { sent: users.length };
+});
+
+/* --- Нууц үг сэргээх (Resend имэйл) --- */
+const sha = (t) => crypto.createHash("sha256").update(t).digest("hex");
+async function sendMail(to, subject, html) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) fail(503, "Имэйл үйлчилгээ тохируулаагүй байна (RESEND_API_KEY). Админд хандана уу.");
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: process.env.MAIL_FROM || "Хичээл <onboarding@resend.dev>", to: [to], subject, html })
+  });
+  if (!r.ok) { console.error("resend", r.status, await r.text().catch(() => "")); fail(502, "Имэйл илгээж чадсангүй."); }
+}
+on("POST", "auth/forgot", async (req, res, { body }) => {
+  const email = str(body.email, 120).toLowerCase();
+  if (!process.env.RESEND_API_KEY) fail(503, "Имэйл үйлчилгээ тохируулаагүй байна. Админд хандана уу.");
+  const user = await db().user.findUnique({ where: { email } });
+  if (user && !user.banned) {
+    const recent = await db().passwordReset.count({ where: { userId: user.id, createdAt: { gt: new Date(Date.now() - 3600e3) } } });
+    if (recent < 3) {
+      const token = crypto.randomBytes(32).toString("hex");
+      await db().passwordReset.create({ data: { userId: user.id, tokenHash: sha(token), expiresAt: new Date(Date.now() + 3600e3) } });
+      const link = `${origin(req)}/#/reset/${token}`;
+      await sendMail(email, "Хичээл — нууц үг сэргээх", `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;border:2px solid #0a0a0a">
+        <h2 style="margin:0 0 12px">Нууц үг сэргээх</h2><p>Сайн байна уу, ${user.name.replace(/[<>&]/g, "")}!</p>
+        <p>Доорх товч дээр дарж шинэ нууц үгээ тохируулна уу. Холбоос 1 цагийн дараа хүчингүй болно.</p>
+        <p><a href="${link}" style="display:inline-block;background:#0a0a0a;color:#fff;padding:12px 20px;text-decoration:none;font-weight:bold">НУУЦ ҮГ СОЛИХ</a></p>
+        <p style="color:#888;font-size:12px">Хэрэв та хүсэлт илгээгээгүй бол энэ имэйлийг үл тоомсорлоно уу.</p></div>`);
+    }
+  }
+  return { ok: true }; // бүртгэл байгаа эсэхийг илчлэхгүй
+});
+on("POST", "auth/reset", async (req, res, { body }) => {
+  const token = str(body.token, 100);
+  const pw = String(body.password || "");
+  if (pw.length < 6) fail(400, "Нууц үг хамгийн багадаа 6 тэмдэгт байна.");
+  const r = await db().passwordReset.findUnique({ where: { tokenHash: sha(token) } });
+  if (!r || r.used || new Date(r.expiresAt) < new Date()) fail(400, "Холбоос хүчингүй эсвэл хугацаа нь дууссан байна.");
+  await db().user.update({ where: { id: r.userId }, data: { passwordHash: await bcrypt.hash(pw, 10) } });
+  await db().passwordReset.update({ where: { id: r.id }, data: { used: true } });
+  const user = await db().user.findUnique({ where: { id: r.userId } });
+  res.setHeader("Set-Cookie", sessionCookie(req, user.id));
+  return { user: meUser(user) };
+});
+
+/* --- Google-ээр нэвтрэх (OAuth 2.0) --- */
+function redirect(res, url, cookie) {
+  res.statusCode = 302;
+  res.setHeader("Location", url);
+  if (cookie) res.setHeader("Set-Cookie", cookie);
+  res.end();
+}
+on("GET", "auth/google", async (req, res) => {
+  const id = process.env.GOOGLE_CLIENT_ID;
+  if (!id) fail(503, "Google нэвтрэлт тохируулаагүй байна.");
+  const state = crypto.randomBytes(16).toString("hex");
+  const params = new URLSearchParams({ client_id: id, redirect_uri: origin(req) + "/api/auth/google/callback", response_type: "code", scope: "openid email profile", state, prompt: "select_account" });
+  const secure = origin(req).startsWith("https") ? "; Secure" : "";
+  redirect(res, "https://accounts.google.com/o/oauth2/v2/auth?" + params, `g_state=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600${secure}`);
+});
+on("GET", "auth/google/callback", async (req, res, { query }) => {
+  const back = origin(req) + "/#/";
+  try {
+    if (!query.code || !query.state || query.state !== cookies(req).g_state) return redirect(res, back + "login?err=google");
+    const tr = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ code: String(query.code), client_id: process.env.GOOGLE_CLIENT_ID, client_secret: process.env.GOOGLE_CLIENT_SECRET, redirect_uri: origin(req) + "/api/auth/google/callback", grant_type: "authorization_code" })
+    });
+    const tok = await tr.json();
+    if (!tok.id_token) return redirect(res, back + "login?err=google");
+    // id_token-ийг Google-ээс TLS-ээр шууд авсан тул payload-ийг уншихад хангалттай
+    const info = JSON.parse(Buffer.from(tok.id_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
+    if (info.aud !== process.env.GOOGLE_CLIENT_ID || !info.email || info.email_verified === false) return redirect(res, back + "login?err=google");
+    const email = String(info.email).toLowerCase();
+    let user = await db().user.findFirst({ where: { googleId: info.sub } }) || await db().user.findUnique({ where: { email } });
+    if (user && user.banned) return redirect(res, back + "login?err=banned");
+    if (!user) {
+      user = await db().user.create({ data: { email, name: str(info.name || email.split("@")[0], 40), googleId: info.sub, passwordHash: await bcrypt.hash(crypto.randomBytes(24).toString("hex"), 10) } });
+    } else if (!user.googleId) {
+      user = await db().user.update({ where: { id: user.id }, data: { googleId: info.sub } });
+    }
+    redirect(res, back + "dashboard", sessionCookie(req, user.id));
+  } catch (e) {
+    console.error(e);
+    redirect(res, back + "login?err=google");
+  }
+});
+
+/* --- Сторй (24 цаг) --- */
+on("GET", "stories", async (req) => {
+  const me = await currentUser(req, true);
+  const bl = await blockedIds(me.id);
+  const list = await db().story.findMany({ where: { createdAt: { gt: new Date(Date.now() - 864e5) }, userId: { notIn: bl }, user: { banned: false } }, orderBy: { createdAt: "asc" }, include: { user: true }, take: 200 });
+  const groups = {};
+  list.forEach((s) => {
+    const g = groups[s.userId] || (groups[s.userId] = { user: publicUser(s.user), mine: s.userId === me.id, items: [] });
+    g.items.push({ id: s.id, text: s.text, image: s.image, bg: s.bg, createdAt: s.createdAt });
+  });
+  const arr = Object.values(groups).sort((a, b) => (b.mine - a.mine) || (new Date(b.items[b.items.length - 1].createdAt) - new Date(a.items[a.items.length - 1].createdAt)));
+  return { groups: arr };
+});
+on("POST", "stories", async (req, res, { body }) => {
+  const me = await currentUser(req, true);
+  const text = str(body.text, 300);
+  const image = body.image ? (isDataImage(body.image, 900_000) ? body.image : fail(400, "Зураг буруу эсвэл хэт том байна.")) : null;
+  if (!text && !image) fail(400, "Сторй хоосон байна.");
+  await limit("story", me.id, 864e2, 15, "Өдөрт 15-аас олон сторй оруулах боломжгүй.");
+  const bg = /^#[0-9a-fA-F]{6}$/.test(body.bg || "") ? body.bg : "#0a0a0a";
+  const s0 = await db().story.create({ data: { userId: me.id, text, image, bg } });
+  return { id: s0.id };
+});
+on("DELETE", "stories/:id", async (req, res, { params }) => {
+  const me = await currentUser(req, true);
+  const s0 = await db().story.findUnique({ where: { id: params.id } });
+  if (!s0 || (s0.userId !== me.id && !isAdmin(me))) fail(404, "Олдсонгүй.");
+  await db().story.delete({ where: { id: s0.id } });
+  return { ok: true };
+});
+
+/* --- Үгийн тулаан (duel) --- */
+const duelView = (d, meId) => ({
+  id: d.id, course: d.course, level: d.level, status: d.status, createdAt: d.createdAt,
+  from: publicUser(d.from), to: publicUser(d.to), fromScore: d.fromScore, toScore: d.toScore,
+  mine: d.fromId === meId, canPlay: d.toId === meId && d.status === "pending",
+  questions: d.toId === meId && d.status === "pending" ? d.questions : undefined
+});
+on("GET", "duels", async (req) => {
+  const me = await currentUser(req, true);
+  const list = await db().duel.findMany({ where: { OR: [{ fromId: me.id }, { toId: me.id }] }, orderBy: { createdAt: "desc" }, take: 40, include: { from: true, to: true } });
+  return { duels: list.map((d) => duelView(d, me.id)) };
+});
+on("POST", "duels", async (req, res, { body }) => {
+  const me = await currentUser(req, true);
+  const toId = str(body.toId, 40);
+  if (!(await areFriends(me.id, toId))) fail(403, "Зөвхөн найзтайгаа тулалдах боломжтой.");
+  const qs = Array.isArray(body.questions) ? body.questions.slice(0, 20) : [];
+  if (qs.length < 5 || JSON.stringify(qs).length > 50_000) fail(400, "Асуулт буруу.");
+  const score = Math.max(0, Math.min(qs.length, parseInt(body.score, 10) || 0));
+  await limit("duel", me.id, 3600, 20, "Цагт 20-оос олон тулаан эхлүүлэх боломжгүй.", "fromId");
+  const d = await db().duel.create({ data: { fromId: me.id, toId, course: str(body.course, 10), level: str(body.level, 10), questions: qs, fromScore: score } });
+  await notify(toId, `⚔️ ${me.name} таныг үгийн тулаанд урилаа!`, "#/duels");
+  return { id: d.id };
+});
+on("POST", "duels/:id/play", async (req, res, { params, body }) => {
+  const me = await currentUser(req, true);
+  const d = await db().duel.findUnique({ where: { id: params.id }, include: { from: true, to: true } });
+  if (!d || d.toId !== me.id || d.status !== "pending") fail(404, "Тулаан олдсонгүй.");
+  const total = Array.isArray(d.questions) ? d.questions.length : 10;
+  const score = Math.max(0, Math.min(total, parseInt(body.score, 10) || 0));
+  const nd = await db().duel.update({ where: { id: d.id }, data: { toScore: score, status: "done" }, include: { from: true, to: true } });
+  const res1 = score > d.fromScore ? `${me.name} яллаа 🏆` : score < d.fromScore ? `Та яллаа 🏆` : "Тэнцлээ 🤝";
+  await notify(d.fromId, `⚔️ Тулаан: ${d.from.name} ${d.fromScore} — ${score} ${me.name}. ${res1}`, "#/duels");
+  return { duel: duelView(nd, me.id) };
+});
+on("POST", "duels/:id/decline", async (req, res, { params }) => {
+  const me = await currentUser(req, true);
+  await db().duel.updateMany({ where: { id: params.id, toId: me.id, status: "pending" }, data: { status: "declined" } });
+  return { ok: true };
+});
+
+/* --- Web push (VAPID түлхүүрийг санд нэг удаа үүсгэж хадгална) --- */
+let vapid = null;
+async function getVapid() {
+  if (vapid) return vapid;
+  const webpush = require("web-push");
+  const row = await db().setting.findUnique({ where: { key: "vapid" } });
+  if (row) vapid = JSON.parse(row.value);
+  else {
+    vapid = webpush.generateVAPIDKeys();
+    await db().setting.upsert({ where: { key: "vapid" }, create: { key: "vapid", value: JSON.stringify(vapid) }, update: {} });
+    vapid = JSON.parse((await db().setting.findUnique({ where: { key: "vapid" } })).value);
+  }
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:admin@hicheel.app", vapid.publicKey, vapid.privateKey);
+  return vapid;
+}
+async function sendPush(userId, payload) {
+  const subs = await db().pushSub.findMany({ where: { userId } });
+  if (!subs.length) return;
+  const webpush = require("web-push");
+  await getVapid();
+  await Promise.all(subs.map(async (s0) => {
+    try { await webpush.sendNotification({ endpoint: s0.endpoint, keys: { p256dh: s0.p256dh, auth: s0.auth } }, JSON.stringify(payload), { TTL: 3600 }); }
+    catch (e) { if (e.statusCode === 404 || e.statusCode === 410) await db().pushSub.deleteMany({ where: { id: s0.id } }); }
+  }));
+}
+on("GET", "push/key", async () => ({ publicKey: (await getVapid()).publicKey }));
+on("POST", "push/subscribe", async (req, res, { body }) => {
+  const me = await currentUser(req, true);
+  const sub = body.subscription || {};
+  if (!sub.endpoint || !sub.keys || !sub.keys.p256dh || !sub.keys.auth) fail(400, "Subscription буруу.");
+  await db().pushSub.upsert({ where: { endpoint: sub.endpoint }, create: { userId: me.id, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth }, update: { userId: me.id, p256dh: sub.keys.p256dh, auth: sub.keys.auth } });
+  return { ok: true };
+});
+on("POST", "push/unsubscribe", async (req, res, { body }) => {
+  await currentUser(req, true);
+  await db().pushSub.deleteMany({ where: { endpoint: str(body.endpoint, 1000) } });
+  return { ok: true };
+});
+on("POST", "push/test", async (req) => {
+  const me = await currentUser(req, true);
+  await sendPush(me.id, { title: "Хичээл", body: "🔔 Мэдэгдэл амжилттай ажиллаж байна!", link: "#/dashboard" });
+  return { ok: true };
+});
+
+/* --- Хиймэл оюун (Anthropic Claude) --- */
+const AI_MODEL = process.env.AI_MODEL || "claude-opus-5-5";
+let anthropic = null;
+function ai() {
+  if (!process.env.ANTHROPIC_API_KEY) fail(503, "Хиймэл оюуны үйлчилгээ тохируулаагүй байна (ANTHROPIC_API_KEY).");
+  if (!anthropic) { const Anthropic = require("@anthropic-ai/sdk"); anthropic = new (Anthropic.default || Anthropic)(); }
+  return anthropic;
+}
+async function aiQuota(me, kind) {
+  const max = parseInt(process.env.AI_DAILY_LIMIT || "30", 10);
+  const n = await db().aiUse.count({ where: { userId: me.id, createdAt: { gt: new Date(Date.now() - 864e5) } } });
+  if (n >= max && !isAdmin(me)) fail(429, `Өдрийн хиймэл оюуны хязгаар (${max}) дууссан байна. Маргааш дахин оролдоно уу.`);
+  await db().aiUse.create({ data: { userId: me.id, kind } });
+}
+// Claude-оос JSON хариу авах (structured output). Татгалзвал серверийн fallback өөр загвараар дахин оролдоно.
+async function aiJson({ system, messages, schema, effort, maxTokens }) {
+  const Anthropic = require("@anthropic-ai/sdk");
+  const A0 = Anthropic.default || Anthropic;
+  let r;
+  try {
+    r = await ai().beta.messages.create({
+      model: AI_MODEL,
+      max_tokens: maxTokens || 4000,
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      system,
+      messages,
+      output_config: { effort: effort || "low", format: { type: "json_schema", schema } }
+    });
+  } catch (e) {
+    if (e instanceof A0.RateLimitError) fail(429, "Хиймэл оюун одоо ачаалалтай байна. Түр хүлээгээд дахин оролдоно уу.");
+    if (e instanceof A0.AuthenticationError) fail(503, "ANTHROPIC_API_KEY буруу байна.");
+    if (e instanceof A0.BadRequestError) { console.error(e.message); fail(400, "Хиймэл оюуны хүсэлт буруу байна."); }
+    if (e instanceof A0.APIError) { console.error(e.status, e.message); fail(502, "Хиймэл оюуны алдаа гарлаа."); }
+    throw e;
+  }
+  if (r.stop_reason === "refusal") fail(422, "Хиймэл оюун энэ хүсэлтэд хариулахаас татгалзлаа.");
+  const text = r.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+  try { return JSON.parse(text); } catch (e) { fail(502, "Хиймэл оюуны хариуг уншиж чадсангүй."); }
+}
+const S = (props, req) => ({ type: "object", properties: props, required: req || Object.keys(props), additionalProperties: false });
+const STR = { type: "string" }, NUM = { type: "number" };
+
+on("POST", "ai/writing", async (req, res, { body }) => {
+  const me = await currentUser(req, true);
+  const essay = str(body.essay, 6000), prompt = str(body.prompt, 1500), task = body.task === 1 ? 1 : 2;
+  const words = (essay.match(/\S+/g) || []).length;
+  if (words < 40) fail(400, "Эссе хэт богино байна (40+ үг).");
+  await aiQuota(me, "writing");
+  const crit = { band: NUM, comment: STR };
+  const out = await aiJson({
+    effort: "medium",
+    maxTokens: 6000,
+    system: `You are a certified IELTS examiner. Grade the candidate's IELTS Academic Writing Task ${task} response strictly according to the official public band descriptors (${task === 1 ? "Task Achievement" : "Task Response"}, Coherence and Cohesion, Lexical Resource, Grammatical Range and Accuracy). Use half bands (e.g. 6.5). The overall band is the mean of the four criteria rounded to the nearest half band. Penalise responses under ${task === 1 ? 150 : 250} words. Write every comment, strength, improvement and explanation in Mongolian (Cyrillic) so a Mongolian learner understands; keep quoted English text in English. Give up to 8 concrete sentence-level corrections taken from the essay.`,
+    messages: [{ role: "user", content: `Task prompt:\n${prompt}\n\nCandidate response (${words} words):\n${essay}` }],
+    schema: S({
+      overall: NUM, task: crit, coherence: crit, lexical: crit, grammar: crit,
+      strengths: { type: "array", items: STR }, improvements: { type: "array", items: STR },
+      corrections: { type: "array", items: S({ original: STR, corrected: STR, explanation: STR }) },
+      summary: STR
+    })
+  });
+  return { result: out, words };
+});
+
+on("POST", "ai/speaking", async (req, res, { body }) => {
+  const me = await currentUser(req, true);
+  const lang = body.lang === "zh" ? "zh" : "en";
+  const transcript = str(body.transcript, 3000), question = str(body.question, 500);
+  if ((transcript.match(/\S+/g) || []).length < 3 && transcript.length < 6) fail(400, "Хариулт хэт богино байна.");
+  await aiQuota(me, "speaking");
+  const out = await aiJson({
+    effort: "low",
+    system: lang === "en"
+      ? "You are an IELTS Speaking examiner. You receive a speech-to-text transcript of a candidate's spoken answer (pronunciation cannot be judged from text, so assess Fluency & Coherence, Lexical Resource and Grammatical Range & Accuracy only, and say so). Give an estimated band (half bands). Write feedback in Mongolian (Cyrillic). Provide an improved model answer in natural English at roughly one band higher."
+      : "You are an HSKK (Chinese speaking test) examiner. You receive a speech-to-text transcript of a learner's spoken Chinese answer. Pronunciation and tones cannot be judged from text; assess content, vocabulary, grammar and fluency. Give a score out of 100. Write feedback in Mongolian (Cyrillic). Provide an improved model answer in simplified Chinese with pinyin.",
+    messages: [{ role: "user", content: `Question: ${question}\nTranscript: ${transcript}` }],
+    schema: S({ score: NUM, scale: STR, feedback: STR, strengths: { type: "array", items: STR }, improvements: { type: "array", items: STR }, better_answer: STR })
+  });
+  return { result: out };
+});
+
+on("POST", "ai/tutor", async (req, res, { body }) => {
+  const me = await currentUser(req, true);
+  const lang = body.lang === "zh" ? "zh" : "en";
+  const level = str(body.level, 10) || (lang === "zh" ? "HSK 2" : "B1");
+  const topic = str(body.topic, 120);
+  const hist = (Array.isArray(body.messages) ? body.messages : []).slice(-16)
+    .map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: str(m.content, 1500) }))
+    .filter((m) => m.content);
+  if (!hist.length || hist[hist.length - 1].role !== "user") fail(400, "Мессеж хоосон байна.");
+  while (hist.length && hist[0].role !== "user") hist.shift();
+  await aiQuota(me, "tutor");
+  const out = await aiJson({
+    effort: "low",
+    maxTokens: 2000,
+    system: (lang === "zh"
+      ? `You are a friendly Chinese conversation partner for a Mongolian learner at ${level} level. Reply in simple simplified Chinese suited to ${level} (1-3 short sentences) and keep the conversation going with a question. Put pinyin for your reply in "reading" and a Mongolian translation in "translation_mn".`
+      : `You are a friendly English conversation partner for a Mongolian learner at CEFR ${level} level, helping them prepare for IELTS Speaking. Reply in natural English suited to ${level} (1-3 short sentences) and keep the conversation going with a question. Put a Mongolian translation in "translation_mn" and leave "reading" empty.`) +
+      ` If the learner's last message contains mistakes, put a corrected version of their message in "correction" and a short explanation in Mongolian in "explanation_mn"; otherwise leave both empty.` + (topic ? ` Conversation topic: ${topic}.` : ""),
+    messages: hist,
+    schema: S({ reply: STR, reading: STR, translation_mn: STR, correction: STR, explanation_mn: STR })
+  });
+  return { result: out };
 });
 
 /* ---------------- Үндсэн handler ---------------- */

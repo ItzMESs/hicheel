@@ -55,6 +55,7 @@
      Сервергүй (жишээ нь GitHub Pages, файлаар нээх) үед хөтчийн localStorage ашиглана. */
   const Remote = {
     on: false,
+    features: {},
     async call(method, path, body) {
       const opt = { method, credentials: "same-origin", headers: {} };
       if (body !== undefined) { opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
@@ -73,6 +74,7 @@
         const r = await fetch("/api/health", { signal: ctl.signal, credentials: "same-origin" });
         clearTimeout(t);
         this.on = r.ok;
+        if (r.ok) { try { this.features = (await r.json()).features || {}; } catch (e) { /* ignore */ } }
       } catch (e) { this.on = false; }
       if (!this.on) return;
       try {
@@ -110,7 +112,7 @@
   function adopt(user) {
     const db = load();
     const old = db.users[user.email] || {};
-    db.users[user.email] = Object.assign({}, old, { id: user.id, name: user.name, email: user.email, bio: user.bio || "", avatarUrl: user.avatarUrl || null, created: user.created ? new Date(user.created).getTime() : old.created || Date.now(), remote: true });
+    db.users[user.email] = Object.assign({}, old, { id: user.id, name: user.name, email: user.email, bio: user.bio || "", avatarUrl: user.avatarUrl || null, isAdmin: !!user.isAdmin, created: user.created ? new Date(user.created).getTime() : old.created || Date.now(), remote: true });
     db.session = user.email;
     if (!db.progress[user.email]) db.progress[user.email] = newProgress();
     save(db);
@@ -160,6 +162,16 @@
       if (!u || !u.pass || (await hash(password, u.salt)) !== u.pass) throw new Error("Имэйл эсвэл нууц үг буруу байна.");
       db.session = email;
       save(db);
+      return u;
+    },
+    async forgot(email) {
+      if (!Remote.on) throw new Error("Нууц үг сэргээх нь сервертэй үед л ажиллана.");
+      await Remote.call("POST", "auth/forgot", { email });
+    },
+    async reset(token, password) {
+      const { user } = await Remote.call("POST", "auth/reset", { token, password });
+      const u = adopt(user);
+      await Remote.pull(user);
       return u;
     },
     async logout() {
@@ -215,6 +227,14 @@
     }
   };
 
+  /* ---------- Өдрийн тоолуур (даалгаварт) ---------- */
+  function bump(p, kind, n) {
+    const t = today();
+    p.daily = p.daily || {};
+    if (!p.daily[t]) p.daily = { [t]: {} };
+    p.daily[t][kind] = (p.daily[t][kind] || 0) + (n || 1);
+  }
+
   /* ---------- Ахиц ---------- */
   function newProgress() {
     return { xp: 0, learned: {}, favorites: [], tests: [], games: 0, listening: 0, streak: 0, lastDay: null, srs: {}, activity: {}, goal: 20, writing: {} };
@@ -246,7 +266,7 @@
       let on = false;
       this.update((p) => {
         if (p.learned[id]) delete p.learned[id];
-        else { p.learned[id] = 1; p.xp += 2; on = true; }
+        else { p.learned[id] = 1; p.xp += 2; on = true; bump(p, "words"); }
       });
       return on;
     },
@@ -260,7 +280,9 @@
       return on;
     },
     reset() { this.update((p) => Object.assign(p, newProgress())); },
-    setGoal(n) { this.update((p) => { p.goal = Math.max(5, Math.min(300, +n || 20)); }); }
+    setGoal(n) { this.update((p) => { p.goal = Math.max(5, Math.min(300, +n || 20)); }); },
+    // Өдрийн даалгаврын тоолуур: kind = reviews | tests | games | listening | words | writing | ai | duel
+    count(kind, n) { this.update((p) => bump(p, kind, n)); }
   };
 
   /* ---------- Давталт (SRS, Anki маягийн SM-2 хялбаршуулсан) ----------
@@ -298,6 +320,7 @@
         const t = today();
         p.activity[t] = (p.activity[t] || 0) + 1;
         p.xp += rating === "again" ? 0 : 1;
+        bump(p, "reviews");
         if (c.ivl >= 21) p.learned[id] = 1;
       });
     },
@@ -435,5 +458,5 @@
   // Пиньинийн аялгуу тэмдгийг арилгах (харьцуулахад)
   const stripTones = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ü/g, "v").toLowerCase().replace(/[^a-z0-9一-鿿]/g, "");
 
-  window.App = Object.assign(window.App || {}, { Remote, esc, shuffle, sample, today, dayKey, SRS, Theme, Auth, Progress, COURSES, getLevel, allWords, Speech, UI, stripTones });
+  window.App = Object.assign(window.App || {}, { bump, Remote, esc, shuffle, sample, today, dayKey, SRS, Theme, Auth, Progress, COURSES, getLevel, allWords, Speech, UI, stripTones });
 })();

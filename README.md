@@ -82,6 +82,18 @@ scripts/dev.js            Локал сервер
 4. **Deployments → Redeploy** дарна. `npm install` хийх үед `prisma generate` болон `prisma db push` өөрөө ажиллаж хүснэгтүүдийг үүсгэнэ.
 5. `https://<таны-төсөл>.vercel.app/api/health` нь `{"ok":true}` гэж буцаавал бэлэн.
 
+### Нэмэлт боломжуудын тохиргоо (заавал биш)
+Vercel → **Settings → Environment Variables** хэсэгт нэмээд **Redeploy** хийнэ. Аль нэгийг нь нэмээгүй бол тухайн боломж нуугдаж, бусад нь хэвийн ажиллана.
+
+| Хувьсагч | Юунд | Тайлбар |
+|---|---|---|
+| `ADMIN_EMAILS` | 🛡️ Админ самбар (`#/admin`) | Таслалаар тусгаарласан имэйлүүд, жишээ нь `me@gmail.com` |
+| `RESEND_API_KEY`, `MAIL_FROM` | 📧 Нууц үг сэргээх имэйл | [resend.com](https://resend.com)-оос түлхүүр авна. `MAIL_FROM` жишээ: `Хичээл <noreply@таны-домэйн>` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | 🔑 Google-ээр нэвтрэх | Google Cloud Console → OAuth client (Web). Redirect URI: `https://<таны-домэйн>/api/auth/google/callback` |
+| `ANTHROPIC_API_KEY` | 🤖 AI багш, эссэ/ярианы үнэлгээ | Хэрэглээгээр төлбөртэй. `AI_DAILY_LIMIT` (өдөрт нэг хэрэглэгчид, анхдагч 30), `AI_MODEL` |
+| `SITE_URL` | Имэйл доторх холбоос | Заавал биш, жишээ `https://hicheel-three.vercel.app` |
+| `VAPID_SUBJECT` | 🔔 Push мэдэгдэл | Заавал биш (`mailto:...`). VAPID түлхүүр автоматаар үүсч өгөгдлийн санд хадгалагдана |
+
 ### Локал дээр сервертэй ажиллуулах
 ```bash
 npm install

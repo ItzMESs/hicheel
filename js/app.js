@@ -104,8 +104,11 @@
           <div class="error" id="err"></div>
           <button class="btn full">Нэвтрэх</button>
         </form>
+        <p class="center small"><a href="#/forgot">Нууц үгээ мартсан уу?</a></p>
+        ${googleBtn()}
         <p class="muted center">Бүртгэлгүй юу? <a href="#/register">Бүртгүүлэх</a></p>
       </div>`;
+    if (A.query.err) document.getElementById("err").textContent = A.query.err === "banned" ? "Таны бүртгэл хаагдсан байна." : "Google-ээр нэвтэрч чадсангүй. Дахин оролдоно уу.";
     document.getElementById("f").onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
@@ -118,6 +121,11 @@
       } catch (err) { document.getElementById("err").textContent = err.message; }
     };
   };
+
+  function googleBtn() {
+    if (!A.Remote.on || !A.Remote.features.google) return "";
+    return `<div class="or-line"><span>эсвэл</span></div><a class="btn ghost full google-btn" href="/api/auth/google"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg> Google-ээр нэвтрэх</a>`;
+  }
 
   Pages.register = function () {
     view().innerHTML = `
@@ -132,6 +140,7 @@
           <div class="error" id="err"></div>
           <button class="btn full">Бүртгүүлэх</button>
         </form>
+        ${googleBtn()}
         <p class="muted center">Бүртгэлтэй юу? <a href="#/login">Нэвтрэх</a></p>
         <p class="note">${A.Remote.on ? "🔒 Бүртгэл, ахиц тань серверт найдвартай хадгалагдах тул аль ч төхөөрөмжөөс нэвтэрч болно." : "ℹ️ Сервер холбогдоогүй тул бүртгэл, ахиц энэ хөтөч дээр хадгалагдана."}</p>
       </div>`;
@@ -177,6 +186,7 @@
     const mx = Math.max(p.goal, ...days.map((d) => p.activity[d.key] || 0));
     view().innerHTML = `
       ${pageHead("Сайн уу, " + esc(u.name) + "! 👋", "Өнөөдөр юу сурах вэ?")}
+      <div id="quest-mount"></div>
       <div class="dash-top">
         <div class="card hero-card">
           <div>
@@ -223,6 +233,7 @@
       <h2 class="section-title">Сүүлийн тестүүд</h2>
       ${testTable(p.tests.slice(-5).reverse())}`;
     bindCommon(view());
+    if (A.questWidget) A.questWidget(document.getElementById("quest-mount"));
     function stat(i, v, l) { return `<div class="stat card"><div class="s-icon">${i}</div><div class="s-val">${v}</div><div class="s-lbl">${l}</div></div>`; }
   };
 
@@ -467,7 +478,8 @@
       { id: "word", t: "🔤 Үг сонсох", d: "Үгийг сонсоод утгыг нь сонго" },
       { id: "sent", t: "💬 Өгүүлбэр сонсох", d: "Сонссон өгүүлбэрээ таниж сонго" },
       { id: "mean", t: "🧠 Өгүүлбэрийн утга", d: "Өгүүлбэр сонсоод утгыг нь сонго" },
-      { id: "dict", t: "✍️ Сонсоод бичих", d: "Сонссон үгээ бичиж шалгуул" }
+      { id: "dict", t: "✍️ Сонсоод бичих", d: "Сонссон үгээ бичиж шалгуул" },
+      { id: "dlg", t: "🗣️ Харилцан яриа", d: "Амьдралын нөхцөлийн яриа сонсож асуултад хариул" }
     ];
     view().innerHTML = `
       ${pageHead("🎧 Сонсгол", "Чихээ дадлагажуулж, дуудлагаа сайжруул")}
@@ -481,7 +493,7 @@
     bindPicker(Pages.listening);
     const r = document.getElementById("rate");
     r.oninput = () => { Speech.rate = +r.value; document.getElementById("rv").textContent = r.value; };
-    view().querySelectorAll(".mode").forEach((b) => (b.onclick = () => start(b.dataset.m)));
+    view().querySelectorAll(".mode").forEach((b) => (b.onclick = () => (b.dataset.m === "dlg" ? go("#/dialogues") : start(b.dataset.m))));
     function start(m) {
       const L = getLevel(pick.course, pick.level);
       const pool = Quiz.poolFor(pick.course, pick.level);
@@ -493,7 +505,7 @@
       if (m === "mean") qs = shuffle(L.sentences).map((s) => Quiz.Gen.sentenceMeaning(s, L.sentences, lang));
       const box = document.getElementById("lz");
       Quiz.run(box, qs, {
-        onFinish: (score) => Progress.update((p) => { p.listening++; p.xp += score * 2; }),
+        onFinish: (score) => Progress.update((p) => { p.listening++; p.xp += score * 2; A.bump(p, "listening"); }),
         onRetry: () => start(m)
       });
       box.scrollIntoView({ behavior: "smooth" });
@@ -529,7 +541,7 @@
           <li>⏱ 10 минут</li><li>❓ 15 асуулт</li><li>✅ Тэнцэх: 60%</li>
         </ul>
         <p class="muted">Үгийн утга, орчуулга, ${c.lang === "zh" ? "пиньинь, " : ""}дүрэм, сонсгол хосолсон</p>
-        <button class="btn big" id="start">Шалгалт эхлэх</button>
+        <div class="row center"><button class="btn big" id="start">Шалгалт эхлэх</button><a class="btn big ghost" href="#/mock">🏁 Бүтэн жишиг шалгалт</a></div>
       </div>
       <div id="tz"></div>
       <h2 class="section-title">Миний дүнгийн түүх</h2>
@@ -560,6 +572,7 @@
           const pct = Math.round((score / total) * 100);
           Progress.update((pr) => {
             pr.tests.push({ course: pick.course, level: pick.level, score, total, pct, date: Date.now() });
+            A.bump(pr, "tests");
             pr.xp += score * 3 + (pct >= 60 ? 20 : 0);
           });
           document.getElementById("th").innerHTML = testTable(Progress.get().tests.slice().reverse());
@@ -820,6 +833,7 @@
       : d.friend === "sent" ? `<button class="btn ghost" data-fr="remove">Хүсэлт цуцлах</button>`
       : d.friend === "received" ? `<button class="btn" data-fr="accept">✔ Найзын хүсэлт зөвшөөрөх</button>`
       : `<button class="btn" data-fr="request">＋ Найз болох</button>`;
+    const btn2 = d.self ? "" : `<a class="btn ghost" href="#/duels?with=${esc(u.id)}">⚔️ Тулаан</a><button class="btn ghost small" id="ublock">${d.blocked ? "Блок цуцлах" : "🚫 Блоклох"}</button><button class="btn ghost small" id="urep">⚑ Мэдээлэх</button>`;
     view().innerHTML = `
       <div class="profile-hero card">
         <div class="ph-avatar">${avatarHtml(u, 112)}</div>
@@ -828,13 +842,20 @@
           <p class="muted">${new Date(u.created).toLocaleDateString("mn-MN")}-нд нэгдсэн</p>
           ${u.bio ? `<p>${esc(u.bio)}</p>` : ""}
           <div class="ph-stats"><span><b>${u.xp}</b> XP</span><span><b>${u.streak}</b> өдөр 🔥</span><span><b>${u.learned}</b> үг</span><span><b>${u.posts}</b> пост</span></div>
-          <div class="row">${btn}</div>
+          <div class="row">${btn}${btn2}</div>
         </div>
       </div>
       <h2 class="section-title">Постууд</h2><div id="uposts"></div>`;
     view().querySelectorAll("[data-fr]").forEach((b) => (b.onclick = async () => {
       try { await A.Remote.call("POST", "friends/" + b.dataset.fr, { id: u.id }); Pages.u(id); refreshBadges(); } catch (e) { UI.toast(e.message, "warn"); }
     }));
+    const ub = document.getElementById("ublock");
+    if (ub) ub.onclick = async () => {
+      if (!d.blocked && !confirm("Энэ хэрэглэгчийг блоклох уу? Та хоёрын мессеж, пост бие биедээ харагдахгүй болно.")) return;
+      try { await A.Remote.call("POST", "block", { id: u.id, on: !d.blocked }); UI.toast(d.blocked ? "Блок цуцлагдлаа" : "Блоклогдлоо", "ok"); Pages.u(id); } catch (e) { UI.toast(e.message, "warn"); }
+    };
+    const ur = document.getElementById("urep");
+    if (ur) ur.onclick = () => A.reportItem && A.reportItem("user", u.id);
     feed(document.getElementById("uposts"), u.id);
   };
 
@@ -924,7 +945,7 @@
           if (seen.has(m.id)) return;
           seen.add(m.id);
           last = m.createdAt;
-          msgs.insertAdjacentHTML("beforeend", `<div class="msg ${m.mine ? "mine" : ""}">${m.mine ? "" : `<a href="#/u/${esc(m.user.id)}">${avatarHtml(m.user, 32)}</a>`}<div class="bubble-msg"><div class="mh">${m.mine ? "" : `<b>${esc(m.user.name)}</b>`}<span>${timeAgo(m.createdAt)}</span></div>${m.image ? `<img class="chat-img" src="${esc(m.image)}" alt="" loading="lazy">` : ""}${m.text ? `<div>${linkify(m.text)}</div>` : ""}</div></div>`);
+          msgs.insertAdjacentHTML("beforeend", `<div class="msg ${m.mine ? "mine" : ""}">${m.mine ? "" : `<a href="#/u/${esc(m.user.id)}">${avatarHtml(m.user, 32)}</a>`}<div class="bubble-msg" data-mid="${esc(m.id)}" data-uid="${esc(m.user.id)}" data-mine="${m.mine ? 1 : ""}"><div class="mh">${m.mine ? "" : `<b>${esc(m.user.name)}</b>`}<span>${timeAgo(m.createdAt)}</span><button class="msg-more" title="Цэс">⋯</button></div>${m.image ? `<img class="chat-img" src="${esc(m.image)}" alt="" loading="lazy">` : ""}${m.text ? `<div>${linkify(m.text)}</div>` : ""}</div></div>`);
           if (!first && !m.mine) Notify.ding();
         });
         first = false;
@@ -947,7 +968,12 @@
       } catch (ex) { UI.toast(ex.message, "warn"); }
       e.target.value = "";
     };
-    msgs.addEventListener("click", (e) => { const im = e.target.closest(".chat-img"); if (im) window.open(im.src, "_blank"); });
+    msgs.addEventListener("click", (e) => {
+      const im = e.target.closest(".chat-img");
+      if (im) return window.open(im.src, "_blank");
+      const mb = e.target.closest(".msg-more");
+      if (mb && A.msgMenu) A.msgMenu(mb, mb.closest(".bubble-msg"));
+    });
     document.getElementById("cf").onsubmit = async (e) => {
       e.preventDefault();
       const inp = document.getElementById("ct");
@@ -968,6 +994,7 @@
     view().innerHTML = `
       <div class="social-wrap">
         ${pageHead("📰 Сошиал", "Сурсан зүйлээ хуваалцаж, бусдаас санаа аваарай. Хятад, англиар бичвэл хэлний чадвар тань сайжирна!")}
+        <div id="stories" class="stories-bar"></div>
         <form class="card composer" id="pf">
           <div class="row top">${avatarHtml(me, 44)}<textarea class="input" id="ptext" rows="3" maxlength="2000" placeholder="Юу сурч байна? 今天学了什么？ What did you learn today?"></textarea></div>
           <div id="pimg-prev"></div>
@@ -998,6 +1025,7 @@
       } catch (ex) { UI.toast(ex.message, "warn"); }
     };
     feed(document.getElementById("feed"));
+    if (A.storiesBar) A.storiesBar(document.getElementById("stories"));
   };
 
   const RE = { like: "👍", love: "❤️", wow: "😮" };
@@ -1023,7 +1051,7 @@
       <header class="post-head">
         <a href="#/u/${esc(p.user.id)}">${avatarHtml(p.user, 44)}</a>
         <div><a href="#/u/${esc(p.user.id)}"><b>${esc(p.user.name)}</b></a><div class="muted small">${timeAgo(p.createdAt)}</div></div>
-        ${p.mine ? `<button class="icon-btn post-del" title="Устгах">🗑</button>` : ""}
+        ${p.mine ? `<button class="icon-btn post-del" title="Устгах">🗑</button>` : `<button class="icon-btn post-rep" title="Мэдээлэх">⚑</button>`}
       </header>
       ${p.text ? `<div class="post-text">${linkify(p.text)}</div>` : ""}
       ${p.image ? `<img class="post-img" src="${esc(p.image)}" alt="" loading="lazy">` : ""}
@@ -1044,6 +1072,8 @@
         b.classList.toggle("on", r.on);
       } catch (e) { UI.toast(e.message, "warn"); }
     }));
+    const rep = el.querySelector(".post-rep");
+    if (rep) rep.onclick = () => A.reportItem && A.reportItem("post", p.id);
     const del = el.querySelector(".post-del");
     if (del) del.onclick = async () => {
       if (!confirm("Постоо устгах уу?")) return;
@@ -1138,11 +1168,11 @@
     const list = badges.list || [];
     const perm = Notify.canPush() ? Notification.permission : "denied";
     box.innerHTML = `<div class="nm-head"><b>Мэдэгдэл</b><span><button class="icon-btn" id="nsound" title="Дуу">${Notify.sound ? "🔊" : "🔇"}</button>${list.length ? `<button class="icon-btn" id="nclear" title="Цэвэрлэх">🧹</button>` : ""}</span></div>` +
-      (perm === "default" ? `<button class="btn small full nm-ask" id="nask">🔔 Хөтчийн мэдэгдэл асаах</button>` : "") +
+      (perm === "default" ? `<button class="btn small full nm-ask" id="nask">🔔 Мэдэгдэл асаах (утас, компьютер)</button>` : "") +
       (list.length ? list.map((n) => `<a class="nm-item ${n.read ? "" : "unread"}" href="${esc(n.link || "#/dashboard")}"><span>${esc(n.text)}</span><small class="muted">${timeAgo(n.createdAt)}</small></a>`).join("") : `<p class="muted small center">Мэдэгдэл алга.</p>`);
     document.getElementById("nsound").onclick = (e) => { e.stopPropagation(); Notify.sound = !Notify.sound; if (Notify.sound) Notify.ding(); notifMenu(); };
     const ask = document.getElementById("nask");
-    if (ask) ask.onclick = async (e) => { e.stopPropagation(); await Notify.ask(); notifMenu(); };
+    if (ask) ask.onclick = async (e) => { e.stopPropagation(); if (A.pushSubscribe) await A.pushSubscribe(); else await Notify.ask(); notifMenu(); };
     const c = document.getElementById("nclear");
     if (c) c.onclick = async (e) => { e.preventDefault(); e.stopPropagation(); await A.Remote.call("DELETE", "notifications"); badges.list = []; badges.unread = 0; notifMenu(); refreshBadges(); };
     if (badges.unread) A.Remote.call("POST", "notifications/read", {}).then(() => { badges.unread = 0; const nb = document.getElementById("nbadge"); if (nb) nb.hidden = true; }).catch(() => {});
@@ -1563,7 +1593,9 @@
             <span class="timer" id="wt">${t.minutes}:00</span>
             <button class="btn ghost small" id="wstart">⏱ Цаг эхлүүлэх</button>
             <button class="btn small" id="wsave">💾 Хадгалах</button>
+            ${A.Remote.on && A.Remote.features.ai ? `<button class="btn small ai-btn" id="wai">🤖 AI үнэлгээ</button>` : ""}
           </div>
+          <div id="aiw"></div>
         </div>
         <aside>
           <div class="card"><h4>💡 Зөвлөгөө</h4><ul>${t.tips.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
@@ -1579,6 +1611,8 @@
     ta.oninput = count; count();
     const save = (quiet) => { Progress.update((p) => { p.writing[t.id] = ta.value; }); if (!quiet) UI.toast("Хадгалагдлаа", "ok"); };
     document.getElementById("wsave").onclick = () => save();
+    const wai = document.getElementById("wai");
+    if (wai) wai.onclick = () => { save(true); A.aiWriting(document.getElementById("aiw"), t, ta.value, wai); };
     let auto = setInterval(() => { if (!document.body.contains(ta)) return clearInterval(auto); save(true); }, 15000);
     let tm = null;
     document.getElementById("wstart").onclick = () => {
@@ -1624,13 +1658,23 @@
     view().innerHTML = `<div class="card center"><h2>404</h2><p>Хуудас олдсонгүй.</p><a class="btn" href="#/">Нүүр хуудас</a></div>`;
   };
 
+  // Бусад модуль (js/features.js) ашиглах туслахууд
+  Object.assign(A, {
+    Pages, pageHead, avatarHtml, picker, bindPicker, speakBtn, strokeBtn, timeAgo, linkify, resizeImage, needServer, bindCommon, wordById,
+    track: () => track(), setCourse: (c, l) => setCourse(c, l), pick, FLAG, Notify, refreshBadges: (f) => refreshBadges(f),
+    go: (h) => go(h), renderNav: () => renderNav(), view
+  });
+
   /* ======================= ЧИГЛҮҮЛЭГЧ ======================= */
-  const PUBLIC = ["", "home", "login", "register"];
+  const PUBLIC = ["", "home", "login", "register", "forgot", "reset"];
   const Router = { after: null };
   function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
 
   function route() {
-    const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean);
+    const raw = location.hash.replace(/^#\/?/, "");
+    const qi = raw.indexOf("?");
+    A.query = qi >= 0 ? Object.fromEntries(new URLSearchParams(raw.slice(qi + 1))) : {};
+    const parts = (qi >= 0 ? raw.slice(0, qi) : raw).split("/").filter(Boolean);
     const name = parts[0] || "home";
     const u = Auth.current();
     if (!PUBLIC.includes(name) && !u) {
@@ -1663,7 +1707,8 @@
       [lang === "zh" ? "writing" : "ielts/writing", ["writing", "ielts"], "✍️", lang === "zh" ? "Бичих" : "Бичих · Ярих"],
       ["grammar", ["grammar"], "✏️", "Дүрэм"],
       ["games", ["games"], "🎮", "Тоглоом"],
-      ["tests", ["tests"], "📝", "Тест"]
+      ["tests", ["tests", "mock"], "📝", "Тест"],
+      ["tutor", ["tutor"], "🤖", "AI багш"]
     ];
   }
   const THEME_ICON = { system: "🖥️", light: "☀️", dark: "🌙" };
@@ -1691,6 +1736,7 @@
           <a class="ibtn" href="#/leaderboard" title="Тэргүүлэгчид">🏆</a>
           ${A.Remote.on ? `<a class="ibtn" href="#/social" title="Сошиал">📰</a>
           <a class="ibtn" href="#/chat" title="Чат">💬</a>
+          <a class="ibtn" href="#/duels" title="Үгийн тулаан">⚔️</a>
           <a class="ibtn" href="#/friends" title="Найзууд">👥<span class="ibadge" id="fbadge" ${badges.incoming ? "" : "hidden"}>${badges.incoming}</span></a>
           <div class="nwrap"><button class="ibtn" id="nbell" title="Мэдэгдэл">🔔<span class="ibadge" id="nbadge" ${badges.unread ? "" : "hidden"}>${badges.unread}</span></button><div class="nmenu card" id="nmenu" hidden></div></div>` : ""}
           <button class="ibtn" id="theme" title="Өнгөний горим">${THEME_ICON[A.Theme.get()]}</button>
@@ -1702,7 +1748,10 @@
             <div class="pm-stats"><span>⭐ ${pr.xp} XP</span><span>🔥 ${pr.streak} өдөр</span><span>🗂️ ${due} давтах</span></div>
             <a href="#/dashboard">🏠 Хянах самбар</a>
             <a href="#/profile">👤 Миний профайл</a>
+            <a href="#/quests">🎯 Даалгавар ба тэмдэг</a>
             <a href="#/leaderboard">🏆 Тэргүүлэгчид</a>
+            ${A.Remote.on ? `<a href="#/duels">⚔️ Үгийн тулаан</a>` : ""}
+            ${u.isAdmin ? `<a href="#/admin" class="pm-admin">🛡️ Админ</a>` : ""}
             ${A.Remote.on ? `<a href="#/friends">👥 Миний найзууд</a><a href="#/social">📰 Сошиал</a><a href="#/chat">💬 Чат</a>` : ""}
             <a href="#/${lang === "zh" ? "chinese" : "english"}">🎓 ${lang === "zh" ? "HSK түвшнүүд" : "IELTS түвшнүүд"}</a>
             <a href="#/dictionary">🔎 Толь бичиг</a>

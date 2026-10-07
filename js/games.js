@@ -25,7 +25,7 @@
     let i = 0, score = 0;
     function render() {
       if (i >= items.length) {
-        Progress.update((p) => { p.games++; p.xp += score * 2; });
+        Progress.update((p) => { p.games++; window.App.bump(p, "games"); p.xp += score * 2; });
         el.innerHTML = `<div class="card center"><h3>Дууслаа!</h3><div class="result-score pass">${score}/${items.length}</div><p class="muted">+${score * 2} XP</p><button class="btn" id="again">Дахин тоглох</button></div>`;
         el.querySelector("#again").onclick = opts.restart;
         return;
@@ -95,7 +95,7 @@
     let i = 0, score = 0;
     function render() {
       if (i >= list.length) {
-        Progress.update((p) => { p.games++; p.xp += score * 2; });
+        Progress.update((p) => { p.games++; window.App.bump(p, "games"); p.xp += score * 2; });
         el.innerHTML = `<div class="card center"><h3>Дууслаа!</h3><div class="result-score pass">${score}/${list.length}</div><button class="btn" id="again">Дахин тоглох</button></div>`;
         el.querySelector("#again").onclick = () => spell(el, L);
         return;
@@ -211,7 +211,7 @@
     const norm = (t) => lang === "zh" ? String(t).replace(/[^一-鿿]/g, "") : String(t).toLowerCase().replace(/[^a-z' ]/g, "").trim();
     function render() {
       if (i >= list.length) {
-        Progress.update((p) => { p.games++; p.xp += score * 3; });
+        Progress.update((p) => { p.games++; window.App.bump(p, "games"); p.xp += score * 3; });
         el.innerHTML = `<div class="card center"><h3>Дууслаа!</h3><div class="result-score pass">${score}/${list.length}</div><button class="btn" id="again">Дахин тоглох</button></div>`;
         el.querySelector("#again").onclick = () => speak(el, L);
         return;
@@ -317,7 +317,7 @@
           found++;
           if (found === words.length) {
             const sec = Math.round((Date.now() - start) / 1000);
-            Progress.update((p) => { p.games++; p.xp += 10; });
+            Progress.update((p) => { p.games++; window.App.bump(p, "games"); p.xp += 10; });
             el.insertAdjacentHTML("beforeend", `<div class="card center result-mini"><h3>🎉 Баяр хүргэе!</h3><p>${sec} секунд, ${moves} алхам. +10 XP</p><button class="btn" id="again">Дахин тоглох</button></div>`);
             el.querySelector("#again").onclick = () => match(el, L);
           }
@@ -368,7 +368,7 @@
       const key = "best_" + L.course.id + "_" + L.level;
       let best = 0;
       try { best = +localStorage.getItem(key) || 0; if (score > best) localStorage.setItem(key, score); } catch (e) { /* ignore */ }
-      Progress.update((p) => { p.games++; p.xp += score; });
+      Progress.update((p) => { p.games++; window.App.bump(p, "games"); p.xp += score; });
       el.innerHTML = `<div class="card center"><h3>Хугацаа дууслаа!</h3><div class="result-score pass">${score}</div><p>Шилдэг амжилт: ${Math.max(best, score)} ${score > best ? "🏆 Шинэ дээд амжилт!" : ""}</p><p class="muted">+${score} XP</p><button class="btn" id="go">Дахин тоглох</button></div>`;
       el.querySelector("#go").onclick = () => speed(el, L);
     }
@@ -385,7 +385,7 @@
     }
     function render() {
       if (i >= list.length) {
-        Progress.update((p) => { p.games++; p.xp += score * 3; });
+        Progress.update((p) => { p.games++; window.App.bump(p, "games"); p.xp += score * 3; });
         el.innerHTML = `<div class="card center"><h3>Дууслаа!</h3><div class="result-score pass">${score}/${list.length}</div><p class="muted">+${score * 3} XP</p><button class="btn" id="again">Дахин тоглох</button></div>`;
         el.querySelector("#again").onclick = () => build(el, L);
         return;
