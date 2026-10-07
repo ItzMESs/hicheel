@@ -38,21 +38,21 @@ GitHub Pages дээр байршуулахдаа: **Settings → Pages → Branc
 ```
 index.html
 css/style.css
-js/data/hsk2.js           HSK 2.0 үгс
-js/data/hsk3.js           HSK 3.0 үгс
-js/data/chinese-extra.js  Хятад дүрэм, өгүүлбэр
-js/data/ielts.js          IELTS үг, дүрэм, өгүүлбэр, унших, Writing/Speaking
-js/data/vocab-extra.js    Нэмэлт үгийн сан (HSK Path / hytd төслөөс)
-js/data/hsk-official.js   HSK 2.0 6, HSK 3.0 1–9 албан ёсны бүрэн жагсаалт
+data-src/hsk2.js           HSK 2.0 үгс
+data-src/hsk3.js           HSK 3.0 үгс
+data-src/chinese-extra.js  Хятад дүрэм, өгүүлбэр
+data-src/ielts.js          IELTS үг, дүрэм, өгүүлбэр, унших, Writing/Speaking
+data-src/vocab-extra.js    Нэмэлт үгийн сан (HSK Path / hytd төслөөс)
+data-src/hsk-official.js   HSK 2.0 6, HSK 3.0 1–9 албан ёсны бүрэн жагсаалт
 js/stroke.js              Зурааны дараалал
 js/core.js                Бүртгэл, хадгалалт, дуу хоолой
 js/quiz.js                Асуулт үүсгэгч
 js/games.js               Тоглоомууд
 js/app.js                 Хуудсууд, чиглүүлэгч
-js/data/grammar-zh.js     HSK дүрэм (1–6, 7–9)
-js/data/grammar-en.js     IELTS дүрэм (A1–C1)
-js/data/ielts-more.js     IELTS нэмэлт үгс
-js/data/reading-zh.js     Хятад унших эх
+data-src/grammar-zh.js     HSK дүрэм (1–6, 7–9)
+data-src/grammar-en.js     IELTS дүрэм (A1–C1)
+data-src/ielts-more.js     IELTS нэмэлт үгс
+data-src/reading-zh.js     Хятад унших эх
 api/index.js              Сервер API (Vercel)
 prisma/schema.prisma      Мэдээллийн сангийн бүтэц
 scripts/dev.js            Локал сервер
@@ -97,6 +97,13 @@ Vercel → **Settings → Environment Variables** хэсэгт нэмээд **Re
 - Админ **Админ → 📦 Багц ба данс** хэсгээс данс болон багцуудыг (нэр, үнэ, хугацаа, хэл) тохируулна.
 - Хэрэглэгч `#/pricing` дээр багц сонгоход гүйлгээний код үүснэ → данс руу кодтой шилжүүлнэ → админ **💳 Захиалга** хэсэгт кодыг хуулгатай тулгаад «Батлах» дарна → хичээл шууд нээгдэнэ.
 - Админ хэрэглэгчийн жагсаалтаас 💎 товчоор багцыг гараар олгож/хасаж болно.
+
+### 🔒 Хичээлийн өгөгдлийн хамгаалалт
+- Эх өгөгдөл `data-src/` хавтсанд байна. Вэбд нийтлэгдэхгүй (`.vercelignore`, `vercel.json` redirect).
+- Өгөгдөл засах бүрдээ `npm run build:content` ажиллуулна. Энэ нь:
+  - `js/data/public.js` — зөвхөн HSK 1, IELTS A1 болон бусад түвшний тоо (хүн бүрт),
+  - `api/_content/zh.json`, `en.json` — бусад бүх хичээл (зөвхөн багцтай хэрэглэгчид `GET /api/content/:lang`-аар илгээгдэнэ).
+- XP-г сервер хязгаарладаг: нэг дор 200, дараа нь минутад 60, өдөрт 3000 XP-ээс илүү нэмэгдэхгүй.
 
 ### Локал дээр сервертэй ажиллуулах
 ```bash

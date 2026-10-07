@@ -212,7 +212,7 @@
     const hist = (p.mocks || []).slice(-8).reverse();
     const plan = lang === "zh"
       ? [{ k: "listen", t: "听力 · Сонсгол", n: 15, min: 12 }, { k: "read", t: "阅读 · Унших", n: 15, min: 15 }, { k: "write", t: "书写 · Бичих", n: 10, min: 10 }]
-      : [{ k: "listen", t: "Listening", n: 15, min: 15 }, { k: "read", t: "Reading", n: 15, min: 20 }, { k: "write", t: "Writing (Task 2)", n: 0, min: 40 }];
+      : [{ k: "listen", t: "Listening", n: 15, min: 15 }, { k: "read", t: "Reading", n: 15, min: 20 }].concat(A.hasAccess("en") ? [{ k: "write", t: "Writing (Task 2)", n: 0, min: 40 }] : []);
     view().innerHTML = `
       ${H("🏁 Бүтэн жишиг шалгалт", lang === "zh" ? "HSK шалгалтын бүтэцтэй: сонсгол → унших → бичих, хэсэг бүр цагтай" : "IELTS шалгалтын бүтэцтэй: Listening → Reading → Writing, хэсэг бүр цагтай")}
       <div class="split"><aside class="lvl-side">${A.picker()}</aside><section class="split-main">
@@ -304,11 +304,11 @@
         html = `<div class="result-score ${pass ? "pass" : "fail"}">${total}<small>/${max}</small></div><p>${pass ? "🎉 Тэнцлээ! (60%+)" : "Тэнцэхэд " + Math.ceil(max * 0.6 - total) + " оноо дутлаа"}</p>
           <div class="mock-secs">${secs.map((s) => `<div class="card"><b>${esc(s.t)}</b><span>${s.v}/100</span></div>`).join("")}</div>`;
       } else {
-        const lb = bandOf(scores.listen ? scores.listen.pct : 0), rb = bandOf(scores.read ? scores.read.pct : 0), wb = scores.write ? scores.write.band : 5;
-        const overall = Math.round(((lb + rb + wb) / 3) * 2) / 2;
+        const lb = bandOf(scores.listen ? scores.listen.pct : 0), rb = bandOf(scores.read ? scores.read.pct : 0), wb = scores.write ? scores.write.band : null;
+        const overall = Math.round(((lb + rb + (wb || 0)) / (wb ? 3 : 2)) * 2) / 2;
         name = `IELTS ${L.label}`; result = `Band ${overall}`;
         html = `<div class="result-score pass">${overall}</div><p>Ойролцоо IELTS band (Listening, Reading, Writing)</p>
-          <div class="mock-secs"><div class="card"><b>Listening</b><span>${lb}</span></div><div class="card"><b>Reading</b><span>${rb}</span></div><div class="card"><b>Writing</b><span>${wb}</span></div></div>`;
+          <div class="mock-secs"><div class="card"><b>Listening</b><span>${lb}</span></div><div class="card"><b>Reading</b><span>${rb}</span></div>${wb ? `<div class="card"><b>Writing</b><span>${wb}</span></div>` : ""}</div>`;
       }
       Progress.update((p) => { p.mocks = (p.mocks || []).concat([{ name, result, date: Date.now() }]); p.xp += 50; A.bump(p, "tests"); });
       box.innerHTML = `<div class="result card"><h2>🏁 Шалгалт дууслаа</h2>${html}<p class="muted">+50 XP</p><div class="row center"><button class="btn" onclick="location.reload()">Дахин өгөх</button><a class="btn ghost" href="#/dashboard">Самбар</a></div></div>`;
@@ -332,7 +332,7 @@
     if (d && !dOpen(d)) { view().innerHTML = `<a class="back" href="#/dialogues">← Бүх яриа</a>` + A.paywall("Энэ харилцан яриа багцад багтана."); return; }
     if (!d) {
       view().innerHTML = `${H("🗣️ Харилцан яриа", "Амьдралын бодит нөхцөлийн яриаг сонсоод асуултад хариулаарай")}
-        <div class="grid cards3">${list.map((x) => `<a class="card level-card" href="#/dialogues/${x.id}"><span class="badge">${dOpen(x) ? "" : "🔒 "}${lang === "zh" ? "Түвшин " + x.tier : x.level}</span><h3 class="${lang}">${esc(x.title)}</h3><p>${esc(x.scene)}</p><span class="muted small">${x.lines.length} мөр · ${x.questions.length} асуулт</span></a>`).join("")}</div>`;
+        <div class="grid cards3">${list.map((x) => `<a class="card level-card" href="#/dialogues/${x.id}"><span class="badge">${dOpen(x) ? "" : "🔒 "}${lang === "zh" ? "Түвшин " + x.tier : x.level}</span><h3 class="${lang}">${esc(x.title)}</h3><p>${esc(x.scene)}</p><span class="muted small">${x.nLines || x.lines.length} мөр · ${x.nQuestions || x.questions.length} асуулт</span></a>`).join("")}</div>`;
       return;
     }
     const show = { text: false, mn: false };

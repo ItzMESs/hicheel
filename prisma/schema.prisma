@@ -55,6 +55,9 @@ model Progress {
   streak    Int      @default(0)
   learned   Int      @default(0)
   track     String   @default("zh")
+  xpAt      DateTime @default(now()) // XP хамгийн сүүлд нэмэгдсэн цаг
+  xpDay     String   @default("")    // XP тоолсон өдөр (YYYY-MM-DD)
+  xpDayGain Int      @default(0)     // тухайн өдөр нэмэгдсэн XP
   updatedAt DateTime @updatedAt
 
   @@index([xp])

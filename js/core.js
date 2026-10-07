@@ -80,7 +80,7 @@
       try {
         const { user } = await this.call("GET", "auth/me");
         adopt(user);
-        await this.pull(user);
+        await Promise.all([this.pull(user), loadContent()]);
       } catch (e) {
         if (e.status === 401) { const db = load(); db.session = null; save(db); }
       }
@@ -103,7 +103,16 @@
       const db = load();
       if (!db.session) return;
       const body = JSON.stringify({ data: db.progress[db.session] || newProgress(), track: (window.App.track && window.App.track()) || "zh" });
-      fetch("/api/progress", { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body, keepalive: !!keepalive }).catch(() => {});
+      const email = db.session;
+      fetch("/api/progress", { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body, keepalive: !!keepalive })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((r) => {
+          // Сервер XP эсвэл дараалсан өдрийг хязгаарласан бол локал утгыг тааруулна
+          if (!r) return;
+          const d2 = load(), pr = d2.progress[email];
+          if (pr && (pr.xp !== r.xp || pr.streak !== r.streak)) { pr.xp = r.xp; pr.streak = r.streak; save(d2); }
+        })
+        .catch(() => {});
     }
   };
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && Remote.timer) Remote.pushNow(true); });
@@ -120,7 +129,7 @@
   }
 
   const Auth = {
-    async refresh() { const { user } = await Remote.call("GET", "auth/me"); return adopt(user); },
+    async refresh() { const { user } = await Remote.call("GET", "auth/me"); const u = adopt(user); await loadContent(); return u; },
     current() {
       const db = load();
       return db.session && db.users[db.session] ? db.users[db.session] : null;
@@ -154,7 +163,7 @@
       if (Remote.on) {
         const { user } = await Remote.call("POST", "auth/login", { email, password });
         const u = adopt(user);
-        await Remote.pull(user);
+        await Promise.all([Remote.pull(user), loadContent()]);
         return u;
       }
       email = normEmail(email);
@@ -172,7 +181,7 @@
     async reset(token, password) {
       const { user } = await Remote.call("POST", "auth/reset", { token, password });
       const u = adopt(user);
-      await Remote.pull(user);
+      await Promise.all([Remote.pull(user), loadContent()]);
       return u;
     },
     async logout() {
@@ -393,7 +402,44 @@
     const L = fullLevel(courseId, level);
     if (!isLocked(courseId, level)) return L;
     // Түгжээтэй түвшин: агуулга огт өгөхгүй (зөвхөн тоо)
-    return Object.assign({}, L, { locked: true, total: L.words.length, totalGrammar: L.grammar.length, words: [], grammar: [], sentences: [], reading: null });
+    const n = (window.CONTENT_COUNTS && window.CONTENT_COUNTS[courseId] && window.CONTENT_COUNTS[courseId][level]) || {};
+    return Object.assign({}, L, { locked: true, total: n.words || L.words.length, totalGrammar: n.grammar || L.grammar.length, words: [], grammar: [], sentences: [], reading: null });
+  }
+  // Нийт үгийн тоо (хамгаалагдсан өгөгдөл ачаалагдаагүй байсан ч)
+  function totalWords(lang) {
+    const c = window.CONTENT_COUNTS;
+    return (c && c.unique && c.unique[lang]) || 0;
+  }
+
+  /* ---- Хамгаалагдсан хичээлийн өгөгдлийг серверээс ачаалах (багцтай хэрэглэгч) ---- */
+  const contentLoaded = { zh: false, en: false };
+  function applyContent(lang, d) {
+    if (lang === "zh") {
+      for (const cid of ["hsk2", "hsk3"]) { const C = cid === "hsk2" ? window.HSK2 : window.HSK3; Object.assign(C.words, (d.words || {})[cid] || {}); }
+      Object.assign(window.ZH_EXTRA.sentences, d.sentences || {});
+      Object.assign(window.ZH_EXTRA.grammar, d.grammar || {});
+      Object.assign(window.ZH_READING, d.reading || {});
+    } else {
+      const I = window.IELTS;
+      Object.assign(I.words, d.words || {}); Object.assign(I.sentences, d.sentences || {});
+      Object.assign(I.grammar, d.grammar || {}); Object.assign(I.reading, d.reading || {});
+      if (d.practice) Object.assign(window.IELTS_PRACTICE, d.practice);
+    }
+    (d.dialogues || []).forEach((full) => {
+      const i = window.DIALOGUES.findIndex((x) => x.id === full.id);
+      if (i >= 0) window.DIALOGUES[i] = full; else window.DIALOGUES.push(full);
+    });
+    window.TOPICS[lang] = Object.assign({}, window.TOPICS[lang], d.topics || {});
+    if (window.WORD_REL) window.WORD_REL[lang] = Object.assign({}, window.WORD_REL[lang], d.rel || {});
+    contentLoaded[lang] = true;
+    window.dispatchEvent(new Event("content-loaded"));
+  }
+  async function loadContent() {
+    if (!Remote.on || !Auth.current()) return;
+    for (const lang of ["zh", "en"]) {
+      if (contentLoaded[lang] || !hasAccess(lang)) continue;
+      try { applyContent(lang, await Remote.call("GET", "content/" + lang)); } catch (e) { console.warn("content", lang, e.message); }
+    }
   }
   function fullLevel(courseId, level) {
     const c = COURSES[courseId];
@@ -479,5 +525,5 @@
   // Пиньинийн аялгуу тэмдгийг арилгах (харьцуулахад)
   const stripTones = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ü/g, "v").toLowerCase().replace(/[^a-z0-9一-鿿]/g, "");
 
-  window.App = Object.assign(window.App || {}, { hasAccess, isLocked, FREE_LEVELS, bump, Remote, esc, shuffle, sample, today, dayKey, SRS, Theme, Auth, Progress, COURSES, getLevel, allWords, Speech, UI, stripTones });
+  window.App = Object.assign(window.App || {}, { hasAccess, isLocked, FREE_LEVELS, totalWords, loadContent, contentLoaded, bump, Remote, esc, shuffle, sample, today, dayKey, SRS, Theme, Auth, Progress, COURSES, getLevel, allWords, Speech, UI, stripTones });
 })();

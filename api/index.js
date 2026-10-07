@@ -180,16 +180,34 @@ on("PUT", "progress", async (req, res, { body }) => {
   const data = body.data;
   if (!data || typeof data !== "object") fail(400, "Өгөгдөл буруу.");
   if (JSON.stringify(data).length > 2_000_000) fail(413, "Ахицын өгөгдөл хэт том байна.");
-  const xp = Math.max(0, Math.min(1e9, parseInt(data.xp, 10) || 0));
-  const streak = Math.max(0, Math.min(1e5, parseInt(data.streak, 10) || 0));
+  let xp = Math.max(0, Math.min(1e9, parseInt(data.xp, 10) || 0));
+  const days = Math.floor((Date.now() - new Date(u.createdAt).getTime()) / 864e5) + 1;
+  const streak = Math.max(0, Math.min(days, parseInt(data.streak, 10) || 0)); // бүртгэлээс урт байж болохгүй
   const learned = data.learned && typeof data.learned === "object" ? Object.keys(data.learned).length : 0;
   const track = body.track === "en" ? "en" : "zh";
+  // XP-г хуурамчаар өсгөхөөс хамгаалах: минутад ~60, нэг дор 200, өдөрт 3000 XP-ээс илүү нэмэгдэхгүй
+  const prev = await db().progress.findUnique({ where: { userId: u.id } });
+  const today = new Date().toISOString().slice(0, 10);
+  const XP_BURST = 200, XP_PER_MIN = 60, XP_DAY = 3000;
+  let xpMeta = {}, clamped = false;
+  const prevXp = prev ? prev.xp : 0;
+  if (xp > prevXp) {
+    const dayGain = prev && prev.xpDay === today ? prev.xpDayGain : 0;
+    // Хуримтлагдах хязгаар (token bucket): xpAt нь «сав хоосон байх» агшин
+    const tokens = prev ? Math.min(XP_BURST, Math.max(0, ((Date.now() - new Date(prev.xpAt).getTime()) / 60000) * XP_PER_MIN)) : XP_BURST;
+    const allowed = Math.max(0, Math.min(Math.floor(tokens), XP_DAY - dayGain));
+    const grant = Math.min(xp - prevXp, allowed);
+    clamped = grant < xp - prevXp;
+    xp = prevXp + grant;
+    xpMeta = { xpAt: new Date(Date.now() - ((tokens - grant) / XP_PER_MIN) * 60000), xpDay: today, xpDayGain: dayGain + grant };
+  }
+  const saved = Object.assign({}, data, { xp, streak });
   await db().progress.upsert({
     where: { userId: u.id },
-    create: { userId: u.id, data, xp, streak, learned, track },
-    update: { data, xp, streak, learned, track }
+    create: Object.assign({ userId: u.id, data: saved, xp, streak, learned, track }, xpMeta),
+    update: Object.assign({ data: saved, xp, streak, learned, track }, xpMeta)
   });
-  return { ok: true };
+  return { ok: true, xp, streak, clamped };
 });
 
 /* --- Профайл --- */
@@ -871,6 +889,26 @@ on("POST", "admin/users/:id/premium", async (req, res, { params, body }) => {
   }
   const u = await db().user.findUnique({ where: { id: params.id } });
   return { premium: { zh: u.premiumZh, en: u.premiumEn } };
+});
+
+/* --- Багцтай хэрэглэгчид хамгаалагдсан хичээлийн өгөгдөл (scripts/build-content.js) --- */
+const CONTENT = {};
+function contentOf(lang) {
+  if (!CONTENT[lang]) CONTENT[lang] = JSON.stringify(lang === "zh" ? require("./_content/zh.json") : require("./_content/en.json"));
+  return CONTENT[lang];
+}
+const alive = (d) => !!d && new Date(d).getTime() > Date.now();
+on("GET", "content/:lang", async (req, res, { params }) => {
+  const me = await currentUser(req, true);
+  const lang = params.lang === "en" ? "en" : params.lang === "zh" ? "zh" : null;
+  if (!lang) fail(404, "Олдсонгүй.");
+  if (!isAdmin(me) && !alive(lang === "zh" ? me.premiumZh : me.premiumEn)) fail(403, "Энэ хичээл багцад багтана.");
+  const body = contentOf(lang);
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "private, max-age=3600");
+  res.end(body);
+  return undefined;
 });
 
 /* ---------------- Үндсэн handler ---------------- */

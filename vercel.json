@@ -31,7 +31,25 @@
   ],
   "functions": {
     "api/index.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "api/_content/**"
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/data-src/:path*",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/api/_content/:path*",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/prisma/:path*",
+      "destination": "/",
+      "permanent": false
+    }
+  ]
 }

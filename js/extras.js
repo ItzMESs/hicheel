@@ -23,6 +23,7 @@
     }
     return MEAN[lang][term] || null;
   }
+  window.addEventListener("content-loaded", () => { MEAN = null; });
   const relOf = (lang, term) => (window.WORD_REL && window.WORD_REL[lang] && window.WORD_REL[lang][term]) || null;
   A.relBtn = (w) => (relOf(w.lang, w.term) ? `<button class="icon-btn rel-btn" data-rel="${esc(w.term)}" data-lang="${w.lang}" title="Ижил, эсрэг, андуурагддаг үг">🔗</button>` : "");
   A.openRel = function (term, lang) {
@@ -81,7 +82,7 @@
       view().innerHTML = `${H("🧳 Мэргэжлийн үгс", lang === "zh" ? "Ажил, амьдралд хэрэгтэй хятад үг, хэллэгийн сэдэвчилсэн багц" : "Ажил, амьдралд хэрэгтэй англи үг, хэллэгийн сэдэвчилсэн багц")}
         <div class="grid cards3 topic-grid">${TOPIC_META.map((x) => `<a class="card topic-card" href="#/topics/${x.id}">
           <span class="tp-ic">${x.icon}</span><h3>${esc(x.t)}${open ? "" : " 🔒"}</h3><p class="muted">${esc(x.d)}</p>
-          <span class="badge">${topicWords(lang, x.id).length} үг</span></a>`).join("")}</div>`;
+          <span class="badge">${topicWords(lang, x.id).length || ((window.CONTENT_COUNTS || {}).topics || {})[lang]?.[x.id] || 60} үг</span></a>`).join("")}</div>`;
       return;
     }
     if (!open) { view().innerHTML = `<a class="back" href="#/topics">← Бүх сэдэв</a>` + A.paywall(`«${t.t}» сэдвийн үгс багцад багтана.`); return; }

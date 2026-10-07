@@ -214,7 +214,7 @@
       <div class="stats">
         ${stat("⭐", p.xp, "XP оноо")}
         ${stat("🔥", p.streak, "Дараалсан өдөр")}
-        ${stat("📚", learned + "<small> / " + uniq.filter((w) => w.lang === track()).length + "</small>", "Цээжилсэн үг")}
+        ${stat("📚", learned + "<small> / " + (A.totalWords(track()) || uniq.filter((w) => w.lang === track()).length) + "</small>", "Цээжилсэн үг")}
         ${stat("📝", p.tests.length, "Өгсөн тест")}
         ${stat("🎯", avg + "%", "Тестийн дундаж")}
       </div>
@@ -1342,6 +1342,7 @@
     return (Progress.get().custom || []).map((c) => ({ id: c.id, lang: c.lang, course: "custom", level: "", term: c.term, reading: c.reading || "", gloss: "", meaning: c.meaning, example: c.example || "" }));
   }
   let WORD_MAP = null;
+  window.addEventListener("content-loaded", () => { WORD_MAP = null; });
   function wordById(id) {
     if (!WORD_MAP) { WORD_MAP = {}; allWords().forEach((w) => { if (!WORD_MAP[w.id]) WORD_MAP[w.id] = w; }); }
     return WORD_MAP[id] || customWords().find((w) => w.id === id) || null;
