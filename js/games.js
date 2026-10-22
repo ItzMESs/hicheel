@@ -43,6 +43,7 @@
       el.querySelectorAll(".opt").forEach((b) => (b.onclick = () => {
         const ok = +b.dataset.k === q.answer;
         if (ok) score++;
+        if (q.wordId && window.App.recordAnswer) window.App.recordAnswer(q.wordId, ok);
         el.querySelectorAll(".opt").forEach((x) => (x.disabled = true));
         el.querySelectorAll(".opt")[q.answer].classList.add("correct");
         if (!ok) b.classList.add("wrong");
@@ -142,6 +143,7 @@
         if (pieces.length) return UI.toast("Бүх үсгийг ашиглана уу.", "warn");
         const ok = chosen.map((p) => p.t).join("") === letters.join("");
         if (ok) score++;
+        if (w && w.id && window.App.recordAnswer) window.App.recordAnswer(w.id, ok);
         const fb = el.querySelector("#fb");
         fb.className = "feedback " + (ok ? "ok" : "bad");
         fb.innerHTML = `${ok ? "✔ Зөв!" : "✘ Зөв хариулт:"} <div class="reveal">${esc(w.term)}</div><div class="muted">${esc(w.example)}</div><button class="btn" id="nx">Дараагийн →</button>`;
@@ -355,6 +357,7 @@
       box.innerHTML = `<div class="quiz-prompt">${cur.prompt}</div><div class="options">${cur.options.map((o, k) => `<button class="opt ${cur.optClass || ""}" data-k="${k}">${esc(o)}</button>`).join("")}</div>`;
       box.querySelectorAll(".opt").forEach((b) => {
         b.onclick = () => {
+          if (window.App.recordAnswer) window.App.recordAnswer(cur.wordId, +b.dataset.k === cur.answer);
           if (+b.dataset.k === cur.answer) { score++; b.classList.add("correct"); }
           else { left = Math.max(0, left - 3); b.classList.add("wrong"); }
           el.querySelector("#ss").textContent = score;

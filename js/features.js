@@ -193,7 +193,9 @@
     const p = Progress.get(), L = levelOf(p.xp), due = A.SRS.allDue();
     const qs = quests(p);
     // Давтах карт байвал эхэнд нь тавина
-    const tasks = (due ? [{ id: "due", icon: "🗂️", t: `${due} карт давтах`, sub: "Мартахаас өмнө давтаарай", href: "#/review", done: false }] : []).concat(qs.map((q) => ({
+    const mk = A.mistakeCount ? A.mistakeCount(A.track()) : 0;
+    const tasks = (due ? [{ id: "due", icon: "🗂️", t: `${due} карт давтах`, sub: "Мартахаас өмнө давтаарай", href: "#/review", done: false }] : [])
+      .concat(mk ? [{ id: "mk", icon: "📕", t: `${mk} алдаатай үг`, sub: "Алдааны дэвтрээ давтаарай", href: "#/mistakes/quiz", done: false }] : []).concat(qs.map((q) => ({
       id: q.id, icon: q.icon, t: q.t, sub: `${Math.min(q.n, q.goal)} / ${q.goal}`, pct: Math.min(100, (q.n / q.goal) * 100), href: q.href, done: q.done, claimed: q.claimed, xp: q.xp
     })));
     const next = tasks.find((t) => !t.done);

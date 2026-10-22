@@ -1897,6 +1897,7 @@
       ["Шалгалт", "📝", [
         ["plan", ["plan"], "📅", "Сурах төлөвлөгөө", "Шалгалт хүртэл өдөрт хэдэн үг"],
         ["tests", ["tests"], "📝", "Тест", "Түвшний тест, дүнгийн түүх"],
+        ["mistakes", ["mistakes"], "📕", "Алдааны дэвтэр", "Буруу хариулсан үгсээ давтах"],
         ["mock", ["mock"], "🏁", "Жишиг шалгалт", lang === "zh" ? "Бүтэн HSK, цагтай" : "Бүтэн IELTS, цагтай"],
         ["quests", ["quests"], "🎯", "Даалгавар", "Өдрийн даалгавар, тэмдэг"],
         ...(remote ? [["duels", ["duels"], "⚔️", "Үгийн тулаан", "Найзтайгаа өрсөлдөх"]] : [])
@@ -1966,7 +1967,7 @@
     if (!tb) { tb = document.createElement("nav"); tb.id = "tabbar"; tb.className = "tabbar"; document.body.appendChild(tb); }
     tb.hidden = !u;
     if (u) {
-      const LEARN = ["stories", "culture", "vocab", "flashcards", "review", "grammar", "listening", "dialogues", "reading", "writing", "ielts", "topics", "dictionary", "chinese", "english", "tests", "mock", "plan", "print"];
+      const LEARN = ["stories", "culture", "vocab", "flashcards", "review", "grammar", "listening", "dialogues", "reading", "writing", "ielts", "topics", "dictionary", "chinese", "english", "tests", "mock", "plan", "print", "mistakes"];
       const SOCIAL = ["social", "chat", "friends", "u", "leaderboard", "duels"];
       tb.innerHTML = `
         <div class="tb-sheet" id="tbsheet" hidden>${groups.map(([t, ic, items]) => `<h6>${ic} ${t}</h6><div class="tb-grid">${items.map(([h, keys, i, tt]) => `<a href="#/${h}" class="${keys.includes(cur) ? "on" : ""}"><span>${i}</span>${tt}${cnt(h) ? `<i class="nbadge">${cnt(h)}</i>` : ""}</a>`).join("")}</div>`).join("")}

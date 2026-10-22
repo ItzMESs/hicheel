@@ -1522,3 +1522,16 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
 .cu-v b.zh { font-size: 1.2rem; }
 .cu-v span:last-child { text-align: right; color: var(--muted); }
 .cu-ph { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--line); }
+
+/* ---- Алдааны дэвтэр ---- */
+.mk-top { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.mk-stat { display: flex; flex-direction: column; align-items: center; min-width: 80px; }
+.mk-stat b { font-size: 1.8rem; color: var(--accent, #c0392b); line-height: 1.1; }
+.mk-act { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.mk-list { display: grid; gap: 8px; margin-top: 12px; }
+.mk-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+.mk-w { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.mk-w b { font-size: 1.25rem; }
+.mk-w span { overflow-wrap: anywhere; }
+.mk-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+@media (max-width: 600px) { .mk-act { margin-left: 0; width: 100%; } .mk-act > * { flex: 1; } }

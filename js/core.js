@@ -324,6 +324,7 @@
       return (n.ivl / 365).toFixed(1) + " жил";
     },
     rate(id, rating) {
+      if (rating === "again") recordAnswer(id, false); else if (rating !== "hard") recordAnswer(id, true);
       Progress.update((p) => {
         const c = SRS.next(p.srs[id], rating);
         p.srs[id] = c;
@@ -382,6 +383,22 @@
       return { id: "zh:" + w[0], lang: "zh", course: courseId, level, term: w[0], reading: w[1], gloss: w[3] ? w[2] : "", meaning: w[3] || w[2], noMn: !w[3], example: "" };
     }
     return { id: "en:" + w[0], lang: "en", course: courseId, level, term: w[0], reading: w[4] ? w[1] + " " + w[4] : w[1], gloss: "", meaning: w[2], example: w[3] };
+  }
+
+  /* ---- Алдааны дэвтэр: буруу хариулсан үгсийг цуглуулж, 2 удаа дараалан зөв хариулбал хасна ---- */
+  function recordAnswer(wordId, ok) {
+    if (!wordId || !Auth.current()) return;
+    const cur = Progress.get().mistakes || {};
+    if (ok && !cur[wordId]) return; // алдаагүй үгэнд юу ч хийхгүй (хадгалалт багасгах)
+    Progress.update((p) => {
+      p.mistakes = p.mistakes || {};
+      const m = p.mistakes[wordId] || { n: 0, ok: 0, first: Date.now() };
+      if (ok) {
+        m.ok = (m.ok || 0) + 1;
+        if (m.ok >= 2) { delete p.mistakes[wordId]; p.mistakesFixed = (p.mistakesFixed || 0) + 1; return; }
+      } else { m.n += 1; m.ok = 0; m.last = Date.now(); }
+      p.mistakes[wordId] = m;
+    });
   }
 
   /* ---- Багц: зөвхөн HSK 1 / IELTS A1 үнэгүй, бусад түвшин багцтай ---- */
@@ -531,5 +548,5 @@
   // Пиньинийн аялгуу тэмдгийг арилгах (харьцуулахад)
   const stripTones = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ü/g, "v").toLowerCase().replace(/[^a-z0-9一-鿿]/g, "");
 
-  window.App = Object.assign(window.App || {}, { hasAccess, isLocked, FREE_LEVELS, totalWords, loadContent, contentLoaded, bump, Remote, esc, shuffle, sample, today, dayKey, SRS, Theme, Auth, Progress, COURSES, getLevel, allWords, Speech, UI, stripTones });
+  window.App = Object.assign(window.App || {}, { recordAnswer, hasAccess, isLocked, FREE_LEVELS, totalWords, loadContent, contentLoaded, bump, Remote, esc, shuffle, sample, today, dayKey, SRS, Theme, Auth, Progress, COURSES, getLevel, allWords, Speech, UI, stripTones });
 })();

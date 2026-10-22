@@ -113,6 +113,7 @@
           <div class="row center">
             <button class="btn" data-act="retry">Дахин эхлэх</button>
           </div>
+          ${answers.some((a) => !a.ok && a.q.wordId) ? `<p class="small"><a href="#/mistakes">📕 ${answers.filter((a) => !a.ok && a.q.wordId).length} үг алдааны дэвтэрт нэмэгдлээ — давтах →</a></p>` : ""}
           ${answers.length ? `<details class="review"><summary>Хариултаа харах</summary><ul>${review}</ul></details>` : ""}
         </div>`;
       el.querySelector('[data-act="retry"]').onclick = () => (opts.onRetry ? opts.onRetry() : run(el, shuffle(questions), opts));
@@ -188,6 +189,7 @@
     function answer(ok, correct) {
       const q = questions[i];
       if (ok) score++;
+      if (q.wordId && window.App.recordAnswer) window.App.recordAnswer(q.wordId, ok);
       answers.push({ q, ok, correct });
       const fb = el.querySelector("#fb");
       fb.className = "feedback " + (ok ? "ok" : "bad");

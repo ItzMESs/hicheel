@@ -335,7 +335,7 @@
 (function () {
   "use strict";
   const A = window.App;
-  const { esc, UI, Progress, Quiz, Speech } = A;
+  const { esc, UI, Progress, Quiz, Speech, shuffle } = A;
   const P = A.Pages;
   const view = () => document.getElementById("view");
   const H = (t, s) => A.pageHead(t, s);
@@ -458,5 +458,69 @@
     A.bindCommon(view());
     readerBlock(L.tokens, lang, L.mn, "rd");
     quizBlock("cq", L.questions, 5, () => P.culture(id));
+  };
+
+  /* =====================================================================
+     Алдааны дэвтэр: буруу хариулсан үгс
+     ===================================================================== */
+  function mistakeWords(lang) {
+    const m = Progress.get().mistakes || {};
+    return Object.keys(m).map((id) => ({ w: A.wordById(id), m: m[id] }))
+      .filter((x) => x.w && (!lang || x.w.lang === lang))
+      .sort((a, b) => b.m.n - a.m.n || (b.m.last || 0) - (a.m.last || 0));
+  }
+  A.mistakeCount = (lang) => mistakeWords(lang).length;
+
+  P.mistakes = function (mode) {
+    const lang = A.track();
+    const list = mistakeWords(lang);
+    const p = Progress.get();
+    const head = H("📕 Алдааны дэвтэр", "Тест, тоглоом, флаш картад буруу хариулсан үгс энд автоматаар цуглана. 2 удаа дараалан зөв хариулбал дэвтрээс хасагдана");
+    if (!list.length) {
+      view().innerHTML = `${head}<div class="card empty center"><p style="font-size:2.4rem;margin:0">🎉</p><h3>Алдаа алга!</h3>
+        <p class="muted">Тест, тоглоомд буруу хариулсан үгс энд цуглана.${p.mistakesFixed ? ` Та нийт <b>${p.mistakesFixed}</b> алдаагаа зассан.` : ""}</p>
+        <div class="row center"><a class="btn" href="#/tests">📝 Тест өгөх</a><a class="btn ghost" href="#/games">🎮 Тоглоом</a></div></div>`;
+      return;
+    }
+    if (mode === "quiz") {
+      view().innerHTML = `${H("📕 Алдаагаа давтах", `${list.length} үгнээс`)}<div id="mq"></div>`;
+      const ws = list.slice(0, 20).map((x) => x.w);
+      const own = list.map((x) => x.w);
+      const rest = own.length >= 4 ? [] : shuffle(A.allWords().filter((w) => w.lang === lang)).slice(0, 40);
+      const pool = { own, rest };
+      const qs = shuffle(ws).map((w, k) => (k % 2 ? Quiz.Gen.term(w, pool) : Quiz.Gen.meaning(w, pool)));
+      Quiz.run(document.getElementById("mq"), qs, {
+        onRetry: () => P.mistakes("quiz"),
+        onFinish: (score) => Progress.update((pp) => { pp.xp += score * 2; A.bump(pp, "tests"); })
+      });
+      return;
+    }
+    const ago = (t) => (t ? A.timeAgo(t) : "");
+    view().innerHTML = `${head}
+      <div class="mk-top card">
+        <div class="mk-stat"><b>${list.length}</b><small>алдаатай үг</small></div>
+        <div class="mk-stat"><b>${p.mistakesFixed || 0}</b><small>зассан</small></div>
+        <div class="mk-act">
+          <a class="btn" href="#/mistakes/quiz">📝 Алдаагаа давтах</a>
+          <button class="btn ghost" id="mkclr">🗑️ Бүгдийг цэвэрлэх</button>
+        </div>
+      </div>
+      <div class="mk-list">${list.map(({ w, m }) => `
+        <div class="mk-row card" data-id="${esc(w.id)}">
+          ${A.speakBtn(w.term, w.lang)}
+          <div class="mk-w"><b class="${w.lang}">${esc(w.term)}</b>${w.reading ? `<span class="w-read">${esc(w.reading)}</span>` : ""}<span>${esc(w.meaning)}</span></div>
+          <div class="mk-meta"><span class="pill fail" title="Буруу хариулсан удаа">✗ ${m.n}</span>${m.ok ? `<span class="pill pass" title="Дараалан зөв">✓ ${m.ok}/2</span>` : ""}<small class="muted">${ago(m.last)}</small></div>
+          <button class="icon-btn" data-del="${esc(w.id)}" title="Дэвтрээс хасах">✕</button>
+        </div>`).join("")}</div>`;
+    A.bindCommon && A.bindCommon(view());
+    view().querySelectorAll("[data-del]").forEach((b) => (b.onclick = () => {
+      Progress.update((pp) => { if (pp.mistakes) delete pp.mistakes[b.dataset.del]; });
+      P.mistakes();
+    }));
+    document.getElementById("mkclr").onclick = () => {
+      if (!confirm("Алдааны дэвтрийг бүхэлд нь цэвэрлэх үү?")) return;
+      Progress.update((pp) => { (pp.mistakes ? Object.keys(pp.mistakes) : []).forEach((id) => { const w = A.wordById(id); if (!w || w.lang === lang) delete pp.mistakes[id]; }); });
+      P.mistakes();
+    };
   };
 })();
