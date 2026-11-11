@@ -18,6 +18,11 @@ vm.createContext(ctx);
 for (const f of SRC) { const fp = path.join(ROOT, "data-src", f + ".js"); if (fs.existsSync(fp)) vm.runInContext(fs.readFileSync(fp, "utf8"), ctx, { filename: f + ".js" }); }
 const W = JSON.parse(JSON.stringify({ STORIES: ctx.STORIES || { zh: [], en: [] }, CULTURE: ctx.CULTURE || [], HSK2: ctx.HSK2, HSK3: ctx.HSK3, ZH_EXTRA: ctx.ZH_EXTRA, ZH_READING: ctx.ZH_READING, IELTS: ctx.IELTS, IELTS_PRACTICE: ctx.IELTS_PRACTICE, DIALOGUES: ctx.DIALOGUES, TOPICS: ctx.TOPICS, WORD_REL: ctx.WORD_REL }));
 
+// Үгийн тулаан: сервер асуултаа өөрөө үүсгэнэ (хариулт тоглогчдод харагдахгүй) — [үг, дуудлага, монгол утга]
+const duel = { hsk2: {}, hsk3: {}, ielts: {} };
+for (const cid of ["hsk2", "hsk3"]) for (const l of W[cid.toUpperCase()].levels) duel[cid][l] = (W[cid.toUpperCase()].words[l] || []).filter((w) => w[3]).map((w) => [w[0], w[1], w[3]]);
+for (const l of W.IELTS.levels) duel.ielts[l] = (W.IELTS.words[l] || []).filter((w) => w[2]).map((w) => [w[0], "", w[2]]);
+
 const counts = { hsk2: {}, hsk3: {}, ielts: {}, topics: { zh: {}, en: {} }, unique: {} };
 // Давхардалгүй нийт үгийн тоо (самбарт харуулна)
 counts.unique.zh = new Set([].concat(...["HSK2", "HSK3"].map((k) => W[k].levels.map((l) => (W[k].words[l] || []).map((w) => w[0]))).flat())).size;
@@ -99,5 +104,6 @@ const pub = "/* АВТОМАТААР ҮҮСГЭСЭН (scripts/build-content.js)
 fs.writeFileSync(path.join(ROOT, "js/data/public.js"), pub);
 fs.mkdirSync(path.join(ROOT, "api/_content"), { recursive: true });
 for (const lang of ["zh", "en"]) fs.writeFileSync(path.join(ROOT, `api/_content/${lang}.json`), JSON.stringify(priv[lang]));
+fs.writeFileSync(path.join(ROOT, "api/_content/duel.json"), JSON.stringify(duel));
 const kb = (f) => Math.round(fs.statSync(path.join(ROOT, f)).size / 1024) + "KB";
 console.log("public.js", kb("js/data/public.js"), "| zh.json", kb("api/_content/zh.json"), "| en.json", kb("api/_content/en.json"));

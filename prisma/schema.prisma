@@ -39,6 +39,8 @@ model User {
   stories       Story[]
   duelsSent     Duel[]         @relation("DuelFrom")
   duelsGot      Duel[]         @relation("DuelTo")
+  duelRooms     DuelRoom[]     @relation("DuelRoomHost")
+  duelSeats     DuelPlayer[]
   pushSubs      PushSub[]
   aiUses        AiUse[]
   orders        Order[]
@@ -248,6 +250,43 @@ model Duel {
   createdAt DateTime @default(now())
 
   @@index([toId, status])
+}
+
+// Олон хүний бодит цагийн үгийн тулаан (2–4 тоглогч)
+model DuelRoom {
+  id        String       @id @default(cuid())
+  code      String       @unique
+  hostId    String
+  host      User         @relation("DuelRoomHost", fields: [hostId], references: [id], onDelete: Cascade)
+  course    String
+  level     String
+  questions Json // [{ t, r, o: [4], a, k }] — a (зөв хариулт) тоглогчдод зөвхөн тодруулах үед илгээгдэнэ
+  invited   Json         @default("[]")
+  status    String       @default("lobby") // lobby | play | done | closed
+  qIdx      Int          @default(-1)
+  qAt       DateTime?
+  revealAt  DateTime?
+  nextCode  String?
+  createdAt DateTime     @default(now())
+  players   DuelPlayer[]
+
+  @@index([status, createdAt])
+}
+
+model DuelPlayer {
+  id       String   @id @default(cuid())
+  roomId   String
+  room     DuelRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score    Int      @default(0)
+  streak   Int      @default(0)
+  answers  Json     @default("{}")
+  left     Boolean  @default(false)
+  joinedAt DateTime @default(now())
+
+  @@unique([roomId, userId])
+  @@index([userId])
 }
 
 model PushSub {

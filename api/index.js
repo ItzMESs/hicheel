@@ -804,45 +804,185 @@ on("DELETE", "stories/:id", async (req, res, { params }) => {
   return { ok: true };
 });
 
-/* --- Үгийн тулаан (duel) --- */
-const duelView = (d, meId) => ({
-  id: d.id, course: d.course, level: d.level, status: d.status, createdAt: d.createdAt,
-  from: publicUser(d.from), to: publicUser(d.to), fromScore: d.fromScore, toScore: d.toScore,
-  mine: d.fromId === meId, canPlay: d.toId === meId && d.status === "pending",
-  questions: d.toId === meId && d.status === "pending" ? d.questions : undefined
-});
+/* --- Үгийн тулаан: 2–4 хүн нэгэн зэрэг, асуулт бүр бүх тоглогчид нэг зэрэг гарна ---
+   Төлөв нь хүсэлт ирэх бүрт цагаар нь тооцоологдоно (serverless тул арын процессгүй). */
+const DUEL = { N: 10, MAX: 4, Q_MS: 12000, REVEAL_MS: 3200, COUNT_MS: 4000 };
+let DUEL_WORDS = null;
+const duelWords = () => DUEL_WORDS || (DUEL_WORDS = require("./_content/duel.json"));
+const DUEL_FREE = { hsk2: ["1"], hsk3: ["1"], ielts: ["A1"] };
+const pickN = (arr, n) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, n); };
+function duelQuestions(course, level) {
+  const ws = (duelWords()[course] || {})[level] || [];
+  if (ws.length < 14) fail(400, "Энэ түвшинд асуулт хүрэлцэхгүй байна.");
+  return pickN(ws, DUEL.N).map((w, i) => {
+    const toTerm = i % 3 === 2; // гурав дахь асуулт бүр: утгаас нь үгийг олох
+    const key = toTerm ? 0 : 2;
+    const wrong = [];
+    for (const x of pickN(ws, 40)) { if (wrong.length >= 3) break; if (x[key] !== w[key] && x[2] !== w[2] && !wrong.includes(x[key])) wrong.push(x[key]); }
+    const o = pickN([w[key]].concat(wrong), 4);
+    return toTerm ? { k: "t", t: w[2], r: "", o, a: o.indexOf(w[key]) } : { k: "m", t: w[0], r: w[1], o, a: o.indexOf(w[key]) };
+  });
+}
+const duelCode = () => Array.from({ length: 5 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[crypto.randomInt(32)]).join("");
+const duelInclude = { players: { include: { user: true }, orderBy: { joinedAt: "asc" } }, host: true };
+async function duelRoom(code) {
+  const r = await db().duelRoom.findUnique({ where: { code: str(code, 8).toUpperCase() }, include: duelInclude });
+  if (!r) fail(404, "Тулааны өрөө олдсонгүй.");
+  return r;
+}
+const qEnd = (r) => (r.revealAt ? r.revealAt.getTime() : r.qAt.getTime() + DUEL.Q_MS);
+// Хугацаа өнгөрсөн бол дараагийн асуулт руу шилжүүлнэ (qIdx-ээр түгжиж давхар шилжилтээс сэргийлнэ)
+async function duelTick(r) {
+  let guard = 0;
+  while (r.status === "play" && guard++ < DUEL.N + 2) {
+    const now = Date.now();
+    const active = r.players.filter((p) => !p.left);
+    if (!r.revealAt && now >= r.qAt.getTime() && active.length && active.every((p) => (p.answers || {})[r.qIdx])) {
+      await db().duelRoom.updateMany({ where: { id: r.id, qIdx: r.qIdx, revealAt: null }, data: { revealAt: new Date(now) } });
+    } else {
+      const next = qEnd(r) + DUEL.REVEAL_MS;
+      if (now < next) break;
+      const last = r.qIdx + 1 >= DUEL.N || !active.length;
+      await db().duelRoom.updateMany({ where: { id: r.id, qIdx: r.qIdx }, data: last ? { status: "done", revealAt: null } : { qIdx: r.qIdx + 1, qAt: new Date(next), revealAt: null } });
+    }
+    r = await db().duelRoom.findUnique({ where: { id: r.id }, include: duelInclude });
+  }
+  return r;
+}
+function duelOut(r, me) {
+  const now = Date.now();
+  const mine = r.players.find((p) => p.userId === me.id);
+  const qs = Array.isArray(r.questions) ? r.questions : [];
+  let phase = r.status, q = null;
+  if (r.status === "play") {
+    phase = now < r.qAt.getTime() ? "count" : now < qEnd(r) ? "question" : "reveal";
+    const src = qs[r.qIdx];
+    if (phase !== "count" && src) q = { idx: r.qIdx, k: src.k, t: src.t, r: src.r, o: src.o, a: phase === "reveal" ? src.a : undefined };
+  }
+  const shownIdx = q ? q.idx : -1;
+  const players = r.players.map((p) => {
+    const ans = (p.answers || {})[shownIdx];
+    return {
+      user: publicUser(p.user), host: p.userId === r.hostId, me: p.userId === me.id, left: p.left, score: p.score, streak: p.streak,
+      answered: !!ans, last: phase === "reveal" || phase === "done" ? (ans ? { ok: ans.ok, pts: ans.pts, k: ans.k } : null) : undefined,
+      correct: Object.values(p.answers || {}).filter((x) => x.ok).length
+    };
+  }).sort((x, y) => y.score - x.score);
+  return {
+    now, code: r.code, course: r.course, level: r.level, status: r.status, phase, n: qs.length, qIdx: r.qIdx,
+    qAt: r.qAt ? r.qAt.getTime() : null, qEnd: r.status === "play" ? qEnd(r) : null, qMs: DUEL.Q_MS, revealMs: DUEL.REVEAL_MS,
+    host: publicUser(r.host), isHost: r.hostId === me.id, joined: !!mine, nextCode: r.nextCode, max: DUEL.MAX,
+    question: q, myAnswer: mine && q ? ((mine.answers || {})[q.idx] || null) : null, players
+  };
+}
+async function duelCreate(me, course, level, invite) {
+  if (!DUEL_FREE[course]) fail(400, "Хичээл буруу.");
+  const lang = course === "ielts" ? "en" : "zh";
+  if (!DUEL_FREE[course].includes(level) && !isAdmin(me) && !alive(lang === "zh" ? me.premiumZh : me.premiumEn)) fail(403, "Энэ түвшин багцад багтана. HSK 1 / IELTS A1 дээр үнэгүй тулалдана уу.");
+  await limit("duelRoom", me.id, 3600, 30, "Цагт 30-аас олон өрөө үүсгэх боломжгүй.", "hostId");
+  const questions = duelQuestions(course, level);
+  let room = null;
+  for (let i = 0; i < 5 && !room; i++) {
+    try { room = await db().duelRoom.create({ data: { code: duelCode(), hostId: me.id, course, level, questions, players: { create: { userId: me.id } } } }); } catch (e) { if (e.code !== "P2002") throw e; }
+  }
+  if (invite && invite.length) await duelInvite(me, room, invite);
+  return room;
+}
+async function duelInvite(me, room, ids) {
+  const list = Array.isArray(room.invited) ? room.invited.slice() : [];
+  for (const id of [...new Set((Array.isArray(ids) ? ids : []).map((x) => str(x, 40)))].slice(0, 6)) {
+    if (id === me.id || list.includes(id) || !(await areFriends(me.id, id))) continue;
+    list.push(id);
+    await notify(id, `⚔️ ${me.name} таныг үгийн тулаанд урилаа! Код: ${room.code}`, `#/duels/${room.code}`, me.id);
+  }
+  await db().duelRoom.update({ where: { id: room.id }, data: { invited: list.slice(-20) } });
+}
 on("GET", "duels", async (req) => {
   const me = await currentUser(req, true);
-  const list = await db().duel.findMany({ where: { OR: [{ fromId: me.id }, { toId: me.id }] }, orderBy: { createdAt: "desc" }, take: 40, include: { from: true, to: true } });
-  return { duels: list.map((d) => duelView(d, me.id)) };
+  const since = new Date(Date.now() - 45 * 60 * 1000);
+  const [inv, mine] = await Promise.all([
+    db().duelRoom.findMany({ where: { status: "lobby", createdAt: { gt: since }, invited: { array_contains: [me.id] }, players: { none: { userId: me.id } } }, include: duelInclude, orderBy: { createdAt: "desc" }, take: 10 }),
+    db().duelRoom.findMany({ where: { players: { some: { userId: me.id } }, status: { in: ["lobby", "play", "done"] } }, include: duelInclude, orderBy: { createdAt: "desc" }, take: 15 })
+  ]);
+  const brief = (r) => ({ code: r.code, course: r.course, level: r.level, status: r.status, createdAt: r.createdAt, host: publicUser(r.host),
+    players: r.players.map((p) => ({ user: publicUser(p.user), score: p.score, me: p.userId === me.id })).sort((a, b) => b.score - a.score) });
+  return { invites: inv.filter((r) => r.players.length < DUEL.MAX).map(brief), rooms: mine.filter((r) => r.status !== "lobby" || r.createdAt > since).map(brief) };
 });
 on("POST", "duels", async (req, res, { body }) => {
   const me = await currentUser(req, true);
-  const toId = str(body.toId, 40);
-  if (!(await areFriends(me.id, toId))) fail(403, "Зөвхөн найзтайгаа тулалдах боломжтой.");
-  const qs = Array.isArray(body.questions) ? body.questions.slice(0, 20) : [];
-  if (qs.length < 5 || JSON.stringify(qs).length > 50_000) fail(400, "Асуулт буруу.");
-  const score = Math.max(0, Math.min(qs.length, parseInt(body.score, 10) || 0));
-  await limit("duel", me.id, 3600, 20, "Цагт 20-оос олон тулаан эхлүүлэх боломжгүй.", "fromId");
-  const d = await db().duel.create({ data: { fromId: me.id, toId, course: str(body.course, 10), level: str(body.level, 10), questions: qs, fromScore: score } });
-  await notify(toId, `⚔️ ${me.name} таныг үгийн тулаанд урилаа!`, "#/duels", me.id);
-  return { id: d.id };
+  const room = await duelCreate(me, str(body.course, 10), str(body.level, 10), body.invite);
+  return { code: room.code };
 });
-on("POST", "duels/:id/play", async (req, res, { params, body }) => {
+on("GET", "duels/:code", async (req, res, { params }) => {
   const me = await currentUser(req, true);
-  const d = await db().duel.findUnique({ where: { id: params.id }, include: { from: true, to: true } });
-  if (!d || d.toId !== me.id || d.status !== "pending") fail(404, "Тулаан олдсонгүй.");
-  const total = Array.isArray(d.questions) ? d.questions.length : 10;
-  const score = Math.max(0, Math.min(total, parseInt(body.score, 10) || 0));
-  const nd = await db().duel.update({ where: { id: d.id }, data: { toScore: score, status: "done" }, include: { from: true, to: true } });
-  const res1 = score > d.fromScore ? `${me.name} яллаа 🏆` : score < d.fromScore ? `Та яллаа 🏆` : "Тэнцлээ 🤝";
-  await notify(d.fromId, `⚔️ Тулаан: ${d.from.name} ${d.fromScore} — ${score} ${me.name}. ${res1}`, "#/duels");
-  return { duel: duelView(nd, me.id) };
+  return duelOut(await duelTick(await duelRoom(params.code)), me);
 });
-on("POST", "duels/:id/decline", async (req, res, { params }) => {
+on("POST", "duels/:code/join", async (req, res, { params }) => {
   const me = await currentUser(req, true);
-  await db().duel.updateMany({ where: { id: params.id, toId: me.id, status: "pending" }, data: { status: "declined" } });
+  const r = await duelRoom(params.code);
+  if (r.players.some((p) => p.userId === me.id)) return duelOut(r, me);
+  if (r.status !== "lobby") fail(409, "Тулаан аль хэдийн эхэлсэн байна.");
+  if (r.players.length >= DUEL.MAX) fail(409, `Өрөө дүүрсэн байна (${DUEL.MAX} хүн).`);
+  if ((await blockedIds(me.id)).includes(r.hostId)) fail(403, "Энэ өрөөнд орох боломжгүй.");
+  try { await db().duelPlayer.create({ data: { roomId: r.id, userId: me.id } }); } catch (e) { if (e.code !== "P2002") throw e; }
+  return duelOut(await duelRoom(r.code), me);
+});
+on("POST", "duels/:code/invite", async (req, res, { params, body }) => {
+  const me = await currentUser(req, true);
+  const r = await duelRoom(params.code);
+  if (r.hostId !== me.id || r.status !== "lobby") fail(403, "Зөвхөн өрөөний эзэн урина.");
+  await duelInvite(me, r, body.ids);
   return { ok: true };
+});
+on("POST", "duels/:code/leave", async (req, res, { params }) => {
+  const me = await currentUser(req, true);
+  const r = await duelRoom(params.code);
+  const p = r.players.find((x) => x.userId === me.id);
+  if (!p) return { ok: true };
+  if (r.status === "lobby") {
+    if (r.hostId === me.id) await db().duelRoom.update({ where: { id: r.id }, data: { status: "closed" } });
+    else await db().duelPlayer.delete({ where: { id: p.id } });
+  } else if (r.status === "play") await db().duelPlayer.update({ where: { id: p.id }, data: { left: true } });
+  return { ok: true };
+});
+on("POST", "duels/:code/start", async (req, res, { params }) => {
+  const me = await currentUser(req, true);
+  const r = await duelRoom(params.code);
+  if (r.hostId !== me.id) fail(403, "Зөвхөн өрөөний эзэн эхлүүлнэ.");
+  if (r.status !== "lobby") fail(409, "Тулаан эхэлсэн байна.");
+  if (r.players.length < 2) fail(400, "Дор хаяж 2 тоглогч хэрэгтэй.");
+  await db().duelRoom.updateMany({ where: { id: r.id, status: "lobby" }, data: { status: "play", qIdx: 0, qAt: new Date(Date.now() + DUEL.COUNT_MS), revealAt: null } });
+  return duelOut(await duelRoom(r.code), me);
+});
+on("POST", "duels/:code/answer", async (req, res, { params, body }) => {
+  const me = await currentUser(req, true);
+  const r = await duelTick(await duelRoom(params.code));
+  const p = r.players.find((x) => x.userId === me.id);
+  const qi = parseInt(body.q, 10), k = parseInt(body.k, 10);
+  const now = Date.now();
+  if (!p || p.left || r.status !== "play" || qi !== r.qIdx || now < r.qAt.getTime() || now >= qEnd(r)) fail(409, "Хариулах хугацаа дууссан.");
+  const answers = Object.assign({}, p.answers || {});
+  if (answers[qi]) return duelOut(r, me);
+  const q = r.questions[qi];
+  const ok = k === q.a;
+  const ms = now - r.qAt.getTime();
+  const streak = ok ? p.streak + 1 : 0;
+  // Зөв бол 500 + хурдны урамшуулал (≤500) + дараалсан зөвийн урамшуулал (≤200)
+  const pts = ok ? 500 + Math.round(500 * Math.max(0, 1 - ms / DUEL.Q_MS)) + Math.min(200, (streak - 1) * 50) : 0;
+  answers[qi] = { k, ok, pts, ms };
+  const n = await db().duelPlayer.updateMany({ where: { id: p.id, answers: { equals: p.answers || {} } }, data: { answers, score: p.score + pts, streak } });
+  if (!n.count) fail(409, "Дахин оролдоно уу.");
+  return duelOut(await duelTick(await duelRoom(r.code)), me);
+});
+on("POST", "duels/:code/again", async (req, res, { params }) => {
+  const me = await currentUser(req, true);
+  const r = await duelRoom(params.code);
+  if (r.hostId !== me.id || r.status !== "done") fail(403, "Зөвхөн өрөөний эзэн шинэ тоглолт эхлүүлнэ.");
+  if (r.nextCode) return { code: r.nextCode };
+  const room = await duelCreate(me, r.course, r.level, []);
+  await db().duelRoom.update({ where: { id: room.id }, data: { invited: r.players.map((p) => p.userId).filter((id) => id !== me.id) } });
+  await db().duelRoom.update({ where: { id: r.id }, data: { nextCode: room.code } });
+  return { code: room.code };
 });
 
 /* --- Web push (VAPID түлхүүрийг санд нэг удаа үүсгэж хадгална) --- */

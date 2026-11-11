@@ -420,99 +420,272 @@
   };
 
   /* =====================================================================
-     Үгийн тулаан (duel)
+     Үгийн тулаан: 2–4 хүн нэгэн зэрэг өрсөлдөнө (сервер цагийг удирдана)
      ===================================================================== */
-  function duelQuestions(courseId, level) {
-    const pool = Quiz.poolFor(courseId, level);
-    const ws = sample(getLevel(courseId, level).words.filter((w) => !w.noMn), 10);
-    return ws.map((w) => { const q = Quiz.Gen.meaning(w, pool); return { t: w.term, r: w.reading, lang: w.lang, o: q.options, a: q.answer }; });
-  }
-  function playDuel(box, qs, onDone) {
-    let i = 0, score = 0, timer = null;
-    function show() {
-      clearInterval(timer);
-      if (i >= qs.length) return onDone(score);
-      const q = qs[i];
-      let left = 10;
-      box.innerHTML = `<div class="quiz card duel-q">
-        <div class="quiz-top"><span class="badge">⚔️ ${i + 1}/${qs.length}</span><span class="timer" id="dt">10</span><span>Оноо: <b>${score}</b></span></div>
-        <div class="progressbar"><div style="width:${(i / qs.length) * 100}%"></div></div>
-        <div class="quiz-prompt"><div class="q-term ${q.lang}">${esc(q.t)}</div><div class="q-sub">${esc(q.r || "")}</div></div>
-        <div class="options">${q.o.map((o, k) => `<button class="opt" data-k="${k}">${esc(o)}</button>`).join("")}</div></div>`;
-      const next = (ok, btn) => {
-        clearInterval(timer);
-        box.querySelectorAll(".opt").forEach((x) => (x.disabled = true));
-        box.querySelectorAll(".opt")[q.a].classList.add("correct");
-        if (btn && !ok) btn.classList.add("wrong");
-        if (ok) score++;
-        setTimeout(() => { i++; show(); }, 600);
-      };
-      box.querySelectorAll(".opt").forEach((b) => (b.onclick = () => next(+b.dataset.k === q.a, b)));
-      timer = setInterval(() => {
-        const t = document.getElementById("dt");
-        if (!t) return clearInterval(timer);
-        left--; t.textContent = left; t.classList.toggle("low", left <= 3);
-        if (left <= 0) next(false);
-      }, 1000);
-    }
-    show();
-  }
-  P.duels = async function () {
+  const DQ_COLORS = ["d-red", "d-blue", "d-green", "d-gold"];
+  const DQ_MARK = ["◆", "●", "▲", "■"];
+  const courseLbl = (c, l) => (COURSES[c] ? `${COURSES[c].short} ${COURSES[c].levelLabel ? COURSES[c].levelLabel(l) : l}` : `${c} ${l}`);
+  const medal = (i) => ["🥇", "🥈", "🥉", "4"][i] || i + 1;
+
+  P.duels = function (code) {
     if (A.needServer()) return;
+    if (code) return duelRoomPage(String(code).toUpperCase());
+    duelHome();
+  };
+
+  async function duelHome() {
     const withId = A.query && A.query.with;
-    view().innerHTML = `${H("⚔️ Үгийн тулаан", "Найзаа сорьж, хэн нь илүү олон үг мэддэгийг тодруулаарай! Асуулт бүрт 10 секунд.")}
+    const locked = A.isLocked(A.pick.course, A.pick.level);
+    view().innerHTML = `${H("⚔️ Үгийн тулаан", "2–4 хүн нэгэн зэрэг өрсөлдөнө. Асуулт бүх хүнд зэрэг гарч, хурдан зөв хариулсан нь илүү оноо авна.")}
       <div class="split"><aside class="lvl-side">${A.picker()}</aside><section class="split-main">
-        <div class="card"><h3>Шинэ тулаан</h3><div class="row"><select class="input grow" id="dfr"><option value="">Найз сонгох...</option></select><button class="btn" id="dnew">⚔️ Тулаан эхлүүлэх</button></div>
-        <p class="muted small">Эхлээд та 10 асуултад хариулна, дараа нь найз тань ижил асуултад хариулна.</p></div>
-        <div id="dbox"></div>
+        <div class="duel-hero card">
+          <div class="dh-art">${[0, 1, 2, 3].map((i) => `<span class="${DQ_COLORS[i]}">${DQ_MARK[i]}</span>`).join("")}</div>
+          <div class="dh-txt"><b>Нэгэн зэрэг · 10 асуулт · 12 секунд</b>
+            <small>Зөв хариулт 500 оноо + хурдны урамшуулал 500 хүртэл + дараалсан зөвийн урамшуулал</small></div>
+        </div>
+        <div class="grid duel-start">
+          <div class="card"><h3>🏯 Өрөө үүсгэх</h3>
+            <p class="muted small">Түвшин: <b>${esc(courseLbl(A.pick.course, A.pick.level))}</b>${locked ? ` · 🔒 багцад багтана` : ""}. Зүүн талаас солино.</p>
+            <div id="dfr" class="df-list"><p class="muted small">Найзууд ачаалж байна...</p></div>
+            <button class="btn block" id="dnew" ${locked ? "disabled" : ""}>⚔️ Өрөө үүсгэх</button>
+          </div>
+          <div class="card"><h3>🔑 Кодоор орох</h3>
+            <p class="muted small">Найзынхаа өгсөн 5 тэмдэгт кодыг оруулна уу.</p>
+            <form id="djoin" class="row"><input class="input grow dj-code" name="code" maxlength="5" placeholder="AB3CD" autocomplete="off" required><button class="btn">Орох</button></form>
+          </div>
+        </div>
+        <div id="dinv"></div>
         <h2 class="section-title">Миний тулаанууд</h2><div id="dlist"><p class="muted">Ачаалж байна...</p></div>
       </section></div>`;
     A.bindPicker(P.duels);
-    const box = document.getElementById("dbox");
-    try {
-      const fr = await Remote.call("GET", "friends");
-      const sel = document.getElementById("dfr");
-      sel.innerHTML += fr.friends.map((f) => `<option value="${esc(f.id)}" ${f.id === withId ? "selected" : ""}>${esc(f.name)}</option>`).join("");
-      if (!fr.friends.length) sel.innerHTML = `<option value="">Эхлээд найз нэмнэ үү</option>`;
-    } catch (e) { /* ignore */ }
-    document.getElementById("dnew").onclick = () => {
-      const to = document.getElementById("dfr").value;
-      if (!to) return UI.toast("Найзаа сонгоно уу.", "warn");
-      const qs = duelQuestions(A.pick.course, A.pick.level);
-      if (qs.length < 5) return UI.toast("Энэ түвшинд асуулт хүрэлцэхгүй байна.", "warn");
-      playDuel(box, qs, async (score) => {
-        try {
-          await Remote.call("POST", "duels", { toId: to, course: A.pick.course, level: A.pick.level, questions: qs, score });
-          Progress.update((p) => { p.xp += score; A.bump(p, "duel"); });
-          box.innerHTML = `<div class="card center result"><h2>Таны оноо: ${score}/${qs.length}</h2><p>Найздаа сорилт илгээлээ! Хариу ирэхэд мэдэгдэл ирнэ.</p></div>`;
-          loadList();
-        } catch (e) { UI.toast(e.message, "warn"); }
-      });
-    };
-    async function loadList() {
-      const el = document.getElementById("dlist");
+    const picked = new Set(withId ? [withId] : []);
+    Remote.call("GET", "friends").then((fr) => {
+      const el = document.getElementById("dfr");
       if (!el) return;
-      const { duels } = await Remote.call("GET", "duels");
-      el.innerHTML = duels.length ? duels.map((d) => {
-        const st = d.status === "pending" ? (d.canPlay ? `<button class="btn small" data-play="${d.id}">▶ Тоглох</button><button class="btn ghost small" data-decl="${d.id}">Татгалзах</button>` : `<span class="pill">⏳ Хүлээж байна</span>`)
-          : d.status === "declined" ? `<span class="pill fail">Татгалзсан</span>`
-          : `<span class="pill ${((d.mine ? d.fromScore : d.toScore) > (d.mine ? d.toScore : d.fromScore)) ? "pass" : (d.fromScore === d.toScore ? "" : "fail")}">${d.fromScore} : ${d.toScore}</span>`;
-        return `<div class="duel-row card">${A.avatarHtml(d.from, 34)}<b>${esc(d.from.name)}</b><span class="vs">VS</span>${A.avatarHtml(d.to, 34)}<b>${esc(d.to.name)}</b><span class="muted small">${esc(COURSES[d.course] ? COURSES[d.course].short : d.course)} ${esc(d.level)}</span><span class="dr-st">${st}</span></div>`;
-      }).join("") : `<p class="muted">Одоогоор тулаан алга.</p>`;
-      el.querySelectorAll("[data-play]").forEach((b) => (b.onclick = () => {
-        const d = duels.find((x) => x.id === b.dataset.play);
-        playDuel(box, d.questions, async (score) => {
-          const r = await Remote.call("POST", `duels/${d.id}/play`, { score });
-          Progress.update((p) => { p.xp += score + (score > r.duel.fromScore ? 20 : 0); A.bump(p, "duel"); });
-          box.innerHTML = `<div class="card center result"><h2>${score > r.duel.fromScore ? "🏆 Та яллаа!" : score < r.duel.fromScore ? "😅 Ялагдлаа" : "🤝 Тэнцлээ"}</h2><div class="result-score pass">${r.duel.fromScore} : ${score}</div></div>`;
-          loadList();
-        });
-        box.scrollIntoView({ behavior: "smooth" });
+      el.innerHTML = fr.friends.length ? `<p class="small"><b>Урих найз</b> <span class="muted">(3 хүртэл)</span></p>` + fr.friends.map((f) => `<label class="df-item ${picked.has(f.id) ? "on" : ""}"><input type="checkbox" value="${esc(f.id)}" ${picked.has(f.id) ? "checked" : ""}>${A.avatarHtml(f, 28)}<span>${esc(f.name)}</span></label>`).join("")
+        : `<p class="muted small">Найз байхгүй ч болно — өрөөний кодоо хуваалцаарай.</p>`;
+      el.querySelectorAll("input").forEach((c) => (c.onchange = () => {
+        if (c.checked && picked.size >= 3) { c.checked = false; return UI.toast("3 хүртэл найз урина.", "warn"); }
+        c.checked ? picked.add(c.value) : picked.delete(c.value);
+        c.parentElement.classList.toggle("on", c.checked);
       }));
-      el.querySelectorAll("[data-decl]").forEach((b) => (b.onclick = async () => { await Remote.call("POST", `duels/${b.dataset.decl}/decline`, {}); loadList(); }));
+    }).catch(() => {});
+    document.getElementById("dnew").onclick = async (e) => {
+      e.target.disabled = true;
+      try {
+        const r = await Remote.call("POST", "duels", { course: A.pick.course, level: A.pick.level, invite: [...picked] });
+        location.hash = `#/duels/${r.code}`;
+      } catch (err) { UI.toast(err.message, "warn"); e.target.disabled = false; }
+    };
+    document.getElementById("djoin").onsubmit = (e) => {
+      e.preventDefault();
+      const c = e.target.code.value.trim().toUpperCase();
+      if (c.length === 5) location.hash = `#/duels/${c}`;
+    };
+    try {
+      const { invites, rooms } = await Remote.call("GET", "duels");
+      const inv = document.getElementById("dinv"), list = document.getElementById("dlist");
+      if (!list) return;
+      inv.innerHTML = invites.length ? `<h2 class="section-title">📨 Танд ирсэн урилга</h2>` + invites.map((r) => `
+        <div class="duel-row card inv">${A.avatarHtml(r.host, 38)}<div class="grow"><b>${esc(r.host.name)}</b> <span class="muted small">таныг урьсан · ${esc(courseLbl(r.course, r.level))} · ${r.players.length}/4 хүн</span></div>
+          <a class="btn small" href="#/duels/${esc(r.code)}">⚔️ Нэгдэх</a></div>`).join("") : "";
+      list.innerHTML = rooms.length ? rooms.map((r) => {
+        const myIdx = r.players.findIndex((p) => p.me);
+        const st = r.status === "done" ? `<span class="pill ${myIdx === 0 ? "pass" : ""}">${medal(myIdx)} ${myIdx + 1}-р байр</span>` : `<a class="btn small ghost" href="#/duels/${esc(r.code)}">${r.status === "lobby" ? "Өрөө рүү" : "▶ Үргэлжлүүлэх"}</a>`;
+        return `<div class="duel-row card"><div class="dr-ppl">${r.players.map((p) => `<span title="${esc(p.user.name)} · ${p.score}">${A.avatarHtml(p.user, 30)}</span>`).join("")}</div>
+          <div class="grow"><b>${r.players.map((p) => esc(p.user.name)).join(", ")}</b><div class="muted small">${esc(courseLbl(r.course, r.level))} · ${A.timeAgo(r.createdAt)}${r.status === "done" ? " · " + r.players.map((p) => p.score).join(" / ") : ""}</div></div>
+          <span class="dr-st">${st}</span></div>`;
+      }).join("") : `<p class="muted">Одоогоор тулаан алга. Өрөө үүсгээд найзуудаа урь!</p>`;
+    } catch (e) { UI.toast(e.message, "warn"); }
+  }
+
+  async function duelRoomPage(code) {
+    view().innerHTML = `<div class="duel-room" id="droom"><p class="muted center">Өрөө ачаалж байна...</p></div>`;
+    const root = document.getElementById("droom");
+    const alive = () => document.body.contains(root);
+    let st = null, off = 0, key = "", timer = null, sent = {}, rewarded = false, friends = null;
+    const invited = new Set();
+    const sNow = () => Date.now() + off;
+    const call = async (m, p, b) => { const r = await Remote.call(m, `duels/${code}${p}`, b); if (r && r.code) { off = r.now - Date.now(); } return r; };
+
+    try {
+      st = await call("GET", "");
+      if (!st.joined && st.status === "lobby") st = await call("POST", "/join", {});
+    } catch (e) {
+      root.innerHTML = `<div class="card center empty"><p style="font-size:2.4rem;margin:0">🚪</p><h3>${esc(e.message)}</h3><a class="btn" href="#/duels">← Тулаанууд</a></div>`;
+      return;
     }
-    loadList().catch((e) => UI.toast(e.message, "warn"));
-  };
+    draw();
+    poll();
+    (function frame() { if (!alive()) return; tickUi(); requestAnimationFrame(frame); })();
+
+    async function poll() {
+      clearTimeout(timer);
+      if (!alive()) return;
+      const delay = !st ? 2000 : st.status === "lobby" ? 1500 : st.status === "play" ? 800 : st.status === "done" && !st.nextCode ? 3000 : 0;
+      if (!delay) return;
+      timer = setTimeout(async () => {
+        if (!alive()) return;
+        try { st = await call("GET", ""); draw(); } catch (e) { /* сүлжээ тасарвал дахин оролдоно */ }
+        poll();
+      }, delay);
+    }
+
+    function draw() {
+      const k = `${st.status}|${st.phase}|${st.qIdx}|${st.joined}|${st.nextCode || ""}` + (st.status === "lobby" ? st.players.map((p) => p.user.id).join() : "");
+      if (k !== key) { key = k; stage(); }
+      board();
+    }
+
+    function stage() {
+      if (!st.joined && st.status !== "done") {
+        root.innerHTML = `<div class="card center empty"><p style="font-size:2.4rem;margin:0">⚔️</p><h3>${st.status === "play" ? "Тулаан эхэлчихсэн байна" : "Энэ өрөө хаагдсан"}</h3><p class="muted">Шинэ өрөө үүсгээд найзуудаа урина уу.</p><a class="btn" href="#/duels">← Тулаанууд</a></div>`;
+        return;
+      }
+      if (st.status === "closed") { root.innerHTML = `<div class="card center empty"><h3>Өрөөний эзэн өрөөг хаалаа</h3><a class="btn" href="#/duels">← Тулаанууд</a></div>`; return; }
+      if (st.status === "lobby") return lobby();
+      if (st.status === "done") return finish();
+      if (st.phase === "count") {
+        root.innerHTML = `<div class="dq-count card"><small>${esc(courseLbl(st.course, st.level))} · ${st.players.length} тоглогч</small><b id="dcn">3</b><span>Бэлдээрэй!</span></div>`;
+        return;
+      }
+      const q = st.question;
+      const my = st.myAnswer;
+      root.innerHTML = `<div class="dq-layout">
+        <div class="dq card ${st.phase}">
+          <div class="dq-top"><span class="badge">⚔️ ${q.idx + 1}/${st.n}</span><div class="dq-timer"><i id="dtb"></i></div><b id="dtt" class="dq-sec"></b></div>
+          <div class="dq-prompt">${q.k === "m" ? `<div class="q-term ${COURSES[st.course] ? COURSES[st.course].lang : ""}">${esc(q.t)}</div>${q.r ? `<div class="q-sub">${esc(q.r)}</div>` : ""}<p class="muted small">Утга нь аль вэ?</p>` : `<p class="muted small">Энэ утгатай үг аль вэ?</p><div class="dq-mean">${esc(q.t)}</div>`}</div>
+          <div class="dq-opts">${q.o.map((o, i) => `<button class="dq-opt ${DQ_COLORS[i]} ${q.k === "t" && COURSES[st.course] ? COURSES[st.course].lang : ""}" data-k="${i}"><span class="dq-mk">${DQ_MARK[i]}</span><span>${esc(o)}</span></button>`).join("")}</div>
+          <div class="dq-note" id="dnote"></div>
+        </div>
+        <aside class="dsb card"><h3>Оноо</h3><div id="dsb"></div></aside>
+      </div>`;
+      const opts = root.querySelectorAll(".dq-opt");
+      const mark = () => {
+        const mine = st.myAnswer ? st.myAnswer.k : sent[q.idx];
+        opts.forEach((b) => { b.disabled = st.phase !== "question" || mine !== undefined; b.classList.toggle("picked", +b.dataset.k === mine); });
+        if (st.phase === "reveal") {
+          opts.forEach((b) => { if (+b.dataset.k === q.a) b.classList.add("right"); else b.classList.add("dim"); });
+          const me = st.players.find((p) => p.me);
+          const res = me && me.last;
+          document.getElementById("dnote").innerHTML = res && res.ok ? `<span class="tamga">ЗӨВ +${res.pts}</span>` : `<span class="tamga re">${res ? "БУРУУ" : "ХОЦОРЛОО"}</span>`;
+        } else if (mine !== undefined) document.getElementById("dnote").innerHTML = `<span class="muted">✔ Хариулт илгээгдлээ — бусдыг хүлээж байна...</span>`;
+      };
+      mark();
+      opts.forEach((b) => (b.onclick = async () => {
+        if (sent[q.idx] !== undefined || st.phase !== "question") return;
+        sent[q.idx] = +b.dataset.k;
+        mark();
+        try { st = await call("POST", "/answer", { q: q.idx, k: +b.dataset.k }); draw(); } catch (e) { UI.toast(e.message, "warn"); }
+      }));
+    }
+
+    function lobby() {
+      const seats = [0, 1, 2, 3].map((i) => st.players[i]);
+      root.innerHTML = `<div class="dl card">
+        <div class="dl-head"><div><small class="muted">Өрөөний код</small><div class="dl-code">${code.split("").map((c) => `<span>${esc(c)}</span>`).join("")}</div></div>
+          <div class="dl-info"><b>${esc(courseLbl(st.course, st.level))}</b><small class="muted">10 асуулт · 12 сек</small><button class="btn ghost small" id="dcopy">🔗 Холбоос хуулах</button></div></div>
+        <div class="dl-seats">${seats.map((p, i) => p ? `<div class="dl-seat on ${DQ_COLORS[i]}">${p.host ? `<span class="dl-crown">👑</span>` : ""}${A.avatarHtml(p.user, 64)}<b>${esc(p.user.name)}${p.me ? " (Та)" : ""}</b><small>${p.host ? "Өрөөний эзэн" : "Бэлэн"}</small></div>`
+          : `<div class="dl-seat empty"><span class="dl-q">?</span><small>Хүлээж байна<i class="dots"></i></small></div>`).join("")}</div>
+        ${st.isHost ? `<div id="dinvite" class="dl-inv"></div>
+          <button class="btn block big" id="dgo" ${st.players.length < 2 ? "disabled" : ""}>▶ ТУЛААН ЭХЛҮҮЛЭХ</button>
+          <p class="muted small center">${st.players.length < 2 ? "Дор хаяж 2 тоглогч хэрэгтэй. Кодоо найздаа өгөөрэй." : `${st.players.length} тоглогч бэлэн. Эхлүүлэхэд бүгдэд нэг зэрэг асуулт гарна.`}</p>`
+          : `<p class="center dl-wait">⏳ ${esc(st.host.name)} эхлүүлэхийг хүлээж байна<i class="dots"></i></p>`}
+        <p class="center"><button class="btn ghost small" id="dleave">${st.isHost ? "Өрөөг хаах" : "Гарах"}</button></p>
+      </div>`;
+      document.getElementById("dcopy").onclick = () => {
+        const url = `${location.origin}${location.pathname}#/duels/${code}`;
+        (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => UI.toast("Холбоос хуулагдлаа", "ok"), () => UI.toast(url));
+      };
+      document.getElementById("dleave").onclick = async () => { try { await call("POST", "/leave", {}); } catch (e) { /* ignore */ } location.hash = "#/duels"; };
+      const go = document.getElementById("dgo");
+      if (go) go.onclick = async () => { go.disabled = true; try { st = await call("POST", "/start", {}); draw(); } catch (e) { UI.toast(e.message, "warn"); go.disabled = false; } };
+      const invEl = document.getElementById("dinvite");
+      if (invEl) {
+        const fill = () => {
+          const inRoom = new Set(st.players.map((p) => p.user.id));
+          const fs = (friends || []).filter((f) => !inRoom.has(f.id));
+          invEl.innerHTML = fs.length ? `<small class="muted">Найз урих:</small><div class="dl-chips">${fs.slice(0, 12).map((f) => `<button class="dl-chip" data-inv="${esc(f.id)}" ${invited.has(f.id) ? "disabled" : ""}>${A.avatarHtml(f, 22)}${invited.has(f.id) ? "✔ " : ""}${esc(f.name)}</button>`).join("")}</div>` : "";
+          invEl.querySelectorAll("[data-inv]").forEach((b) => (b.onclick = async () => {
+            b.disabled = true;
+            try { await call("POST", "/invite", { ids: [b.dataset.inv] }); invited.add(b.dataset.inv); b.textContent = "✔ Урьсан"; } catch (e) { UI.toast(e.message, "warn"); b.disabled = false; }
+          }));
+        };
+        if (friends) fill(); else Remote.call("GET", "friends").then((r) => { friends = r.friends; if (document.body.contains(invEl)) fill(); }).catch(() => {});
+      }
+    }
+
+    function finish() {
+      const ps = st.players;
+      const me = ps.find((p) => p.me);
+      const place = ps.indexOf(me);
+      if (me && !rewarded) {
+        rewarded = true;
+        Progress.update((p) => {
+          p.duelsDone = p.duelsDone || [];
+          if (p.duelsDone.includes(code)) return;
+          p.duelsDone = p.duelsDone.concat(code).slice(-30);
+          p.xp += [30, 20, 10, 5][place] + me.correct * 2;
+          A.bump(p, "duel");
+        });
+      }
+      const pod = [ps[1], ps[0], ps[2]];
+      root.innerHTML = `<div class="dfin card result">
+        ${place === 0 ? `<span class="tamga">ЯЛАГЧ</span>` : ""}
+        <h2>${place === 0 ? "🏆 Та яллаа!" : me ? `${medal(place)} ${place + 1}-р байр` : "Тулаан дууслаа"}</h2>
+        <div class="podium">${pod.map((p, i) => p ? `<div class="pd pd-${[2, 1, 3][i]}">${A.avatarHtml(p.user, [56, 72, 50][i])}<b>${esc(p.user.name)}</b><small>${p.score} оноо · ${p.correct}/${st.n} зөв</small><div class="pd-bar"><span>${[2, 1, 3][i]}</span></div></div>` : `<div class="pd pd-empty"></div>`).join("")}</div>
+        ${ps[3] ? `<p class="muted">4. ${esc(ps[3].user.name)} — ${ps[3].score} оноо</p>` : ""}
+        ${me ? `<p class="small">+${[30, 20, 10, 5][place] + me.correct * 2} XP</p>` : ""}
+        <div class="row center">${st.isHost ? `<button class="btn" id="dagain">🔁 Дахин тоглох</button>` : st.nextCode ? `<a class="btn" href="#/duels/${esc(st.nextCode)}">🔁 Дахин тоглох</a>` : `<span class="muted small">Эзэн дахин тоглуулбал энд товч гарна<i class="dots"></i></span>`}
+          <a class="btn ghost" href="#/duels">← Тулаанууд</a></div>
+      </div>`;
+      const ag = document.getElementById("dagain");
+      if (ag) ag.onclick = async () => { ag.disabled = true; try { const r = await call("POST", "/again", {}); location.hash = `#/duels/${r.code}`; } catch (e) { UI.toast(e.message, "warn"); ag.disabled = false; } };
+    }
+
+    // Онооны самбар: мөрүүдийг байрлалаар нь хөдөлгөж (FLIP) харуулна
+    function board() {
+      const el = document.getElementById("dsb");
+      if (!el) return;
+      const before = {};
+      el.querySelectorAll("[data-u]").forEach((r) => (before[r.dataset.u] = r.getBoundingClientRect().top));
+      const top = Math.max(1, st.players[0] ? st.players[0].score : 1);
+      el.innerHTML = st.players.map((p, i) => {
+        const tag = st.phase === "reveal" ? (p.last ? (p.last.ok ? `<em class="ok">+${p.last.pts}</em>` : `<em class="bad">✗</em>`) : `<em class="bad">—</em>`) : p.answered ? `<em class="ans">✔</em>` : `<em class="think">…</em>`;
+        return `<div class="dsb-row ${p.me ? "me" : ""} ${p.left ? "left" : ""}" data-u="${esc(p.user.id)}"><span class="dsb-rk">${i + 1}</span>${A.avatarHtml(p.user, 30)}
+          <div class="dsb-b"><b>${esc(p.user.name)}${p.streak >= 2 ? ` <span title="Дараалан зөв">🔥${p.streak}</span>` : ""}</b><div class="mini-bar"><i style="width:${(p.score / top) * 100}%"></i></div></div>
+          <span class="dsb-sc">${p.score}</span>${tag}</div>`;
+      }).join("");
+      el.querySelectorAll("[data-u]").forEach((r) => {
+        const b = before[r.dataset.u];
+        if (b === undefined) return;
+        const d = b - r.getBoundingClientRect().top;
+        if (!d) return;
+        r.style.transform = `translateY(${d}px)`; r.style.transition = "none";
+        requestAnimationFrame(() => { r.style.transition = "transform .5s cubic-bezier(.2,.8,.2,1)"; r.style.transform = ""; });
+      });
+    }
+
+    // Цаг: тоолуур ба асуултын хугацааны зураас
+    function tickUi() {
+      if (!st || st.status !== "play") return;
+      const now = sNow();
+      if (st.phase === "count") {
+        const n = Math.max(1, Math.ceil((st.qAt - now) / 1000));
+        const el = document.getElementById("dcn");
+        if (el && el.textContent !== String(n)) { el.textContent = n; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+        if (now >= st.qAt && timer) { clearTimeout(timer); timer = null; call("GET", "").then((r) => { st = r; draw(); poll(); }).catch(poll); }
+        return;
+      }
+      const bar = document.getElementById("dtb"), t = document.getElementById("dtt");
+      if (!bar) return;
+      const left = st.phase === "question" ? Math.max(0, st.qEnd - now) : 0;
+      bar.style.width = (left / st.qMs) * 100 + "%";
+      bar.classList.toggle("low", left < 4000);
+      const sec = String(Math.ceil(left / 1000));
+      if (t.textContent !== sec) t.textContent = sec;
+    }
+  }
 
   /* =====================================================================
      Сторй
