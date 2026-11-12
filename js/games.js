@@ -11,12 +11,11 @@
       { id: "build", icon: "🧱", title: "Өгүүлбэр байгуулах", desc: "Холилдсон үгсийг зөв дараалалд оруул." },
       { id: "tone", icon: "🎵", title: "Аялгуу таах", desc: "Хятад үгийн зөв аялгуутай пиньинийг сонго.", lang: "zh" },
       { id: "spell", icon: "🔤", title: "Үг угсрах", desc: "Үсгүүдийг зөв дараалалд оруулж англи үг бүтээ.", lang: "en" },
-      { id: "numbers", icon: "🔢", title: "Тоо", desc: "Тоог үгээр, үгийг тоогоор таниж сур." },
-      { id: "speak", icon: "🎤", title: "Дуудлага шалгах", desc: "Үгийг чангаар хэлж, хөтөч таны дуудлагыг шалгана." }
+      { id: "numbers", icon: "🔢", title: "Тоо", desc: "Тоог үгээр, үгийг тоогоор таниж сур." }
     ],
     run(id, el, courseId, level) {
       const L = getLevel(courseId, level);
-      ({ flash, match, speed, build, tone, spell, numbers, speak })[id](el, L);
+      ({ flash, match, speed, build, tone, spell, numbers })[id](el, L);
     }
   };
 
@@ -198,61 +197,6 @@
         ? { prompt: `<div class="q-term ${lang}">${esc(toWord(n))}</div><p>Энэ ямар тоо вэ?</p>`, options: opts.map(String), answer: opts.indexOf(n), say: { text: toWord(n), lang } }
         : { prompt: `<div class="q-term">${n}</div><p>${lang === "zh" ? "Хятадаар" : "Англиар"} зөв бичсэнийг сонго.</p>`, options: opts.map(toWord), answer: opts.indexOf(n), optClass: lang, say: { text: toWord(n), lang } };
     }, { restart: () => numbers(el, L) });
-  }
-
-  /* ---------- Дуудлага шалгах (SpeechRecognition) ---------- */
-  function speak(el, L) {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      el.innerHTML = `<div class="card center warn">⚠️ Таны хөтөч яриа таних боломжгүй. Chrome эсвэл Edge хөтөч ашиглана уу.</div>`;
-      return;
-    }
-    const lang = L.course.lang;
-    const list = sample(L.words, 8);
-    let i = 0, score = 0;
-    const norm = (t) => lang === "zh" ? String(t).replace(/[^一-鿿]/g, "") : String(t).toLowerCase().replace(/[^a-z' ]/g, "").trim();
-    function render() {
-      if (i >= list.length) {
-        Progress.update((p) => { p.games++; window.App.bump(p, "games"); p.xp += score * 3; });
-        el.innerHTML = `<div class="card center"><h3>Дууслаа!</h3><div class="result-score pass">${score}/${list.length}</div><button class="btn" id="again">Дахин тоглох</button></div>`;
-        el.querySelector("#again").onclick = () => speak(el, L);
-        return;
-      }
-      const w = list[i];
-      el.innerHTML = `
-        <div class="quiz card center">
-          <div class="quiz-top"><span class="badge">${i + 1} / ${list.length}</span><span>Оноо: <b>${score}</b></span></div>
-          <div class="q-term ${lang}">${esc(w.term)}</div>
-          <div class="q-sub">${esc(w.reading)} · ${esc(w.meaning)}</div>
-          <div class="row center">
-            <button class="btn audio" id="say">🔊 Жишээ сонсох</button>
-            <button class="btn mic" id="rec">🎤 Хэлэх</button>
-            <button class="btn ghost" id="skip">Алгасах →</button>
-          </div>
-          <div class="feedback" id="fb"></div>
-        </div>`;
-      el.querySelector("#say").onclick = () => Speech.speak(w.term, lang);
-      el.querySelector("#skip").onclick = () => { i++; render(); };
-      el.querySelector("#rec").onclick = () => {
-        const r = new SR();
-        r.lang = lang === "zh" ? "zh-CN" : "en-GB";
-        r.maxAlternatives = 5;
-        const btn = el.querySelector("#rec"), fb = el.querySelector("#fb");
-        btn.disabled = true; btn.textContent = "👂 Сонсож байна...";
-        r.onresult = (e) => {
-          const alts = Array.from(e.results[0]).map((a) => a.transcript);
-          const ok = alts.some((a) => norm(a) === norm(w.term) || norm(a).includes(norm(w.term)));
-          if (ok) score++;
-          fb.className = "feedback " + (ok ? "ok" : "bad");
-          fb.innerHTML = `${ok ? "✔ Маш сайн дуудлага!" : "✘ Дахин оролдоорой."}<div class="muted">Таны хэлсэн: «${esc(alts[0] || "")}»</div><button class="btn" id="nx">Дараагийн →</button>`;
-          fb.querySelector("#nx").onclick = () => { i++; render(); };
-        };
-        r.onerror = (e) => { fb.className = "feedback bad"; fb.textContent = e.error === "not-allowed" ? "Микрофоны зөвшөөрөл өгнө үү." : "Сонсож чадсангүй. Дахин оролдоно уу."; };
-        r.onend = () => { btn.disabled = false; btn.textContent = "🎤 Дахин хэлэх"; };
-        r.start();
-      };
-    }
-    render();
   }
 
   /* ---------- Картаар цээжлэх ---------- */
