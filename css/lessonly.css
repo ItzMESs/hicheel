@@ -152,3 +152,17 @@ h1, h2, h3, .profile-hero h1 { text-transform: none !important; }
 .chat-form .ibtn, .chat-form label, .chat-in label, .chat-in .icon-btn, .chat-input .icon-btn { border-radius: 12px !important; border: 1px solid var(--line) !important; }
 .track-sw .flag.en { background: transparent !important; color: inherit !important; }
 .croom { border-radius: 12px !important; }
+
+/* Толгойн товчнуудыг жижигрүүлэх (36px) */
+.icon-bar { gap: 8px !important; }
+.icon-bar .ibtn, .top-actions .icon-bar .ibtn { width: 36px !important; height: 36px !important; }
+.icon-bar .ibtn svg { width: 17px !important; height: 17px !important; }
+.ibadge { min-width: 18px !important; height: 18px !important; font-size: 10.5px !important; line-height: 14px !important; padding: 0 4px !important; top: -6px !important; right: -7px !important; }
+.avatar-btn .av, .avatar-btn .avatar, .avatar-btn img { width: 36px !important; height: 36px !important; }
+.av-caret { width: 16px !important; height: 16px !important; right: -3px !important; bottom: -3px !important; }
+.av-caret svg { width: 10px; height: 10px; }
+.top-actions { gap: 10px !important; }
+@media (max-width: 700px) {
+  .icon-bar .ibtn, .top-actions .icon-bar .ibtn { width: 34px !important; height: 34px !important; }
+  .avatar-btn .av, .avatar-btn .avatar, .avatar-btn img { width: 34px !important; height: 34px !important; }
+}
