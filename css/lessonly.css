@@ -332,3 +332,12 @@ h2, h3, .section-title { font-weight: 600 !important; }
 .sh-demo .uname { font-size: 20px; font-weight: 800; }
 .sh-item b { font-size: 14px; }
 .sh-item .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Админы зургийн доорх Lessonly лого */
+.av-staff-wrap { position: relative; display: inline-block; flex: none; vertical-align: middle; }
+.av-staff-wrap > .av { width: 100% !important; height: 100% !important; }
+.av-staff { position: absolute; left: 50%; bottom: -6%; transform: translateX(-50%); width: 112%; display: flex; justify-content: center; pointer-events: none; }
+.av-staff img { width: 100%; height: auto; display: block; filter: drop-shadow(0 0 1.5px var(--card)) drop-shadow(0 0 1.5px var(--card)) drop-shadow(0 0 1px var(--card)); }
+.av-staff .lg-d { display: none; }
+:root[data-theme="dark"] .av-staff .lg-l { display: none; } :root[data-theme="dark"] .av-staff .lg-d { display: block; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .av-staff .lg-l { display: none; } :root:not([data-theme="light"]) .av-staff .lg-d { display: block; } }

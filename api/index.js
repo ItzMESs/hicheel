@@ -115,7 +115,7 @@ async function blockedIds(meId) {
 
 const avatarUrl = (u) => (u.avatar ? `/api/avatar?id=${u.id}&v=${u.avatarAt ? new Date(u.avatarAt).getTime() : 0}` : null);
 const SYSTEM_EMAIL = "system@hicheel.invalid";
-const publicUser = (u) => (u.email === SYSTEM_EMAIL ? { id: u.id, name: u.name, avatarUrl: null, system: true } : { id: u.id, name: u.name, avatarUrl: avatarUrl(u), emoji: u.emoji || null, frame: u.frame || null, nameColor: u.nameColor || null });
+const publicUser = (u) => (u.email === SYSTEM_EMAIL ? { id: u.id, name: u.name, avatarUrl: null, system: true } : { id: u.id, name: u.name, avatarUrl: avatarUrl(u), emoji: u.emoji || null, frame: u.frame || null, nameColor: u.nameColor || null, staff: isAdmin(u) || undefined });
 // Профайлын зургийн оронд сонгож болох emoji
 const AVATAR_EMOJI = ["🐼", "🦊", "🐯", "🐻", "🐨", "🐸", "🐵", "🦁", "🐱", "🐶", "🐰", "🐧", "🦄", "🐲", "🐳", "🦉", "🌸", "🌻", "🍀", "🔥", "⭐", "🌙", "🚀", "🎧", "🎮", "📚", "✏️", "🏀", "⚽", "🎸", "🍜", "🥟", "🍵", "🏔️", "🐎", "🦅"];
 let systemUserCache = null;

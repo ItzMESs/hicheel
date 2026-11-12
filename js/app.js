@@ -849,7 +849,11 @@
   A.nameHtml = nameHtml;
   function avatarHtml(u, size) {
     const fr = u && u.frame && !u.system ? " fr " + String(u.frame).replace(/[^a-z-]/g, "") : "";
-    return avatarCore(u, size).replace('class="av', `class="av${fr}`);
+    const html = avatarCore(u, size).replace('class="av', `class="av${fr}`);
+    // Админы том зургийн доор Lessonly лого
+    if (u && (u.staff || u.isAdmin) && !u.system && (size || 40) >= 56)
+      return `<span class="av-staff-wrap" style="width:${size}px;height:${size}px">${html}<span class="av-staff" title="Lessonly баг"><img class="lg-l" src="img/lessonly.png" alt="Lessonly"><img class="lg-d" src="img/lessonly-dark.png" alt=""></span></span>`;
+    return html;
   }
   function avatarCore(u, size) {
     size = size || 40;
