@@ -1172,6 +1172,7 @@
     el.scrollTop = el.scrollHeight;
   }
   function drawBadge() {
+    window.dispatchEvent(new CustomEvent("chat-unread", { detail: unread }));
     $("cdbadge").textContent = unread > 9 ? "9+" : unread;
     $("cdbadge").hidden = !unread;
     $("cdmute").textContent = muted() ? "🔕" : "🔔";
@@ -1235,7 +1236,7 @@
     catch (err) { A.UI.toast(err.message, "warn"); }
     finally { inp.disabled = false; inp.focus(); }
   };
-  window.addEventListener("hashchange", () => { dock.hidden = !shown || onChat(); if (onChat()) { unread = 0; setOpen(false); } });
+  window.addEventListener("hashchange", () => { dock.hidden = !shown || onChat(); if (onChat()) { unread = 0; setOpen(false); drawBadge(); } });
   setInterval(poll, 8000);
   setTimeout(poll, 1500);
 })();

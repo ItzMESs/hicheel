@@ -1373,6 +1373,11 @@
     } catch (e) { /* ignore */ }
   }
   setInterval(refreshBadges, 20000);
+  window.addEventListener("chat-unread", (e) => {
+    A.chatUnread = e.detail || 0;
+    const b = document.getElementById("cbadge");
+    if (b) { b.textContent = A.chatUnread > 99 ? "99+" : A.chatUnread; b.hidden = !A.chatUnread; }
+  });
   function notifMenu() {
     const box = document.getElementById("nmenu");
     const list = badges.list || [];
@@ -1977,10 +1982,20 @@
       </div>
       <div class="pm-foot">
         ${u.isAdmin ? `<a href="#/admin" class="pm-admin">🛡️ Админ</a>` : ""}
+        <button id="theme" title="Өнгөний горим">${THEME_ICON[A.Theme.get()]} ${{ system: "Систем", light: "Цайвар", dark: "Бараан" }[A.Theme.get()]}</button>
         <button id="logout">⏻ Гарах</button>
       </div>`;
   }
   const THEME_ICON = { system: "🖥️", light: "☀️", dark: "🌙" };
+  // Толгойн дугуй товчнуудын зураасан дүрс
+  const hbSvg = (d) => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const HB_ICON = {
+    feed: hbSvg('<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M9.5 12h6M9.5 16h6"/>'),
+    ppl: hbSvg('<circle cx="9" cy="8" r="3.5"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c1.8.7 3 2.5 3.3 5.2"/>'),
+    chat: hbSvg('<path d="M4 5h16v11H9l-5 4z"/>'),
+    bell: hbSvg('<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>'),
+    caret: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>'
+  };
 
   function renderNav() {
     const u = Auth.current();
@@ -2038,11 +2053,13 @@
           <button data-t="en" class="${lang === "en" ? "on" : ""}" title="Англи хэл">${FLAG.en}<span class="tw">Англи</span></button>
         </div>
         <div class="icon-bar">
-          ${A.Remote.on ? `<span id="fbadge" hidden></span><div class="nwrap"><button class="ibtn" id="nbell" title="Мэдэгдэл">🔔<span class="ibadge" id="nbadge" ${badges.unread ? "" : "hidden"}>${badges.unread}</span></button><div class="nmenu card" id="nmenu" hidden></div></div>` : ""}
-          <button class="ibtn" id="theme" title="Өнгөний горим">${THEME_ICON[A.Theme.get()]}</button>
+          ${A.Remote.on ? `<a class="ibtn hb-soc ${cur === "social" ? "on" : ""}" href="#/social" title="Сошиал">${HB_ICON.feed}</a>
+          <a class="ibtn hb-soc ${cur === "friends" ? "on" : ""}" href="#/friends" title="Найзууд">${HB_ICON.ppl}<span class="ibadge" id="fbadge" ${badges.incoming ? "" : "hidden"}>${badges.incoming}</span></a>
+          <a class="ibtn ${cur === "chat" ? "on" : ""}" href="#/chat" title="Чат">${HB_ICON.chat}<span class="ibadge" id="cbadge" ${A.chatUnread ? "" : "hidden"}>${A.chatUnread > 99 ? "99+" : A.chatUnread}</span></a>
+          <div class="nwrap"><button class="ibtn" id="nbell" title="Мэдэгдэл">${HB_ICON.bell}<span class="ibadge" id="nbadge" ${badges.unread ? "" : "hidden"}>${badges.unread}</span></button><div class="nmenu card" id="nmenu" hidden></div></div>` : ""}
         </div>
         <div class="pwrap">
-          <button class="avatar-btn" id="avatar" aria-haspopup="true" aria-expanded="false" title="${esc(u.name)}">${avatarHtml(u, 40)}</button>
+          <button class="avatar-btn" id="avatar" aria-haspopup="true" aria-expanded="false" title="${esc(u.name)}">${avatarHtml(u, 40)}<i class="av-caret" aria-hidden="true">${HB_ICON.caret}</i></button>
           <div class="pmenu card" id="pmenu" hidden>${profileMenu(u, pr, due, lang)}</div>
         </div>`
       : `<button class="icon-btn theme" id="theme" title="Өнгөний горим">${THEME_ICON[A.Theme.get()]}</button><a href="#/login" class="btn small ghost">Нэвтрэх</a><a href="#/register" class="btn small">Бүртгүүлэх</a>`);

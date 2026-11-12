@@ -25,7 +25,7 @@ h1, h2, h3, .page-head h1, .section-title, .logo-txt, .eyebrow { font-family: "I
 .track-sw button { border-radius: 9px !important; color: var(--muted) !important; }
 .track-sw button.on { background: var(--card) !important; color: var(--ink) !important; box-shadow: 0 1px 4px rgba(0, 0, 0, .08) !important; }
 .track-sw .flag { background: transparent !important; color: inherit !important; }
-.top-actions button, .top-actions a, .top-actions .icon-btn { border: 1px solid var(--line) !important; border-radius: 50% !important; background: var(--card) !important; box-shadow: none !important; }
+.top-actions > button, .top-actions > a, .top-actions > .icon-btn { border: 1px solid var(--line) !important; border-radius: 50% !important; background: var(--card) !important; box-shadow: none !important; }
 .top-actions .avatar, .top-actions [id="pbtn"] { border-radius: 50% !important; }
 /* карт, товч */
 .card, .stat, .lv-chip, .plan-cta, .lvl-strip, .wotd, .td-task, .quest, .duel-row, .dm-mode, .td-stats a, .quick-grid a, .srs-card, .quiz.card, .test-intro {
@@ -97,3 +97,35 @@ h1, h2, h3, .page-head h1, .section-title, .logo-txt, .eyebrow { font-family: "I
 .bubble-msg.sys-b { border: 1px solid var(--line) !important; border-left: 4px solid #f5b301 !important; box-shadow: var(--shadow) !important; border-radius: 14px !important; }
 .mention-sug { border: 1px solid var(--line) !important; box-shadow: 0 12px 30px rgba(10, 40, 120, .12) !important; border-radius: 14px !important; background: var(--card) !important; }
 .bubble-msg { border-radius: 16px !important; }
+
+/* ---- Толгойн дугуй товчнууд (сошиал, найз, чат, мэдэгдэл) ---- */
+.icon-bar { display: flex; align-items: center; gap: 10px; }
+.icon-bar .ibtn, .top-actions .icon-bar .ibtn { position: relative; width: 44px; height: 44px; border-radius: 50% !important; display: grid; place-items: center;
+  background: var(--card-2) !important; border: 1px solid var(--line) !important; color: var(--muted) !important; padding: 0; font-size: 0; text-decoration: none; transition: color .15s, border-color .15s, transform .15s; }
+.icon-bar .ibtn:hover { color: var(--ink) !important; border-color: var(--primary) !important; transform: translateY(-1px); }
+.icon-bar .ibtn.on { color: var(--primary) !important; border-color: var(--primary) !important; background: var(--soft) !important; }
+.icon-bar .ibtn svg { width: 21px; height: 21px; }
+.ibadge { position: absolute !important; top: -7px; right: -9px; min-width: 22px; height: 22px; padding: 0 5px !important; border-radius: 99px !important;
+  background: #f0625b !important; color: #fff !important; font: 800 12px/18px "Inter", sans-serif !important; text-align: center; border: 2px solid var(--bg); box-sizing: border-box; }
+.ibadge[hidden] { display: none !important; }
+.avatar-btn { position: relative; border: 0 !important; background: none !important; padding: 0 !important; border-radius: 50% !important; }
+.avatar-btn .avatar, .avatar-btn img { width: 44px !important; height: 44px !important; border-radius: 50% !important; box-shadow: 0 0 0 1px var(--line); }
+.av-caret { position: absolute; right: -4px; bottom: -4px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--card); color: var(--muted); border: 1px solid var(--line); font-style: normal; }
+.top-actions { gap: 12px !important; }
+.pm-foot { display: flex; gap: 8px; }
+.pm-foot button { flex: 1; }
+@media (max-width: 700px) {
+  .icon-bar .hb-soc { display: none !important; }
+  .icon-bar { gap: 8px; }
+  .icon-bar .ibtn, .top-actions .icon-bar .ibtn { width: 38px; height: 38px; }
+  .avatar-btn .avatar, .avatar-btn img { width: 38px !important; height: 38px !important; }
+  .ibadge { min-width: 18px; height: 18px; font-size: 10.5px !important; line-height: 14px !important; top: -6px; right: -7px; }
+}
+.avatar-btn { overflow: visible !important; width: auto !important; height: auto !important; }
+.avatar-btn .av { width: 44px !important; height: 44px !important; border-radius: 50% !important; overflow: hidden; }
+@media (max-width: 700px) { .avatar-btn .av { width: 38px !important; height: 38px !important; } }
+@media (max-width: 560px) { .topbar-in { flex-wrap: nowrap !important; } .top-actions { gap: 8px !important; } }
+.pmenu { border-radius: 18px !important; border: 1px solid var(--line) !important; box-shadow: 0 20px 40px rgba(10, 40, 120, .14) !important; }
+.pm-tile, .pm-level, .pm-plan, .pm-stats > span, .pm-foot button, .pm-admin { border-radius: 12px !important; }
+.pm-head .av, .pm-head .avatar { border-radius: 50% !important; }
