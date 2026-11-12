@@ -115,7 +115,7 @@ async function blockedIds(meId) {
 
 const avatarUrl = (u) => (u.avatar ? `/api/avatar?id=${u.id}&v=${u.avatarAt ? new Date(u.avatarAt).getTime() : 0}` : null);
 const SYSTEM_EMAIL = "system@hicheel.invalid";
-const publicUser = (u) => (u.email === SYSTEM_EMAIL ? { id: u.id, name: u.name, avatarUrl: null, system: true } : { id: u.id, name: u.name, avatarUrl: avatarUrl(u), emoji: u.emoji || null });
+const publicUser = (u) => (u.email === SYSTEM_EMAIL ? { id: u.id, name: u.name, avatarUrl: null, system: true } : { id: u.id, name: u.name, avatarUrl: avatarUrl(u), emoji: u.emoji || null, frame: u.frame || null, nameColor: u.nameColor || null });
 // Профайлын зургийн оронд сонгож болох emoji
 const AVATAR_EMOJI = ["🐼", "🦊", "🐯", "🐻", "🐨", "🐸", "🐵", "🦁", "🐱", "🐶", "🐰", "🐧", "🦄", "🐲", "🐳", "🦉", "🌸", "🌻", "🍀", "🔥", "⭐", "🌙", "🚀", "🎧", "🎮", "📚", "✏️", "🏀", "⚽", "🎸", "🍜", "🥟", "🍵", "🏔️", "🐎", "🦅"];
 let systemUserCache = null;
@@ -128,7 +128,7 @@ async function systemUser() {
   });
   return systemUserCache;
 }
-const meUser = (u) => ({ id: u.id, email: u.email, name: u.name, bio: u.bio, created: u.createdAt, avatarUrl: avatarUrl(u), emoji: u.emoji || null, isAdmin: isAdmin(u), premium: { zh: u.premiumZh || null, en: u.premiumEn || null } });
+const meUser = (u) => ({ id: u.id, email: u.email, name: u.name, bio: u.bio, created: u.createdAt, avatarUrl: avatarUrl(u), emoji: u.emoji || null, frame: u.frame || null, nameColor: u.nameColor || null, owned: Array.isArray(u.owned) ? u.owned : [], spent: u.spent || 0, isAdmin: isAdmin(u), premium: { zh: u.premiumZh || null, en: u.premiumEn || null } });
 const isDataImage = (s, max) => typeof s === "string" && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s) && s.length <= max;
 
 async function notify(userId, text, link, actorId) {
@@ -313,11 +313,53 @@ on("GET", "users/:id", async (req, res, { params }) => {
   const rel = await db().friend.findFirst({ where: { OR: [{ fromId: me.id, toId: u.id }, { fromId: u.id, toId: me.id }] } });
   const posts = await db().post.count({ where: { userId: u.id } });
   return {
-    user: { ...publicUser(u), bio: u.bio, created: u.createdAt, xp: u.progress ? u.progress.xp : 0, streak: u.progress ? u.progress.streak : 0, learned: u.progress ? u.progress.learned : 0, posts },
+    user: { ...publicUser(u), badges: u.progress && u.progress.data && Array.isArray(u.progress.data.badges) ? u.progress.data.badges.filter((b) => BADGE_NAMES[b]) : [], bio: u.bio, created: u.createdAt, xp: u.progress ? u.progress.xp : 0, streak: u.progress ? u.progress.streak : 0, learned: u.progress ? u.progress.learned : 0, posts },
     friend: !rel ? "none" : rel.status === "accepted" ? "friends" : rel.fromId === me.id ? "sent" : "received",
     blocked: !!(await db().block.findUnique({ where: { blockerId_blockedId: { blockerId: me.id, blockedId: u.id } } })),
     self: me.id === u.id
   };
+});
+
+/* --- Дэлгүүр: XP-ээр профайлын хүрээ, нэрийн өнгө авах ---
+   Зарцуулах боломжит XP = нийт XP − зарцуулсан XP. Тэргүүлэгчдийн XP буурахгүй. */
+const SHOP = {
+  "f-silver": 150, "f-gold": 400, "f-jade": 600, "f-fire": 900, "f-ice": 900, "f-royal": 1500, "f-rainbow": 3000,
+  "c-blue": 100, "c-green": 200, "c-red": 300, "c-purple": 500, "c-gold": 800, "c-rainbow": 2500
+};
+async function shopState(u) {
+  const pr = await db().progress.findUnique({ where: { userId: u.id } });
+  const xp = pr ? pr.xp : 0;
+  return { xp, spent: u.spent || 0, balance: Math.max(0, xp - (u.spent || 0)), owned: Array.isArray(u.owned) ? u.owned : [], frame: u.frame || null, nameColor: u.nameColor || null };
+}
+on("GET", "shop", async (req) => {
+  const me = await currentUser(req, true);
+  return { prices: SHOP, ...(await shopState(me)) };
+});
+on("POST", "shop/buy", async (req, res, { body }) => {
+  const me = await currentUser(req, true);
+  const id = str(body.id, 20);
+  if (!SHOP[id]) fail(400, "Ийм бараа алга.");
+  const st = await shopState(me);
+  if (st.owned.includes(id)) fail(409, "Аль хэдийн авсан байна.");
+  if (st.balance < SHOP[id]) fail(400, `XP хүрэлцэхгүй байна. Дахиад ${SHOP[id] - st.balance} XP хэрэгтэй.`);
+  // spent-ийг өмнөх утгаар нь түгжиж давхар худалдан авалтаас сэргийлнэ
+  const n = await db().user.updateMany({ where: { id: me.id, spent: me.spent || 0 }, data: { spent: (me.spent || 0) + SHOP[id], owned: st.owned.concat(id), [id[0] === "f" ? "frame" : "nameColor"]: id } });
+  if (!n.count) fail(409, "Дахин оролдоно уу.");
+  const nu = await db().user.findUnique({ where: { id: me.id } });
+  return { user: meUser(nu), ...(await shopState(nu)) };
+});
+on("POST", "shop/equip", async (req, res, { body }) => {
+  const me = await currentUser(req, true);
+  const owned = Array.isArray(me.owned) ? me.owned : [];
+  const data = {};
+  for (const [k, field, pre] of [["frame", "frame", "f-"], ["nameColor", "nameColor", "c-"]]) {
+    if (body[k] === undefined) continue;
+    const v = body[k] === null ? null : str(body[k], 20);
+    if (v !== null && (!v.startsWith(pre) || !owned.includes(v))) fail(400, "Энэ барааг авах хэрэгтэй.");
+    data[field] = v;
+  }
+  const nu = await db().user.update({ where: { id: me.id }, data });
+  return { user: meUser(nu), ...(await shopState(nu)) };
 });
 
 /* --- Найзууд --- */
@@ -411,7 +453,7 @@ on("POST", "chat/:id/pin", async (req, res, { params }) => {
 });
 
 /* --- Ахиц гаргасан хэрэглэгчид нийтийн чатад баяр хүргэх --- */
-const BADGE_NAMES = { w1: "Анхны үг", w50: "50 үг", w200: "200 үг", w1000: "Мянган үг", s3: "3 өдөр дараалан", s7: "7 хоног дараалан", s30: "Сар дараалан", t1: "Анхны тест", t10: "10 тест", t100: "Төгс оноо", r100: "Картын мастер", g10: "Тоглогч", l10: "Чих сайтай", wr3: "Зохиолч", m1: "Жишиг шалгалт", lv10: "10-р түвшин", xp5k: "5000 XP", q7: "Даалгаврын баатар" };
+const BADGE_NAMES = { w500: "500 үг", s100: "100 өдөр дараалан", t50: "50 тест", r500: "Давталтын аварга", g50: "Тоглоомын мастер", l50: "Сонсголын мастер", mk10: "Алдаагаа засагч", mk50: "Алдаагүй", v1: "Анхны ялалт", v10: "Тулааны аварга", lv20: "20-р түвшин", xp20k: "20000 XP", w1: "Анхны үг", w50: "50 үг", w200: "200 үг", w1000: "Мянган үг", s3: "3 өдөр дараалан", s7: "7 хоног дараалан", s30: "Сар дараалан", t1: "Анхны тест", t10: "10 тест", t100: "Төгс оноо", r100: "Картын мастер", g10: "Тоглогч", l10: "Чих сайтай", wr3: "Зохиолч", m1: "Жишиг шалгалт", lv10: "10-р түвшин", xp5k: "5000 XP", q7: "Даалгаврын баатар" };
 const lvlOf = (x) => Math.floor(Math.sqrt((x || 0) / 25)) + 1;
 async function celebrate(u, ev) {
   try {

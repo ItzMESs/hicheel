@@ -844,7 +844,14 @@
     avatarPicker(true, () => route());
   }
   A.ensureAvatar = ensureAvatar;
+  // Нэрийг дэлгүүрээс авсан өнгөөр
+  const nameHtml = (u, tag) => `<${tag || "b"} class="uname ${u && u.nameColor ? "nc " + esc(u.nameColor) : ""}">${esc((u && u.name) || "")}</${tag || "b"}>`;
+  A.nameHtml = nameHtml;
   function avatarHtml(u, size) {
+    const fr = u && u.frame && !u.system ? " fr " + String(u.frame).replace(/[^a-z-]/g, "") : "";
+    return avatarCore(u, size).replace('class="av', `class="av${fr}`);
+  }
+  function avatarCore(u, size) {
     size = size || 40;
     if (u && u.system) return `<img class="av av-sys" src="img/mark.png" alt="Систем" style="width:${size}px;height:${size}px">`;
     const url = u && (u.avatarUrl || u.avatar);
@@ -882,6 +889,58 @@
   }
 
   /* ---------- Профайл ---------- */
+  // Профайл дээрх тэмдгийн мөр
+  function badgeRow(ids, link) {
+    if (!A.BADGES) return "";
+    const got = A.BADGES.filter((b) => ids.includes(b.id)).sort((a, b) => b.tier - a.tier);
+    if (!got.length) return `<p class="muted small pb-none">Одоогоор тэмдэг алга.${link ? ` <a href="${link}">Тэмдгүүдийг харах →</a>` : ""}</p>`;
+    return `<div class="pb-row">${got.slice(0, 12).map((b) => A.badgeHtml(b, true)).join("")}${got.length > 12 ? `<span class="pb-more">+${got.length - 12}</span>` : ""}<span class="pb-n">${got.length} / ${A.BADGES.length} тэмдэг</span></div>`;
+  }
+
+  /* ---------- Дэлгүүр: XP-ээр хүрээ, нэрийн өнгө ---------- */
+  const SHOP_ITEMS = [
+    ["f-silver", "Мөнгөн хүрээ"], ["f-gold", "Алтан хүрээ"], ["f-jade", "Хаш хүрээ"], ["f-fire", "Галын хүрээ"], ["f-ice", "Мөсөн хүрээ"], ["f-royal", "Хааны хүрээ"], ["f-rainbow", "Солонго хүрээ"],
+    ["c-blue", "Цэнхэр нэр"], ["c-green", "Ногоон нэр"], ["c-red", "Улаан нэр"], ["c-purple", "Нил ягаан нэр"], ["c-gold", "Алтан нэр"], ["c-rainbow", "Солонго нэр"]
+  ];
+  Pages.shop = async function () {
+    if (needServer()) return;
+    view().innerHTML = `${pageHead("💎 Дэлгүүр", "Цуглуулсан XP-ээрээ профайлын хүрээ, нэрийн өнгө ав. Тэргүүлэгчдийн XP тань буурахгүй.")}<div id="shop"><p class="muted">Ачаалж байна...</p></div>`;
+    let st;
+    try { st = await A.Remote.call("GET", "shop"); } catch (e) { document.getElementById("shop").innerHTML = `<p class="error">${esc(e.message)}</p>`; return; }
+    const draw = () => {
+      const u = Auth.current();
+      const box = document.getElementById("shop");
+      if (!box) return;
+      const preview = Object.assign({}, u, { frame: st.frame, nameColor: st.nameColor });
+      const item = ([id, t]) => {
+        const own = st.owned.includes(id), on = st.frame === id || st.nameColor === id, price = st.prices[id];
+        const demo = id[0] === "f" ? avatarHtml(Object.assign({}, u, { frame: id }), 64) : nameHtml(Object.assign({}, u, { nameColor: id }), "span");
+        return `<div class="sh-item ${on ? "on" : ""}"><div class="sh-demo">${demo}</div><b>${t}</b>
+          ${on ? `<button class="btn ghost small" data-off="${id[0] === "f" ? "frame" : "nameColor"}">Тайлах</button>`
+            : own ? `<button class="btn small" data-eq="${id}">Зүүх</button>`
+            : `<button class="btn ghost small" data-buy="${id}" ${st.balance < price ? "disabled" : ""}>${ico("star", 14)} ${price} XP</button>`}</div>`;
+      };
+      box.innerHTML = `
+        <div class="sh-top card"><div class="sh-me">${avatarHtml(preview, 72)}<div>${nameHtml(preview, "span")}<small class="muted">Таны профайл бусдад ингэж харагдана</small></div></div>
+          <div class="sh-bal"><small class="muted">Зарцуулах боломжтой</small><b>${ico("star", 18)} ${st.balance.toLocaleString("en-US")} XP</b><small class="muted">Нийт ${st.xp} · зарцуулсан ${st.spent}</small></div></div>
+        <h2 class="section-title">Профайлын хүрээ</h2><div class="sh-grid">${SHOP_ITEMS.filter((x) => x[0][0] === "f").map(item).join("")}</div>
+        <h2 class="section-title">Нэрийн өнгө</h2><div class="sh-grid">${SHOP_ITEMS.filter((x) => x[0][0] === "c").map(item).join("")}</div>`;
+      const after = (r) => { st = Object.assign(st, r); Auth.setUser(r.user); renderNav(); draw(); };
+      box.querySelectorAll("[data-buy]").forEach((b) => (b.onclick = async () => {
+        const it = SHOP_ITEMS.find((x) => x[0] === b.dataset.buy);
+        if (!confirm(`«${it[1]}»-ийг ${st.prices[it[0]]} XP-ээр авах уу?`)) return;
+        try { after(await A.Remote.call("POST", "shop/buy", { id: it[0] })); UI.toast(`${it[1]} авлаа!`, "ok"); } catch (e) { UI.toast(e.message, "warn"); }
+      }));
+      box.querySelectorAll("[data-eq]").forEach((b) => (b.onclick = async () => {
+        try { after(await A.Remote.call("POST", "shop/equip", { [b.dataset.eq[0] === "f" ? "frame" : "nameColor"]: b.dataset.eq })); } catch (e) { UI.toast(e.message, "warn"); }
+      }));
+      box.querySelectorAll("[data-off]").forEach((b) => (b.onclick = async () => {
+        try { after(await A.Remote.call("POST", "shop/equip", { [b.dataset.off]: null })); } catch (e) { UI.toast(e.message, "warn"); }
+      }));
+    };
+    draw();
+  };
+
   Pages.profile = function () {
     const u = Auth.current(), p = Progress.get();
     view().innerHTML = `
@@ -891,7 +950,7 @@
           <button class="ph-upload" type="button" id="avpick" title="Зураг солих">${ico("image", 16)}</button><input type="file" id="avf" accept="image/*" hidden>
         </div>
         <div class="ph-info">
-          <h1>${esc(u.name)}</h1>
+          <h1>${nameHtml(u, "span")}</h1>
           <p class="muted">${esc(u.email)} · ${new Date(u.created).toLocaleDateString("mn-MN")}-нд нэгдсэн</p>
           ${u.bio ? `<p>${esc(u.bio)}</p>` : ""}
           <div class="ph-stats">
@@ -899,9 +958,11 @@
           </div>
           <div class="row">
             ${Auth.avatar(u) ? `<button class="btn ghost small" id="avdel">Зураг устгах</button>` : ""}
-            <a class="btn ghost small" href="#/leaderboard">🏆 Тэргүүлэгчид</a>
-            ${A.Remote.on ? `<a class="btn ghost small" href="#/friends">👥 Найзууд</a>` : ""}
+            ${A.Remote.on ? `<a class="btn small" href="#/shop">${ico("gem", 15)} Дэлгүүр</a>` : ""}
+            <a class="btn ghost small" href="#/leaderboard">${ico("trophy", 15)} Тэргүүлэгчид</a>
+            ${A.Remote.on ? `<a class="btn ghost small" href="#/friends">${ico("users", 15)} Найзууд</a>` : ""}
           </div>
+          ${badgeRow(A.BADGES ? A.BADGES.filter((b) => (p.badges || []).includes(b.id)).map((b) => b.id) : [], "#/quests")}
         </div>
       </div>
       ${A.Remote.on ? "" : `<div class="card note-card">ℹ️ Сервер холбогдоогүй тул бүртгэл энэ хөтөч дээр хадгалагдаж байна. Vercel + Postgres дээр байршуулбал бүх төхөөрөмжөөс нэвтэрч, найз, чат ашиглах боломжтой болно.</div>`}
@@ -995,13 +1056,13 @@
       <div class="lb-top">${[1, 0, 2].filter((i) => top[i]).map((i) => `
         <a class="lb-pod r${i + 1} ${top[i].me ? "me" : ""}" href="${href(top[i])}">
           <span class="lb-av">${avatarHtml(top[i], i === 0 ? 72 : 60)}<i class="lb-badge">${i + 1}</i></span>
-          <b class="lb-n">${esc(top[i].name)}${top[i].me ? ' <small>(Та)</small>' : ""}</b>
+          <b class="lb-n">${nameHtml(top[i], "span")}${top[i].me ? ' <small>(Та)</small>' : ""}</b>
           <span class="lb-xp">${Number(top[i].xp).toLocaleString("en-US")} <small>XP</small></span>${meta(top[i])}
           <span class="lb-bar"></span>
         </a>`).join("")}</div>
       ${rest.length ? `<div class="lb-tbl">${rest.map((r) => `
         <a class="lb-r ${r.me ? "me" : ""}" href="${href(r)}">
-          <span class="lb-rk">${r.rank}</span>${avatarHtml(r, 36)}<span class="lb-nm">${esc(r.name)}${r.me ? ' <small>(Та)</small>' : ""}</span>
+          <span class="lb-rk">${r.rank}</span>${avatarHtml(r, 36)}<span class="lb-nm">${nameHtml(r, "span")}${r.me ? ' <small>(Та)</small>' : ""}</span>
           ${meta(r)}<b class="lb-x">${Number(r.xp).toLocaleString("en-US")} <small>XP</small></b>
         </a>`).join("")}</div>` : ""}
       ${A.Remote.on ? "" : `<p class="muted small center">Локал горим: зөвхөн энэ төхөөрөмж дээрх бүртгэлүүд харагдана.</p>`}`;
@@ -1040,11 +1101,12 @@
       <div class="profile-hero card">
         <div class="ph-avatar">${avatarHtml(u, 112)}</div>
         <div class="ph-info">
-          <h1>${esc(u.name)}</h1>
+          <h1>${nameHtml(u, "span")}</h1>
           <p class="muted">${new Date(u.created).toLocaleDateString("mn-MN")}-нд нэгдсэн</p>
           ${u.bio ? `<p>${esc(u.bio)}</p>` : ""}
           <div class="ph-stats"><span><b>${u.xp}</b> XP</span><span><b>${u.streak}</b> өдөр 🔥</span><span><b>${u.learned}</b> үг</span><span><b>${u.posts}</b> пост</span></div>
           <div class="row">${btn}${btn2}</div>
+          ${badgeRow(u.badges || [])}
         </div>
       </div>
       <h2 class="section-title">Постууд</h2><div id="uposts"></div>`;
@@ -1165,7 +1227,7 @@
         return `<div class="msg sys">${avatarHtml(m.user, 36)}<div class="msg-col"><div class="mh sys-h"><b>Систем</b><span>${timeAgo(m.createdAt)}</span></div><div class="bubble-msg sys-b" data-mid="${esc(m.id)}" data-uid="${esc(m.user.id)}"><div>${mentionText(m)}</div>${me && me.isAdmin ? `<button class="msg-more" title="Цэс">⋯</button>` : ""}</div>${reactHtml(m)}</div>${heart}</div>`;
       }
       const forMe = me && ((m.meta && m.meta.mentions) || []).some((u) => u.id === me.id);
-      return `<div class="msg ${m.mine ? "mine" : ""} ${forMe ? "for-me" : ""}">${m.mine ? "" : `<a href="#/u/${esc(m.user.id)}">${avatarHtml(m.user, 32)}</a>`}<div class="msg-col"><div class="bubble-msg" data-mid="${esc(m.id)}" data-uid="${esc(m.user.id)}" data-mine="${m.mine ? 1 : ""}"><div class="mh">${m.mine ? "" : `<b>${esc(m.user.name)}</b>`}<span>${timeAgo(m.createdAt)}</span><button class="msg-more" title="Цэс">⋯</button></div>${m.image ? `<img class="chat-img" src="${esc(m.image)}" alt="" loading="lazy">` : ""}${m.text ? `<div>${mentionify(m)}</div>` : ""}</div>${reactHtml(m)}</div>${heart}</div>`;
+      return `<div class="msg ${m.mine ? "mine" : ""} ${forMe ? "for-me" : ""}">${m.mine ? "" : `<a href="#/u/${esc(m.user.id)}">${avatarHtml(m.user, 32)}</a>`}<div class="msg-col"><div class="bubble-msg" data-mid="${esc(m.id)}" data-uid="${esc(m.user.id)}" data-mine="${m.mine ? 1 : ""}"><div class="mh">${m.mine ? "" : nameHtml(m.user)}<span>${timeAgo(m.createdAt)}</span><button class="msg-more" title="Цэс">⋯</button></div>${m.image ? `<img class="chat-img" src="${esc(m.image)}" alt="" loading="lazy">` : ""}${m.text ? `<div>${mentionify(m)}</div>` : ""}</div>${reactHtml(m)}</div>${heart}</div>`;
     }
     // Энгийн мессеж дэх @нэр дурдалтыг тодруулах
     function mentionify(m) {
@@ -1364,7 +1426,7 @@
     return `<article class="card post">
       <header class="post-head">
         <a href="#/u/${esc(p.user.id)}">${avatarHtml(p.user, 44)}</a>
-        <div><a href="#/u/${esc(p.user.id)}"><b>${esc(p.user.name)}</b></a><div class="muted small">${timeAgo(p.createdAt)}</div></div>
+        <div><a href="#/u/${esc(p.user.id)}">${nameHtml(p.user)}</a><div class="muted small">${timeAgo(p.createdAt)}</div></div>
         ${p.mine ? `<button class="icon-btn post-del" title="Устгах">🗑</button>` : `<button class="icon-btn post-rep" title="Мэдээлэх">⚑</button>`}
       </header>
       ${p.text ? `<div class="post-text">${linkify(p.text)}</div>` : ""}
@@ -2069,7 +2131,8 @@
         ["social", ["social"], "📰", "Сошиал", "Пост, сторй"],
         ["chat", ["chat"], "💬", "Чат", "Нийтийн болон хувийн чат"],
         ["friends", ["friends", "u"], "👥", "Найзууд", "Найзын хүсэлт, хайлт"],
-        ["leaderboard", ["leaderboard"], "🏆", "Тэргүүлэгчид", "XP-ээр эрэмбэлсэн жагсаалт"]
+        ["leaderboard", ["leaderboard"], "🏆", "Тэргүүлэгчид", "XP-ээр эрэмбэлсэн жагсаалт"],
+        ["shop", ["shop"], "💎", "Дэлгүүр", "XP-ээр хүрээ, нэрийн өнгө авах"]
       ]]] : [["Бусад", "🏆", [["leaderboard", ["leaderboard"], "🏆", "Тэргүүлэгчид", "XP-ээр эрэмбэлсэн жагсаалт"]]]])
     ];
   }
@@ -2141,7 +2204,7 @@
     tb.hidden = !u;
     if (u) {
       const LEARN = ["stories", "culture", "vocab", "flashcards", "review", "grammar", "listening", "dialogues", "reading", "writing", "ielts", "topics", "dictionary", "chinese", "english", "tests", "mock", "plan", "print", "mistakes"];
-      const SOCIAL = ["social", "chat", "friends", "u", "leaderboard", "duels"];
+      const SOCIAL = ["social", "chat", "friends", "u", "leaderboard", "duels", "shop"];
       tb.innerHTML = `
         <div class="tb-sheet" id="tbsheet" hidden>${groups.map(([t, ic, items]) => `<h6>${t}</h6><div class="tb-grid">${items.map(([h, keys, i, tt]) => `<a href="#/${h}" class="${keys.includes(cur) ? "on" : ""}"><span>${ico(i, 20)}</span>${tt}${cnt(h) ? `<i class="nbadge">${cnt(h)}</i>` : ""}</a>`).join("")}</div>`).join("")}
           <h6>Би</h6><div class="tb-grid"><a href="#/profile"><span>${ico("user", 20)}</span>Профайл</a>${A.Remote.on ? `<a href="#/pricing"><span>${ico("gem", 20)}</span>Багц</a>` : ""}<a href="#/${lang === "zh" ? "chinese" : "english"}"><span>${ico("cap", 20)}</span>Түвшнүүд</a><button type="button" id="tbtheme"><span>${ico(THEME_ICON[A.Theme.get()], 20)}</span>Өнгө</button></div></div>

@@ -17,6 +17,10 @@ model User {
   avatar       String?  // жижигрүүлсэн JPEG data URL
   avatarAt     DateTime?
   emoji        String?  // зурагны оронд сонгосон emoji аватар
+  frame        String?  // профайлын зургийн хүрээ (дэлгүүрээс)
+  nameColor    String?  // нэрийн өнгө (дэлгүүрээс)
+  owned        Json     @default("[]") // худалдаж авсан хүрээ, өнгө
+  spent        Int      @default(0)    // дэлгүүрт зарцуулсан XP (тэргүүлэгчдийн XP-д нөлөөлөхгүй)
   googleId     String?
   isAdmin      Boolean  @default(false)
   banned       Boolean  @default(false)

@@ -138,26 +138,42 @@
     });
     if (gained) UI.toast(`+${gained} XP 🎉`, "ok");
   }
+  // Тэмдгүүд: [id, дүрс, түвшин (1 хүрэл · 2 мөнгө · 3 алт), нэр, тайлбар, нөхцөл]
   const BADGES = [
-    { id: "w1", icon: "🌱", t: "Анхны үг", d: "1 үг цээжилсэн", ok: (p, s) => s.words >= 1 },
-    { id: "w50", icon: "📗", t: "50 үг", d: "50 үг цээжилсэн", ok: (p, s) => s.words >= 50 },
-    { id: "w200", icon: "📘", t: "200 үг", d: "200 үг цээжилсэн", ok: (p, s) => s.words >= 200 },
-    { id: "w1000", icon: "📕", t: "Мянган үг", d: "1000 үг цээжилсэн", ok: (p, s) => s.words >= 1000 },
-    { id: "s3", icon: "🔥", t: "3 өдөр дараалан", d: "3 өдөр тасралтгүй", ok: (p) => p.streak >= 3 },
-    { id: "s7", icon: "⚡", t: "7 хоног дараалан", d: "7 өдөр тасралтгүй", ok: (p) => p.streak >= 7 },
-    { id: "s30", icon: "🏔️", t: "Сар дараалан", d: "30 өдөр тасралтгүй", ok: (p) => p.streak >= 30 },
-    { id: "t1", icon: "📝", t: "Анхны тест", d: "1 тест өгсөн", ok: (p) => p.tests.length >= 1 },
-    { id: "t10", icon: "🎓", t: "10 тест", d: "10 тест өгсөн", ok: (p) => p.tests.length >= 10 },
-    { id: "t100", icon: "💯", t: "Төгс оноо", d: "Тестэд 100% авсан", ok: (p) => p.tests.some((t) => t.pct === 100) },
-    { id: "r100", icon: "🃏", t: "Картын мастер", d: "100 карт давтсан", ok: (p) => Object.keys(p.srs || {}).length >= 100 },
-    { id: "g10", icon: "🎮", t: "Тоглогч", d: "10 тоглоом тоглосон", ok: (p) => p.games >= 10 },
-    { id: "l10", icon: "🎧", t: "Чих сайтай", d: "10 сонсголын дасгал", ok: (p) => p.listening >= 10 },
-    { id: "wr3", icon: "✍️", t: "Зохиолч", d: "3 эссе бичсэн", ok: (p) => Object.keys(p.writing || {}).length >= 3 },
-    { id: "m1", icon: "🏁", t: "Жишиг шалгалт", d: "Бүтэн шалгалт өгсөн", ok: (p) => (p.mocks || []).length >= 1 },
-    { id: "lv10", icon: "🏅", t: "10-р түвшин", d: "10-р түвшинд хүрсэн", ok: (p) => levelOf(p.xp).lvl >= 10 },
-    { id: "xp5k", icon: "👑", t: "5000 XP", d: "5000 XP цуглуулсан", ok: (p) => p.xp >= 5000 },
-    { id: "q7", icon: "🎯", t: "Даалгаврын баатар", d: "Бүх өдрийн даалгавар биелүүлсэн", ok: (p) => !!todayData(p).allDone || (p.badges || []).includes("q7") }
-  ];
+    ["w1", "book", 1, "Анхны үг", "1 үг цээжилсэн", (p, s) => s.words >= 1],
+    ["w50", "book", 1, "50 үг", "50 үг цээжилсэн", (p, s) => s.words >= 50],
+    ["w200", "book", 2, "200 үг", "200 үг цээжилсэн", (p, s) => s.words >= 200],
+    ["w500", "book", 2, "500 үг", "500 үг цээжилсэн", (p, s) => s.words >= 500],
+    ["w1000", "book", 3, "Мянган үг", "1000 үг цээжилсэн", (p, s) => s.words >= 1000],
+    ["s3", "flame", 1, "3 өдөр дараалан", "3 өдөр тасралтгүй", (p) => p.streak >= 3],
+    ["s7", "flame", 1, "7 хоног дараалан", "7 өдөр тасралтгүй", (p) => p.streak >= 7],
+    ["s30", "flame", 2, "Сар дараалан", "30 өдөр тасралтгүй", (p) => p.streak >= 30],
+    ["s100", "flame", 3, "100 өдөр дараалан", "100 өдөр тасралтгүй", (p) => p.streak >= 100],
+    ["t1", "test", 1, "Анхны тест", "1 тест өгсөн", (p) => p.tests.length >= 1],
+    ["t10", "test", 2, "10 тест", "10 тест өгсөн", (p) => p.tests.length >= 10],
+    ["t50", "test", 3, "50 тест", "50 тест өгсөн", (p) => p.tests.length >= 50],
+    ["t100", "star", 3, "Төгс оноо", "Тестэд 100% авсан", (p) => p.tests.some((t) => t.pct === 100)],
+    ["r100", "cards", 1, "Картын мастер", "100 карт давтсан", (p) => Object.keys(p.srs || {}).length >= 100],
+    ["r500", "cards", 3, "Давталтын аварга", "500 карт давтсан", (p) => Object.keys(p.srs || {}).length >= 500],
+    ["g10", "game", 1, "Тоглогч", "10 тоглоом тоглосон", (p) => p.games >= 10],
+    ["g50", "game", 2, "Тоглоомын мастер", "50 тоглоом тоглосон", (p) => p.games >= 50],
+    ["l10", "head", 1, "Чих сайтай", "10 сонсголын дасгал", (p) => p.listening >= 10],
+    ["l50", "head", 2, "Сонсголын мастер", "50 сонсголын дасгал", (p) => p.listening >= 50],
+    ["wr3", "pen", 2, "Зохиолч", "3 эссе бичсэн", (p) => Object.keys(p.writing || {}).length >= 3],
+    ["m1", "flag", 2, "Жишиг шалгалт", "Бүтэн шалгалт өгсөн", (p) => (p.mocks || []).length >= 1],
+    ["mk10", "mark", 1, "Алдаагаа засагч", "10 алдаагаа зассан", (p) => (p.mistakesFixed || 0) >= 10],
+    ["mk50", "mark", 2, "Алдаагүй", "50 алдаагаа зассан", (p) => (p.mistakesFixed || 0) >= 50],
+    ["v1", "swords", 1, "Анхны ялалт", "Тулаанд 1-р байр эзэлсэн", (p) => (p.duelWins || 0) >= 1],
+    ["v10", "swords", 3, "Тулааны аварга", "Тулаанд 10 удаа ялсан", (p) => (p.duelWins || 0) >= 10],
+    ["q7", "target", 2, "Даалгаврын баатар", "Бүх өдрийн даалгавар биелүүлсэн", (p) => !!todayData(p).allDone || (p.badges || []).includes("q7")],
+    ["lv10", "trophy", 2, "10-р түвшин", "10-р түвшинд хүрсэн", (p) => levelOf(p.xp).lvl >= 10],
+    ["lv20", "trophy", 3, "20-р түвшин", "20-р түвшинд хүрсэн", (p) => levelOf(p.xp).lvl >= 20],
+    ["xp5k", "gem", 2, "5000 XP", "5000 XP цуглуулсан", (p) => p.xp >= 5000],
+    ["xp20k", "gem", 3, "20000 XP", "20000 XP цуглуулсан", (p) => p.xp >= 20000]
+  ].map(([id, ic, tier, t, d, ok]) => ({ id, ic, tier, t, d, ok }));
+  A.BADGES = BADGES;
+  // Тэмдгийн медаль (зураасан дүрс, түвшний өнгөтэй)
+  A.badgeHtml = (b, got) => `<span class="bdg2 t${b.tier} ${got ? "got" : ""}" title="${esc(b.t)} — ${esc(b.d)}">${A.ico(b.ic, 22)}</span>`;
   function badgeState(p) {
     const s = { words: Object.keys(p.learned || {}).length };
     return BADGES.map((b) => Object.assign({}, b, { got: (p.badges || []).includes(b.id) || b.ok(p, s) }));
@@ -169,7 +185,7 @@
     const fresh = badgeState(p).filter((b) => b.got && !(p.badges || []).includes(b.id));
     if (!fresh.length) return;
     Progress.update((pp) => { pp.badges = (pp.badges || []).concat(fresh.map((b) => b.id)); });
-    fresh.slice(0, 2).forEach((b) => UI.toast(`${b.icon} Шинэ тэмдэг: ${b.t}!`, "ok"));
+    fresh.slice(0, 2).forEach((b) => UI.toast(`Шинэ тэмдэг: ${b.t}!`, "ok"));
   }
   window.addEventListener("hashchange", () => setTimeout(checkBadges, 300));
   setTimeout(checkBadges, 2500);
@@ -229,7 +245,7 @@
         </div>`).join("")}</div>
       <p class="muted small">Бүх даалгавраа биелүүлбэл нэмэлт +30 XP!</p>
       <h2 class="section-title">Тэмдгүүд (${bs.filter((b) => b.got).length}/${bs.length})</h2>
-      <div class="badge-grid">${bs.map((b) => `<div class="bdg ${b.got ? "got" : ""}" title="${esc(b.d)}"><span class="bdg-ic">${b.icon}</span><b>${esc(b.t)}</b><small>${esc(b.d)}</small></div>`).join("")}</div>`;
+      <div class="badge-grid">${bs.map((b) => `<div class="bdg ${b.got ? "got" : ""}">${A.badgeHtml(b, b.got)}<b>${esc(b.t)}</b><small>${esc(b.d)}</small></div>`).join("")}</div>`;
     view().querySelectorAll("[data-claim]").forEach((b) => (b.onclick = () => { claim(b.dataset.claim); P.quests(); A.renderNav(); }));
   };
 
@@ -693,6 +709,7 @@
           if (p.duelsDone.includes(code)) return;
           p.duelsDone = p.duelsDone.concat(code).slice(-30);
           p.xp += [30, 20, 10, 5][place] + me.correct * 2;
+          if (place === 0 && ps.length > 1) p.duelWins = (p.duelWins || 0) + 1;
           A.bump(p, "duel");
         });
       }

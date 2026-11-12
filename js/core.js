@@ -121,7 +121,7 @@
   function adopt(user) {
     const db = load();
     const old = db.users[user.email] || {};
-    db.users[user.email] = Object.assign({}, old, { id: user.id, name: user.name, email: user.email, bio: user.bio || "", avatarUrl: user.avatarUrl || null, emoji: user.emoji || null, isAdmin: !!user.isAdmin, premium: user.premium || {}, created: user.created ? new Date(user.created).getTime() : old.created || Date.now(), remote: true });
+    db.users[user.email] = Object.assign({}, old, { id: user.id, name: user.name, email: user.email, bio: user.bio || "", avatarUrl: user.avatarUrl || null, emoji: user.emoji || null, frame: user.frame || null, nameColor: user.nameColor || null, owned: user.owned || [], spent: user.spent || 0, isAdmin: !!user.isAdmin, premium: user.premium || {}, created: user.created ? new Date(user.created).getTime() : old.created || Date.now(), remote: true });
     db.session = user.email;
     if (!db.progress[user.email]) db.progress[user.email] = newProgress();
     save(db);
@@ -135,6 +135,7 @@
       return db.session && db.users[db.session] ? db.users[db.session] : null;
     },
     avatar(u) { return u ? u.avatarUrl || u.avatar || null : null; },
+    setUser(user) { return adopt(user); },
     async register({ name, email, password }) {
       if (Remote.on) {
         const { user } = await Remote.call("POST", "auth/register", { name, email, password });

@@ -288,3 +288,47 @@ h2, h3, .section-title { font-weight: 600 !important; }
 .pmenu { overflow-x: hidden !important; }
 .pm-foot { display: grid !important; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px !important; }
 .pm-foot > * { min-width: 0; padding: 9px 6px !important; font-size: 13px !important; white-space: nowrap; justify-content: center; }
+
+/* ---- Профайлын хүрээ (дэлгүүр) ---- */
+.av.fr { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--frc), 0 0 0 5px var(--card) !important; }
+.av.f-silver { --frc: #a8b3c7; }
+.av.f-gold { --frc: #e6a817; box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #e6a817, 0 0 10px 3px #f5c54266 !important; }
+.av.f-jade { --frc: #16a34a; box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #16a34a, 0 0 0 6px #86efac !important; }
+.av.f-fire { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #f97316, 0 0 0 6px #ef4444, 0 0 12px 4px #f9731655 !important; }
+.av.f-ice { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #38bdf8, 0 0 0 6px #bae6fd, 0 0 12px 4px #38bdf855 !important; }
+.av.f-royal { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #7c3aed, 0 0 0 6px #e6a817, 0 0 14px 4px #7c3aed55 !important; }
+.av.f-rainbow { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #ef4444, 0 0 0 6px #f59e0b, 0 0 0 8px #22c55e, 0 0 0 10px #3b82f6 !important; animation: frGlow 3s linear infinite; }
+@keyframes frGlow { 50% { filter: hue-rotate(60deg); } }
+/* ---- Нэрийн өнгө ---- */
+.uname.nc { font-weight: 800; }
+.c-blue { color: #2f6bff !important; } .c-green { color: #16a34a !important; } .c-red { color: #e5483b !important; }
+.c-purple { color: #7c3aed !important; } .c-gold { color: #d4a017 !important; text-shadow: 0 0 8px #f5c54255; }
+.c-rainbow { background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e, #3b82f6, #a855f7); -webkit-background-clip: text; background-clip: text; color: transparent !important; }
+/* ---- Тэмдэг (медаль) ---- */
+.bdg2 { width: 44px; height: 44px; border-radius: 50%; display: inline-grid; place-items: center; flex: none; background: var(--card-2); color: #a3adc2; border: 2px solid var(--line); }
+.bdg2.got.t1 { color: #b45309; background: #fdf0e3; border-color: #e5b38a; }
+.bdg2.got.t2 { color: #475569; background: #eef2f7; border-color: #b8c2d1; }
+.bdg2.got.t3 { color: #a16207; background: #fff6d9; border-color: #e6a817; box-shadow: 0 0 0 3px #f5c54233; }
+:root[data-theme="dark"] .bdg2.got.t1 { background: #3a2412; } :root[data-theme="dark"] .bdg2.got.t2 { background: #263043; color: #cbd5e1; } :root[data-theme="dark"] .bdg2.got.t3 { background: #3a2f0f; color: #f5c542; }
+.badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.badge-grid .bdg { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 16px 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); }
+.badge-grid .bdg:not(.got) { opacity: .55; }
+.badge-grid .bdg b { font-size: 13.5px; } .badge-grid .bdg small { color: var(--muted); font-size: 12px; }
+.pb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.pb-row .bdg2 { width: 38px; height: 38px; } .pb-row .bdg2 svg { width: 18px; height: 18px; }
+.pb-n { color: var(--muted); font-size: 12.5px; margin-left: 4px; }
+.pb-more { font-weight: 700; color: var(--muted); font-size: 13px; }
+.pb-none { margin: 12px 0 0; }
+/* ---- Дэлгүүр ---- */
+.sh-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 8px; }
+.sh-me { display: flex; align-items: center; gap: 18px; padding: 6px; }
+.sh-me .uname { display: block; font-size: 20px; font-weight: 800; }
+.sh-bal { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.sh-bal b { display: inline-flex; align-items: center; gap: 6px; font-size: 24px; color: var(--primary); }
+.sh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-bottom: 10px; }
+.sh-item { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px 12px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); text-align: center; }
+.sh-item.on { border: 2px solid var(--primary); background: var(--soft); }
+.sh-demo { height: 76px; display: grid; place-items: center; }
+.sh-demo .uname { font-size: 20px; font-weight: 800; }
+.sh-item b { font-size: 14px; }
+.sh-item .btn:disabled { opacity: .5; cursor: not-allowed; }
