@@ -1056,19 +1056,17 @@
   Pages.chat = async function (kind, otherId) {
     if (needServer()) return;
     const me = Auth.current();
-    let room = kind === "dm" && otherId ? "dm:" + otherId : kind === "zh" || kind === "en" ? kind : "public";
+    let room = kind === "dm" && otherId ? "dm:" + otherId : "public";
     view().innerHTML = `
       <div class="chat-shell">
         <aside class="chat-side card">
           <h3>💬 Чат</h3>
           <a class="croom ${room === "public" ? "on" : ""}" href="#/chat"><span class="ci">🌐</span>Нийтийн чат</a>
-          <a class="croom ${room === "zh" ? "on" : ""}" href="#/chat/zh"><span class="ci">${FLAG.zh}</span>Хятадаар чатлъя</a>
-          <a class="croom ${room === "en" ? "on" : ""}" href="#/chat/en"><span class="ci">${FLAG.en}</span>English chat</a>
           <div class="nav-label">Хувийн</div>
           <div id="dms"><p class="muted small">Ачаалж байна...</p></div>
         </aside>
         <section class="chat-main card">
-          <div class="chat-head" id="chead">${room === "public" ? "🌐 Нийтийн чат" : room === "zh" ? "中 Хятадаар чатлъя — 用中文聊天吧！" : room === "en" ? "EN English chat — let's practise!" : "💬 Хувийн чат"}</div>
+          <div class="chat-head" id="chead">${room === "public" ? "🌐 Нийтийн чат" : "💬 Хувийн чат"}</div>
           <div id="cbanner"></div>
           <div class="chat-msgs" id="msgs"><p class="muted center">Ачаалж байна...</p></div>
           <div id="cimg-prev"></div>

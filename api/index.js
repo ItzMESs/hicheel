@@ -363,7 +363,7 @@ on("POST", "friends/remove", async (req, res, { body }) => {
 
 /* --- Чат --- */
 async function checkRoom(me, room) {
-  if (room === "public" || room === "zh" || room === "en") return room;
+  if (room === "public") return room;
   const m = /^dm:(.+)$/.exec(room);
   if (!m) fail(400, "Өрөө буруу.");
   const other = m[1];
@@ -374,7 +374,7 @@ async function checkRoom(me, room) {
 const reactOut = (rs, meId) => ({ count: rs.length, mine: rs.some((r) => r.userId === meId), users: rs.slice(0, 3).map((r) => publicUser(r.user)) });
 const chatOut = (m, meId) => ({ id: m.id, text: m.text, image: m.image || null, createdAt: m.createdAt, user: publicUser(m.user), mine: m.userId === meId, system: m.system, meta: m.meta || null, pinned: m.pinned, react: reactOut(m.reactions || [], meId) });
 async function canSeeRoom(me, room) {
-  if (room === "public" || room === "zh" || room === "en") return true;
+  if (room === "public") return true;
   return room.startsWith("dm:") && room.slice(3).split(":").includes(me.id);
 }
 on("POST", "chat/:id/react", async (req, res, { params }) => {
@@ -454,7 +454,7 @@ on("POST", "chat", async (req, res, { body }) => {
     mentions = us.filter((u) => text.includes("@" + u.name) && (!room.startsWith("dm:") || room.slice(3).split(":").includes(u.id))).map((u) => ({ id: u.id, name: u.name }));
   }
   const m = await db().chatMessage.create({ data: { room, userId: me.id, text, image, meta: mentions.length ? { mentions } : undefined } });
-  const roomLink = room === "public" ? "#/chat" : room === "zh" || room === "en" ? `#/chat/${room}` : `#/chat/dm/${me.id}`;
+  const roomLink = room === "public" ? "#/chat" : `#/chat/dm/${me.id}`;
   for (const u of mentions) await notify(u.id, `${me.name} таныг чатад дурдлаа: ${text.slice(0, 70)}`, roomLink, me.id);
   if (room.startsWith("dm:")) {
     const other = room.slice(3).split(":").find((x) => x !== me.id);
