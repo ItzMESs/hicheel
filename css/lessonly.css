@@ -80,7 +80,7 @@ h1, h2, h3, .page-head h1, .section-title, .logo-txt, .eyebrow { font-family: "I
 :root[data-theme="dark"] .input, :root[data-theme="dark"] select, :root[data-theme="dark"] textarea { background: var(--card-2) !important; color: var(--ink) !important; border-color: var(--line) !important; }
 /* Утас: «Үргэлжлүүлэх» товчны ард контент харагдахгүй байх, сүүлийн карт товчны дээр гарч ирэх */
 @media (max-width: 800px) {
-  body.pg-dashboard #view { padding-bottom: 150px; }
+  body.pg-dashboard #view { padding-bottom: 24px; }
   .td-fab { box-shadow: 0 10px 24px rgba(10, 71, 255, .3), 0 0 0 10px var(--bg) !important; }
 }
 

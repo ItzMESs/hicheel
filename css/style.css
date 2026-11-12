@@ -1742,7 +1742,7 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
   .cd-head { width: 52px; height: 52px; }
 }
 @media print { #cdock { display: none !important; } }
-@media (max-width: 800px) { body.pg-dashboard #cdock { bottom: 150px; } }
+
 .cd-panel header { background: var(--primary); color: #fff; }
 .cd-panel header .cd-ic { color: #fff; opacity: .9; }
 .cd-panel header .cd-ic:hover { opacity: 1; }

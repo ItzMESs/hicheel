@@ -214,7 +214,6 @@
       .concat(mk ? [{ id: "mk", icon: "📕", t: `${mk} алдаатай үг`, sub: "Алдааны дэвтрээ давтаарай", href: "#/mistakes/quiz", done: false }] : []).concat(qs.map((q) => ({
       id: q.id, icon: q.icon, t: q.t, sub: `${Math.min(q.n, q.goal)} / ${q.goal}`, pct: Math.min(100, (q.n / q.goal) * 100), href: q.href, done: q.done, claimed: q.claimed, xp: q.xp
     })));
-    const next = tasks.find((t) => !t.done);
     el.innerHTML = `
       <div class="td-stats"><a href="#/quests"><b>🔥 ${p.streak}</b><small>өдөр</small></a><a href="#/quests"><b>⭐ ${p.xp}</b><small>XP</small></a><a href="#/quests"><b>Lv ${L.lvl}</b><small>${esc(L.title)}</small></a></div>
       <h2 class="td-h">Өнөөдөр</h2>
@@ -223,7 +222,7 @@
         <div class="td-b"><b>${esc(t.t)}</b><small>${t.done ? (t.claimed ? "Дууссан ✔" : "Дууссан — XP-гээ аваарай") : esc(t.sub)}</small>${t.pct !== undefined && !t.done ? `<div class="mini-bar"><i style="width:${t.pct}%"></i></div>` : ""}</div>
         ${t.done ? (t.claimed ? `<span class="td-ok">✔</span>` : `<button class="td-go" data-claim="${t.id}">+${t.xp} XP</button>`) : `<a class="td-go" href="${t.href}">ЭХЛЭХ</a>`}
       </div>`).join("")}</div>
-      <a class="td-fab" href="${next ? next.href : "#/games"}">${next ? "▶ ҮРГЭЛЖЛҮҮЛЭХ" : "🎉 Бүгд дууслаа — тоглоом тоглох"}</a>`;
+`;
     el.querySelectorAll("[data-claim]").forEach((b) => (b.onclick = () => { claim(b.dataset.claim); A.todayPanel(el); A.renderNav(); }));
   };
 
