@@ -68,62 +68,117 @@
   /* ======================= ХУУДСУУД ======================= */
   const Pages = {};
 
-  /* ---------- Нүүр ---------- */
+  /* ---------- Нүүр (нэвтрээгүй хүнд) ---------- */
+  const LD_LOGO = `<img class="ld-logo" src="img/lessonly.png" alt="Lessonly">`;
+  const LD_FEATS = [
+    ["🃏", "Флаш карт", "Anki аргаар давтана — мартах гэж байгаа үгийг тань сануулна."],
+    ["📚", "Үгийн сан", "HSK 2.0, HSK 3.0, IELTS — бүгд монгол орчуулгатай."],
+    ["🎧", "Сонсох", "Үг, өгүүлбэр, бодит харилцан яриа сонсож таних."],
+    ["📖", "Унших", "Богино өгүүллэг — үг дээр дарахад утга нь гарна."],
+    ["✍️", "Бичих", "Ханзны зурлага, пиньинь, IELTS Writing."],
+    ["✏️", "Дүрэм", "Тайлбар, жишээ, шалгах асуулттай."],
+    ["🎮", "Тоглоом", "Үг цээжлэх хөгжилтэй тоглоомууд."],
+    ["📕", "Алдааны дэвтэр", "Буруу хариулсан үгс тусад нь давтагдана."]
+  ];
+  const LD_FAQ = [
+    ["Үнэгүй хэсэгт юу орох вэ?", "HSK 1 болон IELTS A1 түвшний бүх хичээл — үгийн сан, флаш карт, дүрэм, сонсгол, унших, тест бүрэн үнэгүй. Мөн тоглоом, чат, найзууд, тулаан бүх хүнд нээлттэй."],
+    ["Багцыг яаж худалдаж авах вэ?", "Бүртгүүлсний дараа «Багц» хэсгээс сонгоод, зааврын дагуу дансаар шилжүүлнэ. Админ шалгаж баталгаажуулмагц багц тань идэвхжинэ."],
+    ["Утсан дээр ашиглаж болох уу?", "Тийм. Lessonly утас, таблет, компьютерын хөтөч дээр ажиллана. Утсан дээрээ «Нүүр дэлгэцэнд нэмэх»-ийг дарвал апп шиг нээгдэнэ."],
+    ["HSK 2.0 ба 3.0-ийн ялгаа юу вэ?", "HSK 2.0 (хуучин) 6 түвшинтэй, HSK 3.0 (шинэ) 9 түвшинтэй бөгөөд үгийн тоо илүү их. Хоёуланг нь сурах боломжтой."],
+    ["Найзуудтайгаа хэрхэн тулалдах вэ?", "«Тулаан · VS» хэсэгт өрөө үүсгээд найзуудаа урина эсвэл кодоо хуваалцана. 2–4 хүн нэгэн зэрэг тоглож, хамгийн хурдан зөв хариулсан нь яллаа."]
+  ];
   Pages.home = function () {
-    const u = Auth.current();
-    view().innerHTML = `
-      <section class="hero">
-        <div>
-          <h1>Хятад, англи хэлийг <span class="grad">нэг дороос</span> сур</h1>
-          <p>HSK 2.0 (хуучин) ба HSK 3.0 (шинэ) 1–6+ түвшин, IELTS A1–C1. Үг, дүрэм, сонсгол, тоглоом, тест шалгалт, толь бичиг — бүгд монгол тайлбартай.</p>
-          <div class="row">
-            ${u ? `<a class="btn big" href="#/dashboard">Хичээлээ үргэлжлүүлэх →</a>`
-                : `<a class="btn big" href="#/register">Үнэгүй бүртгүүлэх</a><a class="btn big ghost" href="#/login">Нэвтрэх</a>`}
-          </div>
-        </div>
-        <div class="hero-art" aria-hidden="true">
-          <div class="hero-ulzii"></div>
-          <div class="bubble zh">你好</div><div class="bubble en">Hello</div><div class="bubble mn">Сайн уу</div>
-        </div>
-      </section>
-      <section class="grid cards3">
-        ${feature("中", "Хятад хэл (HSK)", "HSK 2.0 — 6 түвшин, HSK 3.0 — 9 түвшин. Пиньинь, утга, дуудлага, дүрэм.", "#/chinese")}
-        ${feature("EN", "Англи хэл (IELTS)", "CEFR A1–C1 түвшин, IELTS band оноотой харьцуулалт, унших дасгал.", "#/english")}
-        ${feature("🎧", "Сонсгол", "Үг, өгүүлбэр сонсож таних, сонсоод бичих дасгал.", "#/listening")}
-        ${feature("🎮", "8 төрлийн тоглоом", "Флаш карт, хос тааруулах, хурдны сорил, өгүүлбэр, аялгуу, үг угсрах, тоо, дуудлага.", "#/games")}
-        ${feature("📝", "Тест шалгалт", "Түвшин тогтоох хугацаатай шалгалт, дүнгийн түүх.", "#/tests")}
-        ${feature("📖", "Толь бичиг", "Хятад–монгол–англи толь. Хайх, сонсох, зурааны дараалал.", "#/dictionary")}
-        ${feature("🗂️", "Anki давталт", "Зайтай давталтын систем: мартах үед тань яг цагт нь сануулна. Өөрийн карт нэмнэ.", "#/review")}
-        ${feature("🎯", "IELTS Writing & Speaking", "Цагтай эссе бичих, үг тоолох, cue card, яриагаа бичиж сонсох.", "#/ielts")}
-        ${feature("✍️", "Ханз бичих", "Зурааны дараалал хөдөлгөөнтэй, өөрөө зурж дадлагажих.", "#/dictionary")}
-      </section>`;
-    function feature(icon, t, d, href) {
-      return `<a class="card feature" href="${href}"><div class="f-icon">${icon}</div><h3>${t}</h3><p>${d}</p></a>`;
-    }
+    const C = window.CONTENT_COUNTS || {}, U = C.unique || {};
+    const nf = (n) => (n ? Number(n).toLocaleString("en-US").replace(/,/g, " ") : "—");
+    const tag = (t) => `<div class="ld-eyebrow">${t}</div>`;
+    view().innerHTML = `<div class="ld">
+      <nav class="ld-nav">${LD_LOGO}
+        <div class="ld-links"><button data-to="ld-feat">Боломжууд</button><button data-to="ld-lvl">Түвшин</button><button data-to="ld-price">Үнэ</button><button data-to="ld-faq">Асуулт</button></div>
+        <span class="ld-sp"></span><a class="ld-btn sec sm" href="#/login">Нэвтрэх</a><a class="ld-btn pri sm ld-hide-m" href="#/register">Үнэгүй бүртгүүлэх</a></nav>
+
+      <section class="ld-hero"><div class="ld-hero-tx">
+        ${tag("HSK 1–6 · IELTS A1–C1 · Монгол хэлээр")}
+        <h1>Хятад, англи хэлийг <em>хамгийн хялбараар</em> сур</h1>
+        <p class="ld-lead">Lessonly бол монгол сурагчдад зориулсан хэл сурах платформ. Флаш карт, үгийн сан, сонсгол, унших, бичих дасгал, тоглоом, найзуудтайгаа тулалдах — бүгд нэг дор.</p>
+        <div class="ld-cta"><a class="ld-btn pri" href="#/register">Үнэгүй бүртгүүлэх</a><button class="ld-btn sec" data-to="ld-feat">Боломжуудыг үзэх</button></div>
+        <p class="ld-small">✓ Бүртгэл үнэгүй · ✓ HSK 1, IELTS A1 бүрэн үнэгүй · ✓ Утас, компьютер</p></div>
+        <div class="ld-art" aria-hidden="true">
+          <div class="ld-card ld-word"><div class="ld-eyebrow">HSK 1</div><div class="zh">你好</div><span>nǐ hǎo</span><b>сайн уу</b></div>
+          <div class="ld-card ld-chip1"><b>⚔️ Тулаан</b><small>Болд 2 930 · Сараа 1 845</small><i><u style="width:62%"></u></i></div>
+          <div class="ld-card ld-chip2"><b>🔥 12 өдөр дараалан</b><small>Өнөөдрийн зорилго 20/20 ✓</small></div>
+        </div></section>
+
+      <section class="ld-sec ld-stats">${[[nf(U.zh), "хятад үг"], [nf(U.en), "англи үг"], ["HSK 1–9", "хуучин ба шинэ HSK"], ["7", "найзтайгаа тоглох тоглоом"]].map(([n, t]) => `<div><b>${n}</b><span>${t}</span></div>`).join("")}</section>
+
+      <section class="ld-sec ld-alt" id="ld-feat"><div class="ld-h">${tag("Боломжууд")}<h2>Хэл сурахад хэрэгтэй бүх зүйл</h2><p>Нэг сайтад — өөр апп хайх хэрэггүй.</p></div>
+        <div class="ld-g4">${LD_FEATS.map(([i, t, d]) => `<div class="ld-card"><span class="ld-ic">${i}</span><b>${t}</b><small>${d}</small></div>`).join("")}</div></section>
+
+      <section class="ld-sec"><div class="ld-h">${tag("Хэрхэн ажилладаг вэ")}<h2>3 алхмаар эхэл</h2></div>
+        <div class="ld-g3">${[["Бүртгүүл", "Имэйлээр хэдхэн секундэд бүртгүүлнэ. Үнэгүй."], ["Түвшнээ сонго", "HSK 1–6 эсвэл IELTS A1–C1. Өдрийн зорилгоо тавина."], ["Өдөр бүр 15 минут", "Давталт, тоглоом, тест — ахицаа графикаар харна."]].map(([t, d], i) => `<div class="ld-card ld-step"><span>${i + 1}</span><div><b>${t}</b><small>${d}</small></div></div>`).join("")}</div></section>
+
+      <section class="ld-sec ld-alt" id="ld-lvl"><div class="ld-2"><div>${tag("Түвшин")}<h2>Эхлэгчээс ахисан түвшин хүртэл</h2><p class="ld-muted">Хуучин HSK 2.0, шинэ HSK 3.0 болон IELTS-ийн бүх түвшин. Ногоон түвшин бүрэн үнэгүй.</p></div>
+        <div class="ld-card"><small class="ld-cap">🇨🇳 ХЯТАД ХЭЛ</small><div class="ld-lv"><span class="fr">HSK 1</span><span>HSK 2</span><span>HSK 3</span><span>HSK 4</span><span>HSK 5</span><span>HSK 6</span><span>HSK 7–9</span></div>
+          <small class="ld-cap">🇬🇧 АНГЛИ ХЭЛ</small><div class="ld-lv"><span class="fr">A1</span><span>A2</span><span>B1</span><span>B2</span><span>C1</span></div></div></div></section>
+
+      <section class="ld-sec"><div class="ld-2 ld-rev"><div class="ld-card ld-vs"><b>⚔️ Тулаан · VS — шууд</b>
+          <div class="ld-row">🥇 Болд <i>2 930</i></div><div class="ld-row">🥈 Сараа <i>1 845</i></div><div class="ld-row">🥉 Тэмүүлэн <i>1 120</i></div>
+          <div class="ld-lv">${["🔤 Утга", "🖼️ Зураг → бичих", "🎧 Сонсоод таах", "⚡ Үнэн / Худал"].map((x) => `<span>${x}</span>`).join("")}</div></div>
+        <div>${tag("Тулаан · VS")}<h2>Найзуудтайгаа өрсөлдөж сур</h2><p class="ld-muted">2–4 хүн нэгэн зэрэг. Асуулт бүгдэд зэрэг гарч, хамгийн хурдан зөв хариулсан нь илүү оноо авна. 7 төрлийн тоглоом.</p><a class="ld-btn pri" href="#/register">⚔️ Тулаан эхлүүлэх</a></div></div></section>
+
+      <section class="ld-sec ld-alt" id="ld-price"><div class="ld-h">${tag("Үнэ")}<h2>Үнэгүй эхэл, хүссэн үедээ ахи</h2></div>
+        <div class="ld-2 ld-prices"><div class="ld-card ld-price"><b>Үнэгүй</b><div class="ld-big">0₮</div><ul><li>HSK 1, IELTS A1 бүх хичээл</li><li>Флаш карт, тоглоом, тест</li><li>Чат, найзууд, тулаан</li></ul><a class="ld-btn sec full" href="#/register">Үнэгүй бүртгүүлэх</a></div>
+          <div class="ld-card ld-price hi"><span class="ld-badge">Санал болгох</span><b>💎 Багц</b><div class="ld-big" id="ld-pr">Сар / Жил</div><ul><li>HSK 2–9, IELTS A2–C1 бүгд</li><li>Жишиг шалгалт, өгүүллэг, соёл</li><li>Мэргэжлийн үгс, хэвлэх хуудас</li></ul><a class="ld-btn pri full" href="#/register">Бүртгүүлээд багц авах</a></div></div></section>
+
+      <section class="ld-sec" id="ld-faq"><div class="ld-h">${tag("Түгээмэл асуулт")}<h2>Асуулт байна уу?</h2></div>
+        <div class="ld-faq">${LD_FAQ.map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join("")}</div></section>
+
+      <section class="ld-sec ld-top0"><div class="ld-final"><h2>Өнөөдөр эхлээрэй</h2><p>Бүртгэл үнэгүй. Кредит карт шаардлагагүй.</p><a class="ld-btn wh" href="#/register">Үнэгүй бүртгүүлэх →</a></div></section>
+      <div id="ld-foot" class="ld-foot"></div>
+    </div>`;
+    view().querySelectorAll("[data-to]").forEach((b) => (b.onclick = () => { const t = document.getElementById(b.dataset.to); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); }));
+    // Footer: сайтын үндсэн footer-ийн агуулгыг энд хуулна
+    const fb = document.getElementById("foot-body"), lf = document.getElementById("ld-foot");
+    if (fb && lf) lf.innerHTML = LD_LOGO + fb.innerHTML.replace(/<p class="ft-line">[\s\S]*?<\/p>/, '<p class="ft-line">Хятад, англи хэлний мэдлэг дээшлүүлэх платформ</p>');
+    // Багцын хамгийн бага үнэ
+    if (A.Remote.on) A.Remote.call("GET", "plans").then(({ plans }) => {
+      const el = document.getElementById("ld-pr");
+      const min = (plans || []).reduce((m, p) => (p.price && (!m || p.price < m.price) ? p : m), null);
+      if (el && min) el.innerHTML = `${nf(min.price)}₮<small> / ${min.months} сар</small>`;
+    }).catch(() => {});
   };
 
   /* ---------- Нэвтрэх / Бүртгүүлэх ---------- */
+  function authShell(tab, body) {
+    view().innerHTML = `<div class="ld ld-auth"><div class="ld-auth-box">
+      <a href="#/" class="ld-auth-logo">${LD_LOGO}</a>
+      <p class="ld-auth-tag">Хятад, англи хэл сурах хялбар арга</p>
+      <div class="ld-tabs"><a href="#/login" class="${tab === "login" ? "on" : ""}">Нэвтрэх</a><a href="#/register" class="${tab === "register" ? "on" : ""}">Бүртгүүлэх</a></div>
+      ${body}
+      <div class="ld-free">🎁 <span>Бүртгүүлэхэд <b>HSK 1, IELTS A1</b> бүх хичээл үнэгүй</span></div>
+      <p class="ld-auth-foot"><a href="#/">← Нүүр хуудас</a> · <a href="#/terms">Нөхцөл</a> · <a href="#/privacy">Нууцлал</a></p>
+    </div></div>`;
+    view().querySelectorAll("[data-eye]").forEach((b) => (b.onclick = () => {
+      const i = b.previousElementSibling; const show = i.type === "password";
+      i.type = show ? "text" : "password"; b.textContent = show ? "🙈" : "👁"; b.title = show ? "Нуух" : "Харуулах";
+    }));
+  }
+  const pwField = (name, ph, ac, extra) => `<div class="ld-pw"><input class="ld-inp" name="${name}" type="password" placeholder="${ph}" required autocomplete="${ac}" ${extra || ""}><button type="button" data-eye title="Харуулах">👁</button></div>`;
   Pages.login = function () {
-    view().innerHTML = `
-      <div class="auth card orn-c mn-card"><div class="mn-side" aria-hidden="true"><span>ᠬᠢᠴᠢᠶᠡᠯ</span></div>
-        <i class="hamar big" aria-hidden="true"></i>
-        <h2>Нэвтрэх</h2>
-        <p class="muted center mn-motto">Эрдэм бол чандмань</p>
-        <form id="f">
-          <label>Имэйл<input class="input" name="email" type="email" required autocomplete="email" /></label>
-          <label>Нууц үг<input class="input" name="password" type="password" required autocomplete="current-password" /></label>
-          <div class="error" id="err"></div>
-          <button class="btn full">Нэвтрэх</button>
-        </form>
-        <p class="center small"><a href="#/forgot">Нууц үгээ мартсан уу?</a></p>
-        <p class="muted center">Бүртгэлгүй юу? <a href="#/register">Бүртгүүлэх</a></p>
-      </div>`;
+    authShell("login", `<form id="f" class="ld-form">
+        <label>Имэйл<input class="ld-inp" name="email" type="email" placeholder="Имэйл хаягаа оруулна уу" required autocomplete="email"></label>
+        <label>Нууц үг${pwField("password", "Нууц үгээ оруулна уу", "current-password")}</label>
+        <div class="ld-line"><label class="ld-chk"><input type="checkbox" name="remember" checked> Намайг сана</label><a href="#/forgot">Нууц үг мартсан?</a></div>
+        <div class="error" id="err"></div>
+        <button class="ld-btn pri full">Нэвтрэх</button>
+        <div class="ld-or">эсвэл</div>
+        <a class="ld-btn sec full" href="#/register">Шинээр бүртгүүлэх →</a>
+      </form>`);
     if (A.query.err) document.getElementById("err").textContent = A.query.err === "banned" ? "Таны бүртгэл хаагдсан байна." : "Нэвтэрч чадсангүй. Дахин оролдоно уу.";
     document.getElementById("f").onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
       try {
-        const u = await Auth.login({ email: fd.get("email"), password: fd.get("password") });
+        const u = await Auth.login({ email: fd.get("email"), password: fd.get("password"), remember: fd.get("remember") === "on" });
         UI.toast("Тавтай морил, " + u.name + "!", "ok");
         const dest = Router.after || "#/dashboard";
         Router.after = null;
@@ -132,23 +187,16 @@
     };
   };
 
-
   Pages.register = function () {
-    view().innerHTML = `
-      <div class="auth card orn-c mn-card"><div class="mn-side" aria-hidden="true"><span>ᠬᠢᠴᠢᠶᠡᠯ</span></div>
-        <i class="hamar big" aria-hidden="true"></i>
-        <h2>Бүртгүүлэх</h2>
-        <form id="f">
-          <label>Нэр<input class="input" name="name" required autocomplete="name" /></label>
-          <label>Имэйл<input class="input" name="email" type="email" required autocomplete="email" /></label>
-          <label>Нууц үг (6+ тэмдэгт)<input class="input" name="password" type="password" required minlength="6" autocomplete="new-password" /></label>
-          <label>Нууц үг давтах<input class="input" name="password2" type="password" required autocomplete="new-password" /></label>
-          <div class="error" id="err"></div>
-          <button class="btn full">Бүртгүүлэх</button>
-        </form>
-        <p class="muted center">Бүртгэлтэй юу? <a href="#/login">Нэвтрэх</a></p>
-        <p class="note">${A.Remote.on ? "🔒 Бүртгэл, ахиц тань серверт найдвартай хадгалагдах тул аль ч төхөөрөмжөөс нэвтэрч болно." : "ℹ️ Сервер холбогдоогүй тул бүртгэл, ахиц энэ хөтөч дээр хадгалагдана."}</p>
-      </div>`;
+    authShell("register", `<form id="f" class="ld-form">
+        <label>Нэр<input class="ld-inp" name="name" placeholder="Таны нэр" required autocomplete="name"></label>
+        <label>Имэйл<input class="ld-inp" name="email" type="email" placeholder="Имэйл хаягаа оруулна уу" required autocomplete="email"></label>
+        <label>Нууц үг (6+ тэмдэгт)${pwField("password", "Нууц үг үүсгэнэ үү", "new-password", 'minlength="6"')}</label>
+        <label>Нууц үг давтах${pwField("password2", "Нууц үгээ давтана уу", "new-password")}</label>
+        <div class="error" id="err"></div>
+        <button class="ld-btn pri full">Бүртгүүлэх</button>
+        <p class="ld-note">Бүртгүүлснээр та <a href="#/terms">Үйлчилгээний нөхцөл</a>, <a href="#/privacy">Нууцлалын бодлого</a>-ыг зөвшөөрч байна.</p>
+      </form>`);
     document.getElementById("f").onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);

@@ -72,11 +72,12 @@ function cookies(req) {
 }
 const COOKIE = "hc_session";
 const MAX_AGE = 60 * 60 * 24 * 30;
-function sessionCookie(req, uid) {
+function sessionCookie(req, uid, remember = true) {
   const secure = (req.headers["x-forwarded-proto"] || "").includes("https") ? "; Secure" : "";
   if (!uid) return `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
   const token = sign({ uid, exp: Date.now() + MAX_AGE * 1000 });
-  return `${COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${MAX_AGE}${secure}`;
+  // «Намайг сана» сонгоогүй бол хөтөч хаахад устдаг session cookie
+  return `${COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax${remember ? `; Max-Age=${MAX_AGE}` : ""}${secure}`;
 }
 async function currentUser(req, required) {
   const p = verify(cookies(req)[COOKIE]);
@@ -168,7 +169,7 @@ on("POST", "auth/login", async (req, res, { body }) => {
   const user = await db().user.findUnique({ where: { email } });
   if (!user || !(await bcrypt.compare(String(body.password || ""), user.passwordHash))) fail(401, "Имэйл эсвэл нууц үг буруу байна.");
   if (user.banned) fail(403, "Таны бүртгэл админаар хаагдсан байна.");
-  res.setHeader("Set-Cookie", sessionCookie(req, user.id));
+  res.setHeader("Set-Cookie", sessionCookie(req, user.id, body.remember !== false));
   return { user: meUser(user) };
 });
 on("POST", "auth/logout", async (req, res) => {

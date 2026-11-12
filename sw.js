@@ -1,5 +1,5 @@
 /* Lessonly — service worker: офлайн кэш ба push мэдэгдэл */
-const CACHE = "hicheel-v44";
+const CACHE = "hicheel-v45";
 const CORE = ["/", "/index.html", "/css/style.css?v=25", "/manifest.json", "/img/logo-zh.png", "/img/logo-zh-dark.png"];
 
 self.addEventListener("install", (e) => {

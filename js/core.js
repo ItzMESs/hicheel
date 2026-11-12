@@ -159,9 +159,9 @@
       save(db);
       return db.users[email];
     },
-    async login({ email, password }) {
+    async login({ email, password, remember }) {
       if (Remote.on) {
-        const { user } = await Remote.call("POST", "auth/login", { email, password });
+        const { user } = await Remote.call("POST", "auth/login", { email, password, remember: remember !== false });
         const u = adopt(user);
         await Promise.all([Remote.pull(user), loadContent()]);
         return u;
