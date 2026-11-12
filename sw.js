@@ -1,6 +1,6 @@
 /* Lessonly — service worker: офлайн кэш ба push мэдэгдэл */
 const CACHE = "hicheel-v48";
-const CORE = ["/", "/index.html", "/css/style.css?v=48", "/css/lessonly.css?v=57", "/manifest.json", "/img/logo-zh.png", "/img/logo-zh-dark.png"];
+const CORE = ["/", "/index.html", "/css/style.css?v=48", "/css/lessonly.css?v=58", "/manifest.json", "/img/logo-zh.png", "/img/logo-zh-dark.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).catch(() => {}).then(() => self.skipWaiting()));

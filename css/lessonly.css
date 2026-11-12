@@ -203,3 +203,8 @@ svg.ic { stroke-width: 2 !important; }
 .ndrop .nd-item.on .nd-ic, .ndrop .nd-item:hover .nd-ic, .top-nav .ng.on .ng-ic, .top-nav .ng-home.on .ng-ic { background: var(--primary) !important; color: #fff !important; }
 .tabbar .tb-row > a, .tabbar .tb-row > button { color: var(--muted) !important; }
 .icon-bar .ibtn { color: var(--ink) !important; }
+/* Дүрсийг дугуйныхаа яг голд байрлуулах */
+.top-nav .ndrop .nd-ic, .top-nav .ng-ic, .ph-ic, .pm-tile > span, .pm-plan > span:first-child, .tb-grid > a > span, .tb-grid > button > span {
+  display: flex !important; align-items: center !important; justify-content: center !important; line-height: 0 !important; padding: 0 !important; text-align: center; }
+.top-nav .ndrop .nd-ic { width: 38px !important; height: 38px !important; font-size: 0 !important; }
+.ng-ic svg, .nd-ic svg, .ph-ic svg, .pm-tile svg, .pm-plan svg, .tb-grid svg { display: block; margin: 0 !important; }
