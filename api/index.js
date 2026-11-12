@@ -115,7 +115,9 @@ async function blockedIds(meId) {
 
 const avatarUrl = (u) => (u.avatar ? `/api/avatar?id=${u.id}&v=${u.avatarAt ? new Date(u.avatarAt).getTime() : 0}` : null);
 const SYSTEM_EMAIL = "system@hicheel.invalid";
-const publicUser = (u) => (u.email === SYSTEM_EMAIL ? { id: u.id, name: u.name, avatarUrl: null, system: true } : { id: u.id, name: u.name, avatarUrl: avatarUrl(u) });
+const publicUser = (u) => (u.email === SYSTEM_EMAIL ? { id: u.id, name: u.name, avatarUrl: null, system: true } : { id: u.id, name: u.name, avatarUrl: avatarUrl(u), emoji: u.emoji || null });
+// Профайлын зургийн оронд сонгож болох emoji
+const AVATAR_EMOJI = ["🐼", "🦊", "🐯", "🐻", "🐨", "🐸", "🐵", "🦁", "🐱", "🐶", "🐰", "🐧", "🦄", "🐲", "🐳", "🦉", "🌸", "🌻", "🍀", "🔥", "⭐", "🌙", "🚀", "🎧", "🎮", "📚", "✏️", "🏀", "⚽", "🎸", "🍜", "🥟", "🍵", "🏔️", "🐎", "🦅"];
 let systemUserCache = null;
 async function systemUser() {
   if (systemUserCache) return systemUserCache;
@@ -126,7 +128,7 @@ async function systemUser() {
   });
   return systemUserCache;
 }
-const meUser = (u) => ({ id: u.id, email: u.email, name: u.name, bio: u.bio, created: u.createdAt, avatarUrl: avatarUrl(u), isAdmin: isAdmin(u), premium: { zh: u.premiumZh || null, en: u.premiumEn || null } });
+const meUser = (u) => ({ id: u.id, email: u.email, name: u.name, bio: u.bio, created: u.createdAt, avatarUrl: avatarUrl(u), emoji: u.emoji || null, isAdmin: isAdmin(u), premium: { zh: u.premiumZh || null, en: u.premiumEn || null } });
 const isDataImage = (s, max) => typeof s === "string" && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s) && s.length <= max;
 
 async function notify(userId, text, link, actorId) {
@@ -245,8 +247,13 @@ on("PUT", "profile", async (req, res, { body }) => {
   if (body.bio !== undefined) data.bio = str(body.bio, 300);
   if (body.avatar !== undefined) {
     if (body.avatar === null) { data.avatar = null; data.avatarAt = null; }
-    else if (isDataImage(body.avatar, 300_000)) { data.avatar = body.avatar; data.avatarAt = new Date(); }
+    else if (isDataImage(body.avatar, 300_000)) { data.avatar = body.avatar; data.avatarAt = new Date(); data.emoji = null; }
     else fail(400, "Зураг буруу эсвэл хэт том байна (300KB хүртэл).");
+  }
+  if (body.emoji !== undefined) {
+    if (body.emoji !== null && !AVATAR_EMOJI.includes(body.emoji)) fail(400, "Emoji буруу.");
+    data.emoji = body.emoji;
+    if (body.emoji) { data.avatar = null; data.avatarAt = null; }
   }
   const nu = await db().user.update({ where: { id: u.id }, data });
   return { user: meUser(nu) };

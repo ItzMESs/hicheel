@@ -795,10 +795,60 @@
 
   /* ---------- Профайл ---------- */
   /* ---------- Аватар ---------- */
+  // Emoji аватарын зөөлөн дэвсгэр өнгө (нэрээс тогтмол)
+  const AV_BG = ["#eaf1ff", "#fdecea", "#e3f6ea", "#fff4d6", "#f3e8ff", "#e0f7fa", "#fde7f3"];
+  const avBg = (s) => AV_BG[[...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % AV_BG.length];
+  const AVATAR_EMOJI = ["🐼", "🦊", "🐯", "🐻", "🐨", "🐸", "🐵", "🦁", "🐱", "🐶", "🐰", "🐧", "🦄", "🐲", "🐳", "🦉", "🌸", "🌻", "🍀", "🔥", "⭐", "🌙", "🚀", "🎧", "🎮", "📚", "✏️", "🏀", "⚽", "🎸", "🍜", "🥟", "🍵", "🏔️", "🐎", "🦅"];
+  // Профайлын зураг эсвэл emoji сонгох цонх (forced: хаах боломжгүй)
+  function avatarPicker(forced, done) {
+    const u = Auth.current();
+    const ov = document.createElement("div");
+    ov.className = "modal-ov av-pick-ov";
+    ov.innerHTML = `<div class="card av-pick">
+      ${forced ? "" : `<button class="icon-btn av-x" title="Хаах">✕</button>`}
+      <h2>${forced ? "Тавтай морил, " + esc(u.name) + "!" : "Профайлын зураг"}</h2>
+      <p class="muted">${forced ? "Эхлээд профайлдаа зураг эсвэл emoji сонгоорой — найзууд тань таныг ингэж танина." : "Зураг оруулах эсвэл emoji сонгоно уу."}</p>
+      <div class="av-prev" id="avp">${avatarHtml(u, 88)}</div>
+      <label class="btn ghost full av-up">${ico("image", 16)} Зураг оруулах<input type="file" accept="image/*" hidden></label>
+      <div class="av-or">эсвэл emoji сонго</div>
+      <div class="av-grid">${AVATAR_EMOJI.map((e) => `<button type="button" data-e="${e}" class="${u.emoji === e ? "on" : ""}">${e}</button>`).join("")}</div>
+      <button class="btn full" id="avok" ${forced && !Auth.avatar(u) && !u.emoji ? "disabled" : ""}>Хадгалах</button>
+    </div>`;
+    document.body.appendChild(ov);
+    let pick = { emoji: u.emoji || null, avatar: undefined };
+    const prev = () => { document.getElementById("avp").innerHTML = avatarHtml(Object.assign({}, u, pick.avatar ? { avatarUrl: pick.avatar } : { avatarUrl: pick.emoji ? null : u.avatarUrl }, { emoji: pick.emoji }), 88); document.getElementById("avok").disabled = false; };
+    const close = () => { ov.remove(); };
+    const x = ov.querySelector(".av-x"); if (x) x.onclick = close;
+    if (!forced) ov.onclick = (e) => { if (e.target === ov) close(); };
+    ov.querySelectorAll("[data-e]").forEach((b) => (b.onclick = () => {
+      ov.querySelectorAll("[data-e]").forEach((y) => y.classList.toggle("on", y === b));
+      pick = { emoji: b.dataset.e, avatar: undefined }; prev();
+    }));
+    ov.querySelector(".av-up input").onchange = async (e) => {
+      try { pick = { emoji: null, avatar: await resizeImage(e.target.files[0], { size: 256, square: true }, 0.85) }; ov.querySelectorAll("[data-e]").forEach((y) => y.classList.remove("on")); prev(); }
+      catch (ex) { UI.toast(ex.message, "warn"); }
+    };
+    document.getElementById("avok").onclick = async (e) => {
+      e.target.disabled = true;
+      try {
+        await Auth.updateProfile(pick.avatar ? { avatar: pick.avatar } : { emoji: pick.emoji });
+        close(); UI.toast("Профайл шинэчлэгдлээ", "ok"); renderNav(); if (done) done();
+      } catch (ex) { UI.toast(ex.message, "warn"); e.target.disabled = false; }
+    };
+  }
+  A.avatarPicker = avatarPicker;
+  // Зураг, emoji аль нь ч байхгүй хэрэглэгчээс заавал сонгуулна
+  function ensureAvatar() {
+    const u = Auth.current();
+    if (!u || !A.Remote.on || Auth.avatar(u) || u.emoji || document.querySelector(".av-pick-ov")) return;
+    avatarPicker(true, () => route());
+  }
+  A.ensureAvatar = ensureAvatar;
   function avatarHtml(u, size) {
     size = size || 40;
     if (u && u.system) return `<img class="av av-sys" src="img/mark.png" alt="Систем" style="width:${size}px;height:${size}px">`;
     const url = u && (u.avatarUrl || u.avatar);
+    if (!url && u && u.emoji) return `<span class="av av-emo" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.55)}px;background:${avBg(u.name || u.id || "")}">${esc(u.emoji)}</span>`;
     const letter = esc(((u && u.name) || "?").slice(0, 1).toUpperCase());
     return url
       ? `<img class="av" src="${esc(url)}" alt="" style="width:${size}px;height:${size}px" loading="lazy">`
@@ -838,7 +888,7 @@
       <div class="profile-hero card">
         <div class="ph-avatar">
           ${avatarHtml(u, 112)}
-          <label class="ph-upload" title="Зураг солих">📷<input type="file" id="avf" accept="image/*" hidden></label>
+          <button class="ph-upload" type="button" id="avpick" title="Зураг солих">${ico("image", 16)}</button><input type="file" id="avf" accept="image/*" hidden>
         </div>
         <div class="ph-info">
           <h1>${esc(u.name)}</h1>
@@ -898,6 +948,7 @@
         Pages.profile(); renderNav();
       } catch (ex) { UI.toast(ex.message, "warn"); }
     };
+    document.getElementById("avpick").onclick = () => avatarPicker(false, () => Pages.profile());
     const avdel = document.getElementById("avdel");
     if (avdel) avdel.onclick = async () => { try { await Auth.updateProfile({ avatar: null }); Pages.profile(); renderNav(); } catch (ex) { UI.toast(ex.message, "warn"); } };
     document.getElementById("fn").onsubmit = async (e) => {
@@ -923,10 +974,10 @@
     scope = scope === "zh" || scope === "en" ? scope : "all";
     view().innerHTML = `
       ${pageHead("🏆 Тэргүүлэгчид", "XP оноогоор эрэмбэлсэн шилдэг суралцагчид")}
-      <div class="seg wide">
+      <div class="seg wide lb-seg">
         <a href="#/leaderboard" class="${scope === "all" ? "on" : ""}">Бүгд</a>
-        <a href="#/leaderboard/zh" class="${scope === "zh" ? "on" : ""}">${FLAG.zh} HSK</a>
-        <a href="#/leaderboard/en" class="${scope === "en" ? "on" : ""}">${FLAG.en} IELTS</a>
+        <a href="#/leaderboard/zh" class="${scope === "zh" ? "on" : ""}">HSK</a>
+        <a href="#/leaderboard/en" class="${scope === "en" ? "on" : ""}">IELTS</a>
       </div>
       <div id="lb"><p class="muted">Ачаалж байна...</p></div>`;
     let list, mine = null;
@@ -937,18 +988,21 @@
     const box = document.getElementById("lb");
     if (!box) return;
     if (!list.length) { box.innerHTML = `<p class="muted center">Одоогоор хэн ч алга. Хичээл хийж XP цуглуулаарай!</p>`; return; }
-    const top = list.slice(0, 3), rest = list.slice(3);
-    const medal = ["🥇", "🥈", "🥉"];
+    const href = (r) => (A.Remote.on ? "#/u/" + r.id : "#/profile");
+    const meta = (r) => `<span class="lb-meta"><span title="Дараалсан өдөр">${ico("flame", 14)}${r.streak}</span><span title="Цээжилсэн үг">${ico("book", 14)}${r.learned}</span></span>`;
+    const top = list.slice(0, 3), rest = list.slice(3).concat(mine && mine.rank > 3 && !list.some((x) => x.me) ? [mine] : []);
     box.innerHTML = `
-      <div class="podium">${[1, 0, 2].filter((i) => top[i]).map((i) => `
-        <a class="pod p${i + 1} card ${top[i].me ? "me" : ""}" href="${A.Remote.on ? "#/u/" + top[i].id : "#/profile"}">
-          <div class="pod-medal">${medal[i]}</div>${avatarHtml(top[i], i === 0 ? 76 : 60)}
-          <b>${esc(top[i].name)}${top[i].me ? " (Та)" : ""}</b><span class="pod-xp">${top[i].xp} XP</span><span class="muted small">🔥 ${top[i].streak} · 📚 ${top[i].learned}</span>
+      <div class="lb-top">${[1, 0, 2].filter((i) => top[i]).map((i) => `
+        <a class="lb-pod r${i + 1} ${top[i].me ? "me" : ""}" href="${href(top[i])}">
+          <span class="lb-av">${avatarHtml(top[i], i === 0 ? 72 : 60)}<i class="lb-badge">${i + 1}</i></span>
+          <b class="lb-n">${esc(top[i].name)}${top[i].me ? ' <small>(Та)</small>' : ""}</b>
+          <span class="lb-xp">${Number(top[i].xp).toLocaleString("en-US")} <small>XP</small></span>${meta(top[i])}
+          <span class="lb-bar"></span>
         </a>`).join("")}</div>
-      ${rest.length || mine ? `<div class="lb-list card">${rest.concat(mine ? [mine] : []).map((r) => `
-        <a class="lb-row ${r.me ? "me" : ""}" href="${A.Remote.on ? "#/u/" + r.id : "#/profile"}">
-          <span class="lb-rank">${r.rank}</span>${avatarHtml(r, 36)}<span class="lb-name">${esc(r.name)}${r.me ? " (Та)" : ""}</span>
-          <span class="muted small">🔥 ${r.streak}</span><span class="muted small hide-sm">📚 ${r.learned}</span><b>${r.xp} XP</b>
+      ${rest.length ? `<div class="lb-tbl">${rest.map((r) => `
+        <a class="lb-r ${r.me ? "me" : ""}" href="${href(r)}">
+          <span class="lb-rk">${r.rank}</span>${avatarHtml(r, 36)}<span class="lb-nm">${esc(r.name)}${r.me ? ' <small>(Та)</small>' : ""}</span>
+          ${meta(r)}<b class="lb-x">${Number(r.xp).toLocaleString("en-US")} <small>XP</small></b>
         </a>`).join("")}</div>` : ""}
       ${A.Remote.on ? "" : `<p class="muted small center">Локал горим: зөвхөн энэ төхөөрөмж дээрх бүртгэлүүд харагдана.</p>`}`;
   };
@@ -1971,6 +2025,7 @@
     const fn = Pages[name] || Pages.notfound;
     fn.apply(null, parts.slice(1));
     renderNav();
+    if (u) ensureAvatar();
     window.scrollTo(0, 0);
     document.body.classList.remove("menu-open");
     const m = document.getElementById("pmenu");

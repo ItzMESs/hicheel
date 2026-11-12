@@ -121,7 +121,7 @@
   function adopt(user) {
     const db = load();
     const old = db.users[user.email] || {};
-    db.users[user.email] = Object.assign({}, old, { id: user.id, name: user.name, email: user.email, bio: user.bio || "", avatarUrl: user.avatarUrl || null, isAdmin: !!user.isAdmin, premium: user.premium || {}, created: user.created ? new Date(user.created).getTime() : old.created || Date.now(), remote: true });
+    db.users[user.email] = Object.assign({}, old, { id: user.id, name: user.name, email: user.email, bio: user.bio || "", avatarUrl: user.avatarUrl || null, emoji: user.emoji || null, isAdmin: !!user.isAdmin, premium: user.premium || {}, created: user.created ? new Date(user.created).getTime() : old.created || Date.now(), remote: true });
     db.session = user.email;
     if (!db.progress[user.email]) db.progress[user.email] = newProgress();
     save(db);
@@ -190,13 +190,14 @@
       db.session = null;
       save(db);
     },
-    async updateProfile({ name, bio, avatar }) {
+    async updateProfile({ name, bio, avatar, emoji }) {
       if (name !== undefined && String(name).trim().length < 2) throw new Error("Нэр хамгийн багадаа 2 тэмдэгт байна.");
       if (Remote.on) {
         const payload = {};
         if (name !== undefined) payload.name = name;
         if (bio !== undefined) payload.bio = bio;
         if (avatar !== undefined) payload.avatar = avatar;
+        if (emoji !== undefined) payload.emoji = emoji;
         const { user } = await Remote.call("PUT", "profile", payload);
         return adopt(user);
       }

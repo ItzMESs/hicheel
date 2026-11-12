@@ -16,6 +16,7 @@ model User {
   bio          String   @default("")
   avatar       String?  // жижигрүүлсэн JPEG data URL
   avatarAt     DateTime?
+  emoji        String?  // зурагны оронд сонгосон emoji аватар
   googleId     String?
   isAdmin      Boolean  @default(false)
   banned       Boolean  @default(false)
