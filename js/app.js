@@ -1839,7 +1839,7 @@
   });
 
   /* ======================= ЧИГЛҮҮЛЭГЧ ======================= */
-  const PUBLIC = ["", "home", "login", "register", "forgot", "reset"];
+  const PUBLIC = ["", "home", "login", "register", "forgot", "reset", "terms", "privacy", "data-deletion"];
   const Router = { after: null };
   function go(hash) { if (location.hash === hash) route(); else location.hash = hash; }
 

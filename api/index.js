@@ -1152,6 +1152,21 @@ on("POST", "admin/plans", async (req, res, { body }) => {
   const p = body.id ? await db().plan.update({ where: { id: str(body.id, 40) }, data }) : await db().plan.create({ data });
   return { plan: planOut(p) };
 });
+// Сайтын доод хэсэг: сошиал холбоос, хөгжүүлэгч, холбоо барих имэйл (админ тохируулна)
+const SITE_LINKS = ["facebook", "instagram", "discord", "youtube", "tiktok"];
+async function getSite() {
+  const row = await db().setting.findUnique({ where: { key: "site" } });
+  return Object.assign({ devName: "", devUrl: "", email: "" }, row ? JSON.parse(row.value) : {});
+}
+const httpUrl = (v) => { const u = str(v, 300); return /^https:\/\/[^\s<>"]+$/i.test(u) ? u : ""; };
+on("GET", "site", async () => ({ site: await getSite() }));
+on("POST", "admin/site", async (req, res, { body }) => {
+  await adminUser(req);
+  const site = { devName: str(body.devName, 80), devUrl: httpUrl(body.devUrl), email: /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i.test(str(body.email, 120)) ? str(body.email, 120) : "" };
+  for (const k of SITE_LINKS) site[k] = httpUrl(body[k]);
+  await db().setting.upsert({ where: { key: "site" }, create: { key: "site", value: JSON.stringify(site) }, update: { value: JSON.stringify(site) } });
+  return { site };
+});
 on("POST", "admin/promo", async (req, res, { body }) => {
   await adminUser(req);
   const promo = { on: body.on !== false, text: str(body.text, 500) };

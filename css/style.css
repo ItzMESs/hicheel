@@ -1746,3 +1746,23 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
 .cd-panel header { background: var(--primary); color: #fff; }
 .cd-panel header .cd-ic { color: #fff; opacity: .9; }
 .cd-panel header .cd-ic:hover { opacity: 1; }
+
+/* ---- Footer ---- */
+#foot-body { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+#foot-body p { margin: 0; }
+.ft-line b { color: var(--ink); font-size: 1rem; }
+.ft-dot { color: var(--muted); margin: 0 6px; }
+.ft-copy { color: var(--muted); font-size: .85rem; }
+.ft-soc { display: flex; gap: 10px; margin: 4px 0; }
+.ft-soc a { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--card); color: var(--ink); border: 1.5px solid var(--line); transition: .15s; }
+.ft-soc a:hover { background: var(--primary); border-color: var(--primary); color: #fff; transform: translateY(-2px); text-decoration: none; }
+.ft-dev { color: var(--muted); font-size: .88rem; }
+.ft-dev a, .ft-dev span { color: var(--ink); font-weight: 600; }
+.ft-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 20px; font-size: .88rem; }
+.ft-links a { color: var(--ink); opacity: .8; }
+.ft-links a:hover { color: var(--primary); opacity: 1; }
+.legal { max-width: 820px; line-height: 1.7; }
+.legal h3 { margin: 22px 0 6px; font-size: 1.02rem; }
+.legal h3:first-child { margin-top: 0; }
+.legal ul { padding-left: 20px; }
+.del-box { border: 2px solid var(--bad); background: color-mix(in srgb, var(--bad) 6%, var(--card)); padding: 16px; margin: 16px 0; }

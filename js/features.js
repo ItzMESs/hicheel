@@ -1074,9 +1074,24 @@
         <label>Зарын текст (хоосон бол багцын мэдээллээс автоматаар бичнэ)<textarea class="input" name="text" rows="3" maxlength="500" placeholder="Жишээ: Алтан гишүүний нэг жилийн эрх энэ 7 хоногийг дуустал 70% хямдарч 69,900₮ боллоо! Та яараарай.">${esc(promo.text || "")}</textarea></label>
         <button class="btn">Хадгалах</button>
       </form>
+      <h2 class="section-title">🌐 Сайтын доод хэсэг (footer)</h2>
+      <form class="card" id="sitef"><p class="muted small">Ачаалж байна...</p></form>
       <h2 class="section-title">📦 Багцууд</h2>
       ${plans.map(form).join("")}
       <h3>Шинэ багц</h3>${form(null)}`;
+    const sf = ab.querySelector("#sitef");
+    Remote.call("GET", "site").then(({ site }) => {
+      const fld = (k, lbl, ph) => `<label>${lbl}<input class="input" name="${k}" value="${esc(site[k] || "")}" placeholder="${ph}"></label>`;
+      sf.innerHTML = `<p class="muted small">Хоосон үлдээсэн холбоос footer дээр харагдахгүй. Холбоос https:// -ээр эхэлнэ.</p>
+        <div class="grid cards2">${fld("devName", "Хөгжүүлэгчийн нэр", "Таны нэр")}${fld("devUrl", "Хөгжүүлэгчийн холбоос", "https://...")}</div>
+        ${fld("email", "Холбоо барих имэйл (нууцлалын бодлого, өгөгдөл устгах хуудсанд гарна)", "info@...")}
+        <div class="grid cards2">${fld("facebook", "Facebook", "https://facebook.com/...")}${fld("instagram", "Instagram", "https://instagram.com/...")}${fld("discord", "Discord", "https://discord.gg/...")}${fld("youtube", "YouTube", "https://youtube.com/...")}${fld("tiktok", "TikTok", "https://tiktok.com/@...")}</div>
+        <button class="btn">Хадгалах</button>`;
+    }).catch(() => {});
+    sf.onsubmit = async (e) => {
+      e.preventDefault();
+      try { await Remote.call("POST", "admin/site", Object.fromEntries(new FormData(e.target))); A.loadSite && A.loadSite(true); UI.toast("Footer хадгалагдлаа", "ok"); } catch (ex) { UI.toast(ex.message, "warn"); }
+    };
     ab.querySelector("#promof").onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
