@@ -329,7 +329,9 @@ const SHOP = {
 async function shopState(u) {
   const pr = await db().progress.findUnique({ where: { userId: u.id } });
   const xp = pr ? pr.xp : 0;
-  return { xp, spent: u.spent || 0, balance: Math.max(0, xp - (u.spent || 0)), owned: Array.isArray(u.owned) ? u.owned : [], frame: u.frame || null, nameColor: u.nameColor || null };
+  // Админд бүх бараа үнэгүй, худалдаж авахгүйгээр нээлттэй
+  const admin = isAdmin(u);
+  return { xp, spent: u.spent || 0, balance: admin ? 999999 : Math.max(0, xp - (u.spent || 0)), admin, owned: admin ? Object.keys(SHOP) : Array.isArray(u.owned) ? u.owned : [], frame: u.frame || null, nameColor: u.nameColor || null };
 }
 on("GET", "shop", async (req) => {
   const me = await currentUser(req, true);
@@ -350,7 +352,7 @@ on("POST", "shop/buy", async (req, res, { body }) => {
 });
 on("POST", "shop/equip", async (req, res, { body }) => {
   const me = await currentUser(req, true);
-  const owned = Array.isArray(me.owned) ? me.owned : [];
+  const owned = isAdmin(me) ? Object.keys(SHOP) : Array.isArray(me.owned) ? me.owned : [];
   const data = {};
   for (const [k, field, pre] of [["frame", "frame", "f-"], ["nameColor", "nameColor", "c-"]]) {
     if (body[k] === undefined) continue;

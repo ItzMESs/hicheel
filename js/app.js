@@ -922,7 +922,7 @@
       };
       box.innerHTML = `
         <div class="sh-top card"><div class="sh-me">${avatarHtml(preview, 72)}<div>${nameHtml(preview, "span")}<small class="muted">Таны профайл бусдад ингэж харагдана</small></div></div>
-          <div class="sh-bal"><small class="muted">Зарцуулах боломжтой</small><b>${ico("star", 18)} ${st.balance.toLocaleString("en-US")} XP</b><small class="muted">Нийт ${st.xp} · зарцуулсан ${st.spent}</small></div></div>
+          <div class="sh-bal">${st.admin ? `<small class="muted">Админ</small><b>${ico("shield", 18)} Бүгд үнэгүй</b><small class="muted">Бүх хүрээ, өнгийг шууд зүүнэ</small>` : `<small class="muted">Зарцуулах боломжтой</small><b>${ico("star", 18)} ${st.balance.toLocaleString("en-US")} XP</b><small class="muted">Нийт ${st.xp} · зарцуулсан ${st.spent}</small>`}</div></div>
         <h2 class="section-title">Профайлын хүрээ</h2><div class="sh-grid">${SHOP_ITEMS.filter((x) => x[0][0] === "f").map(item).join("")}</div>
         <h2 class="section-title">Нэрийн өнгө</h2><div class="sh-grid">${SHOP_ITEMS.filter((x) => x[0][0] === "c").map(item).join("")}</div>`;
       const after = (r) => { st = Object.assign(st, r); Auth.setUser(r.user); renderNav(); draw(); };
