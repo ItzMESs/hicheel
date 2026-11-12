@@ -1703,3 +1703,43 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
 @media (max-width: 800px) { .dm-modes { grid-template-columns: 1fr 1fr; } .dm-mode { flex-direction: column; text-align: center; } .dm-mode small { margin-left: 0; } .dq-mean.big { font-size: 1.5rem; } }
 .dq-say { animation: sayPulse 1.6s ease-in-out infinite; }
 @keyframes sayPulse { 50% { transform: scale(1.07); } }
+
+/* ---- Нийтийн чатын жижиг цонх ---- */
+#cdock { position: fixed; right: 20px; bottom: 20px; z-index: 900; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
+#cdock > * { pointer-events: auto; }
+#cdock[hidden] { display: none; }
+.cd-head { position: relative; width: 58px; height: 58px; border-radius: 50%; border: 0; background: var(--primary); color: #fff; font-size: 1.6rem; cursor: pointer; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); transition: transform .15s; }
+.cd-head:hover { transform: scale(1.06); }
+.cd-badge { position: absolute; top: -4px; right: -4px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 99px; background: var(--ink); color: #fff; font: 800 .75rem/22px var(--display, sans-serif); border: 2px solid var(--card); }
+.cd-x { position: absolute; top: -6px; left: -6px; width: 20px; height: 20px; border-radius: 50%; background: var(--card); color: var(--muted); font: 700 .65rem/20px sans-serif; font-style: normal; box-shadow: 0 1px 4px rgba(0, 0, 0, .25); display: none; }
+.cd-head:hover .cd-x { display: block; }
+#cdock.open .cd-x { display: none; }
+.cd-pop { display: flex; align-items: center; gap: 10px; max-width: 320px; padding: 12px 12px 12px 14px; background: var(--card); color: var(--ink); border: 1.5px solid var(--line); border-left: 4px solid var(--primary); box-shadow: 0 10px 30px rgba(0, 0, 0, .18); cursor: pointer; }
+.cd-pop[hidden] { display: none; }
+.cd-pop.in { animation: cdIn .35s cubic-bezier(.2, 1.4, .4, 1); }
+.cd-pop > div { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.cd-pop span { font-size: .88rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+@keyframes cdIn { from { transform: translateY(16px) scale(.95); opacity: 0; } }
+.cd-ic { border: 0; background: none; color: inherit; cursor: pointer; font-size: .95rem; padding: 4px 6px; text-decoration: none; }
+.cd-panel { width: 340px; height: 460px; display: flex; flex-direction: column; background: var(--card); color: var(--ink); border: 1.5px solid var(--ink); box-shadow: 0 16px 40px rgba(0, 0, 0, .25); animation: cdIn .3s; }
+.cd-panel[hidden] { display: none; }
+.cd-panel header { display: flex; align-items: center; gap: 2px; padding: 10px 10px 10px 14px; background: var(--ink); color: #fff; }
+.cd-panel header b { flex: 1; }
+.cd-list { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--card-2); }
+.cd-m { display: flex; gap: 8px; align-items: flex-end; }
+.cd-m.mine { justify-content: flex-end; }
+.cd-b { max-width: 78%; display: flex; flex-direction: column; padding: 8px 11px; background: var(--card); border: 1px solid var(--line); border-radius: 14px 14px 14px 4px; font-size: .9rem; overflow-wrap: anywhere; }
+.cd-m.mine .cd-b { background: var(--primary); color: #fff; border-color: var(--primary); border-radius: 14px 14px 4px 14px; }
+.cd-b b { font-size: .75rem; color: var(--primary); }
+.cd-b small { font-size: .65rem; opacity: .6; align-self: flex-end; }
+.cd-form { display: flex; border-top: 1.5px solid var(--line); }
+.cd-form input { flex: 1; border: 0; padding: 13px 14px; font: inherit; background: var(--card); color: var(--ink); outline: none; }
+.cd-form button { border: 0; background: var(--primary); color: #fff; width: 52px; font-size: 1.1rem; cursor: pointer; }
+@media (max-width: 800px) {
+  #cdock { right: 12px; bottom: 84px; }
+  .cd-panel { width: calc(100vw - 24px); height: min(70vh, 480px); }
+  .cd-pop { max-width: calc(100vw - 24px); }
+  .cd-head { width: 52px; height: 52px; }
+}
+@media print { #cdock { display: none !important; } }
+@media (max-width: 800px) { body.pg-dashboard #cdock { bottom: 150px; } }

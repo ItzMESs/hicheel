@@ -1123,3 +1123,104 @@
     } catch (e) { UI.toast("Push асаахад алдаа: " + e.message, "warn"); }
   };
 })();
+
+/* Нийтийн чатын жижиг цонх (Messenger шиг): шинэ зурвас ирэхэд баруун доод буланд гарна */
+(function () {
+  "use strict";
+  const A = window.App;
+  const esc = A.esc;
+  const MUTE = "chatDockMute";
+  const muted = () => { try { return localStorage.getItem(MUTE) === "1"; } catch (e) { return false; } };
+  let last = null, msgs = [], unread = 0, open = false, shown = false, popTimer = null, me = null, busy = false;
+  const onChat = () => /^#\/chat\b/.test(location.hash);
+  const dock = document.createElement("div");
+  dock.id = "cdock";
+  dock.hidden = true;
+  dock.innerHTML = `
+    <div class="cd-pop" id="cdpop" hidden></div>
+    <section class="cd-panel" id="cdpanel" hidden>
+      <header><b>💬 Нийтийн чат</b><button class="cd-ic" id="cdmute" title="Шинэ зурвасын цонх"></button><a class="cd-ic" href="#/chat" title="Бүтэн чат">↗</a><button class="cd-ic" id="cdclose" title="Хаах">✕</button></header>
+      <div class="cd-list" id="cdlist"></div>
+      <form class="cd-form" id="cdform"><input name="t" maxlength="1000" autocomplete="off" placeholder="Зурвас бичих..."><button title="Илгээх">➤</button></form>
+    </section>
+    <button class="cd-head" id="cdhead" title="Нийтийн чат">💬<span class="cd-badge" id="cdbadge" hidden></span><i class="cd-x" id="cdhide" title="Нуух">✕</i></button>`;
+  document.body.appendChild(dock);
+  const $ = (id) => document.getElementById(id);
+
+  const textOf = (m) => (m.system ? "🎉 " : "") + (m.text || (m.image ? "📷 Зураг" : ""));
+  function row(m) {
+    return `<div class="cd-m ${m.mine ? "mine" : ""}">${m.mine ? "" : A.avatarHtml(m.user, 28)}<div class="cd-b">${m.mine ? "" : `<b>${esc(m.user.name)}</b>`}<span>${esc(textOf(m))}</span><small>${A.timeAgo(m.createdAt)}</small></div></div>`;
+  }
+  function drawList() {
+    const el = $("cdlist");
+    el.innerHTML = msgs.length ? msgs.map(row).join("") : `<p class="muted small center">Зурвас алга</p>`;
+    el.scrollTop = el.scrollHeight;
+  }
+  function drawBadge() {
+    $("cdbadge").textContent = unread > 9 ? "9+" : unread;
+    $("cdbadge").hidden = !unread;
+    $("cdmute").textContent = muted() ? "🔕" : "🔔";
+    $("cdmute").title = muted() ? "Шинэ зурвасын цонх унтраастай — асаах" : "Шинэ зурвасын цонх асаалттай — унтраах";
+  }
+  function show() { shown = true; dock.hidden = onChat(); drawBadge(); }
+  function setOpen(v) {
+    open = v;
+    $("cdpanel").hidden = !v;
+    $("cdpop").hidden = true;
+    dock.classList.toggle("open", v);
+    if (v) { unread = 0; drawBadge(); drawList(); setTimeout(() => $("cdform").t.focus(), 30); }
+  }
+  function popup(m) {
+    if (muted() || open) return;
+    const p = $("cdpop");
+    p.innerHTML = `${A.avatarHtml(m.user, 36)}<div><b>${esc(m.user.name)}</b><span>${esc(textOf(m)).slice(0, 140)}</span></div><button class="cd-ic" data-x title="Хаах">✕</button>`;
+    p.hidden = false;
+    p.classList.remove("in"); void p.offsetWidth; p.classList.add("in");
+    clearTimeout(popTimer);
+    popTimer = setTimeout(() => (p.hidden = true), 7000);
+  }
+
+  async function poll() {
+    const u = A.Auth.current();
+    if (!A.Remote.on || !u) { dock.hidden = true; last = null; msgs = []; return; }
+    if (busy || document.hidden) return;
+    if (me !== u.id) { me = u.id; last = null; msgs = []; unread = 0; shown = false; }
+    busy = true;
+    try {
+      const d = await A.Remote.call("GET", "chat?room=public" + (last ? "&after=" + encodeURIComponent(last) : ""));
+      const list = d.messages || [];
+      if (!last) { msgs = list.slice(-30); last = list.length ? list[list.length - 1].createdAt : new Date().toISOString(); return; }
+      if (!list.length) return;
+      last = list[list.length - 1].createdAt;
+      msgs = msgs.concat(list).slice(-30);
+      const fresh = list.filter((m) => !m.mine);
+      if (open) drawList();
+      if (!fresh.length || onChat()) return;
+      if (!open) unread += fresh.length;
+      if (!muted() || shown) show();
+      popup(fresh[fresh.length - 1]);
+    } catch (e) { /* сүлжээ тасарвал дараа дахин */ } finally { busy = false; }
+  }
+
+  $("cdhead").onclick = (e) => { if (e.target.id === "cdhide") return; setOpen(!open); };
+  $("cdhide").onclick = (e) => { e.stopPropagation(); setOpen(false); shown = false; dock.hidden = true; };
+  $("cdclose").onclick = () => setOpen(false);
+  $("cdpop").onclick = (e) => { if (e.target.closest("[data-x]")) { $("cdpop").hidden = true; return; } setOpen(true); };
+  $("cdmute").onclick = () => {
+    try { localStorage.setItem(MUTE, muted() ? "0" : "1"); } catch (e) { /* ignore */ }
+    drawBadge();
+    A.UI.toast(muted() ? "🔕 Шинэ зурвасын цонх унтарлаа" : "🔔 Шинэ зурвас ирэхэд цонх гарна", "ok");
+  };
+  $("cdform").onsubmit = async (e) => {
+    e.preventDefault();
+    const inp = e.target.t, text = inp.value.trim();
+    if (!text) return;
+    inp.disabled = true;
+    try { await A.Remote.call("POST", "chat", { room: "public", text }); inp.value = ""; await poll(); drawList(); }
+    catch (err) { A.UI.toast(err.message, "warn"); }
+    finally { inp.disabled = false; inp.focus(); }
+  };
+  window.addEventListener("hashchange", () => { dock.hidden = !shown || onChat(); if (onChat()) { unread = 0; setOpen(false); } });
+  setInterval(poll, 8000);
+  setTimeout(poll, 1500);
+})();
