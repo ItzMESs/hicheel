@@ -166,3 +166,27 @@ h1, h2, h3, .profile-hero h1 { text-transform: none !important; }
   .icon-bar .ibtn, .top-actions .icon-bar .ibtn { width: 34px !important; height: 34px !important; }
   .avatar-btn .av, .avatar-btn .avatar, .avatar-btn img { width: 34px !important; height: 34px !important; }
 }
+
+/* ---- Зураасан дүрсүүд (emoji-н оронд) ---- */
+svg.ic { display: block; flex: none; }
+.ng-ic, .nd-ic, .ph-ic { display: grid; place-items: center; flex: none; border-radius: 50%; background: var(--card-2); color: var(--muted); border: 1px solid var(--line); }
+.ng-ic { width: 30px; height: 30px; }
+.top-nav .ng-btn, .top-nav .ng-home { display: inline-flex !important; align-items: center; gap: 8px; padding: 5px 12px 5px 5px !important; border-radius: 99px !important; }
+.top-nav .ng-btn .caret { margin-left: -2px; }
+.top-nav .ng.on .ng-ic, .top-nav .ng-home.on .ng-ic, .top-nav .ng-btn:hover .ng-ic, .top-nav .ng-home:hover .ng-ic { background: var(--primary); color: #fff; border-color: var(--primary); }
+.top-nav .ng.on > .ng-btn, .top-nav .ng-home.on { background: var(--soft) !important; color: var(--ink) !important; font-weight: 700 !important; }
+.nd-ic { width: 38px !important; height: 38px !important; font-size: 0 !important; }
+.nd-item.on .nd-ic, .nd-item:hover .nd-ic { background: var(--primary); color: #fff; border-color: var(--primary); }
+.ph-ic { width: 44px; height: 44px; color: var(--primary); background: var(--soft); border-color: transparent; margin-right: 4px; }
+.page-head h1 { display: flex !important; align-items: center; gap: 12px; }
+.pm-tile > span, .pm-plan > span:first-child { display: grid; place-items: center; width: 40px; height: 40px; margin: 0 auto 4px; border-radius: 50%; background: var(--card-2); color: var(--primary); font-size: 0; }
+.pm-plan > span:first-child { margin: 0; }
+.pm-foot button, .pm-admin { display: inline-flex !important; align-items: center; justify-content: center; gap: 6px; }
+.tabbar .tb-row > a > span, .tabbar .tb-row > button > span { display: grid; place-items: center; font-size: 0; height: 26px; }
+.tb-grid > a > span, .tb-grid > button > span { display: grid; place-items: center; width: 40px; height: 40px; margin: 0 auto 4px; border-radius: 50%; background: var(--card-2); color: var(--primary); font-size: 0; }
+.tb-sheet h6 { font-family: "Inter", sans-serif !important; letter-spacing: .1em; color: var(--muted); }
+@media (max-width: 1400px) { .top-nav .ng-btn, .top-nav .ng-home { padding: 4px 10px 4px 4px !important; gap: 6px; } .ng-ic { width: 28px; height: 28px; } }
+.pm-stats b { display: inline-flex !important; align-items: center; gap: 5px; justify-content: center; }
+.pm-stats b svg { color: var(--primary); }
+.btn svg.ic { display: inline-block; vertical-align: -3px; }
+label.btn { display: inline-flex !important; align-items: center; gap: 6px; }
