@@ -1,0 +1,99 @@
+/* Lessonly загвар: цагаан (үндсэн) ба харанхуй хөх. style.css-ийн дараа ачаална. */
+:root, :root[data-theme="light"] {
+  --bg: #fbfcff; --card: #ffffff; --card-2: #f4f7fd; --ink: #0b1020; --muted: #5d6984; --line: #e3e9f5;
+  --primary: #0a47ff; --primary-2: #3d8bff; --soft: #eaf1ff; --zh: #e5483b; --en: #0a47ff; --accent: #0a47ff;
+  --ok: #16a34a; --bad: #e5483b; --radius: 18px; --display: "Inter", sans-serif;
+  --shadow: 0 1px 2px rgba(11, 16, 32, .04), 0 8px 24px rgba(10, 40, 120, .06); color-scheme: light;
+  --top-bg: rgba(255, 255, 255, .94); --ic-y: #fff4d6; --ic-r: #fdecea; --ic-g: #e3f6ea;
+}
+html, body { background: var(--bg) !important; color: var(--ink); font-family: "Inter", "Noto Sans SC", sans-serif !important; }
+h1, h2, h3, .page-head h1, .section-title, .logo-txt, .eyebrow { font-family: "Inter", sans-serif !important; letter-spacing: -.02em; }
+.page-head h1 { text-transform: none !important; font-size: 30px !important; font-weight: 900 !important; }
+.page-head h1::before, .page-head h1::after, .hamar, .section-title::before, .section-title::after, .mn-side, .mn-foot,
+.card::before, .card::after, .wotd::before, .wotd::after, .lvl-strip::before, .lvl-strip::after, .wotd-cloud, .hero-art::before { display: none !important; }
+.section-title { text-transform: none !important; font-weight: 800 !important; }
+/* толгой */
+.topbar { background: var(--top-bg) !important; border-bottom: 1px solid var(--line) !important; box-shadow: none !important; backdrop-filter: blur(10px) !important; }
+.topbar::after, .footer::before { display: none !important; }
+.top-nav a, .top-nav button, .ng-btn, .ng-home { font-family: "Inter", sans-serif !important; text-transform: none !important; letter-spacing: 0 !important; font-size: 14.5px !important; font-weight: 600 !important; color: var(--muted) !important; border-radius: 10px !important; background: none !important; border: 0 !important; box-shadow: none !important; }
+.top-nav .on > .ng-btn, .top-nav a.on, .ng-home.on, .ng.on > .ng-btn { color: var(--primary) !important; background: var(--soft) !important; }
+.ndrop { border: 1px solid var(--line) !important; border-radius: 16px !important; box-shadow: 0 20px 40px rgba(10, 40, 120, .12) !important; background: var(--card) !important; padding: 8px !important; }
+.nd-item { border-radius: 12px !important; color: var(--ink) !important; }
+.nd-item.on, .nd-item:hover { background: var(--soft) !important; }
+.nd-item b { font-family: "Inter", sans-serif !important; text-transform: none !important; }
+.track-sw { background: var(--card-2) !important; border: 0 !important; border-radius: 12px !important; padding: 4px !important; }
+.track-sw button { border-radius: 9px !important; color: var(--muted) !important; }
+.track-sw button.on { background: var(--card) !important; color: var(--ink) !important; box-shadow: 0 1px 4px rgba(0, 0, 0, .08) !important; }
+.track-sw .flag { background: transparent !important; color: inherit !important; }
+.top-actions button, .top-actions a, .top-actions .icon-btn { border: 1px solid var(--line) !important; border-radius: 50% !important; background: var(--card) !important; box-shadow: none !important; }
+.top-actions .avatar, .top-actions [id="pbtn"] { border-radius: 50% !important; }
+/* карт, товч */
+.card, .stat, .lv-chip, .plan-cta, .lvl-strip, .wotd, .td-task, .quest, .duel-row, .dm-mode, .td-stats a, .quick-grid a, .srs-card, .quiz.card, .test-intro {
+  background: var(--card) !important; border: 1px solid var(--line) !important; border-radius: 18px !important; box-shadow: var(--shadow) !important; }
+.stat { border-top: 1px solid var(--line) !important; }
+.stat .s-icon { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-size: 22px; background: var(--soft); }
+.stats .stat:nth-child(1) .s-icon { background: var(--ic-y); } .stats .stat:nth-child(2) .s-icon { background: var(--ic-r); } .stats .stat:nth-child(3) .s-icon { background: var(--ic-g); }
+.btn, .td-go, .td-fab { border-radius: 12px !important; background: var(--primary) !important; color: #fff !important; border: 0 !important; box-shadow: 0 8px 18px rgba(10, 71, 255, .22) !important;
+  font-family: "Inter", sans-serif !important; text-transform: none !important; letter-spacing: 0 !important; font-weight: 700 !important; }
+.btn.ghost, .btn.light { background: var(--card) !important; color: var(--ink) !important; border: 1.5px solid var(--line) !important; box-shadow: none !important; }
+.hero-card { background: linear-gradient(135deg, #0a47ff, #4f3bff) !important; background-image: linear-gradient(135deg, #0a47ff, #4f3bff) !important; border: 0 !important; border-radius: 22px !important; color: #fff !important; padding-bottom: 26px !important; }
+.hero-card h2, .hero-card p, .hero-card .eyebrow, .hero-card .goal-ring span { color: #fff !important; }
+.hero-card .btn, .hero-card .btn.light { background: #fff !important; color: #0a47ff !important; }
+.eyebrow { color: var(--primary-2) !important; letter-spacing: .12em !important; }
+.quick-grid a { background: var(--card-2) !important; box-shadow: none !important; text-transform: none !important; font-family: "Inter", sans-serif !important; }
+.mini-bar { border: 0 !important; background: var(--card-2) !important; border-radius: 99px !important; }
+.mini-bar i { background: var(--primary) !important; border-radius: 99px; }
+.lvl-badge { background: var(--primary) !important; color: #fff !important; border-radius: 14px !important; }
+.w-read { color: var(--primary-2) !important; }
+.wotd-term { color: var(--ink) !important; }
+/* түвшин сонгогч, хүснэгт */
+.lvl-side .lv-tabs button, .lvl-tabs button, .picker button { font-family: "Inter", sans-serif !important; text-transform: none !important; }
+.lv-item.on, .lvl-side .on { background: var(--soft) !important; color: var(--primary) !important; border-color: var(--primary) !important; }
+.table thead th, table th { background: var(--card-2) !important; color: var(--muted) !important; font-family: "Inter", sans-serif !important; text-transform: none !important; letter-spacing: 0 !important; border-bottom: 1px solid var(--line) !important; }
+.table, table { border-radius: 16px; overflow: hidden; border: 1px solid var(--line) !important; }
+.opt { border-radius: 14px !important; border: 1.5px solid var(--line) !important; background: var(--card) !important; box-shadow: none !important; }
+.tamga { color: var(--primary) !important; border-color: var(--primary) !important; box-shadow: inset 0 0 0 3px var(--card), inset 0 0 0 5px var(--primary) !important; }
+/* утас */
+.tabbar { background: var(--card) !important; border-top: 1px solid var(--line) !important; box-shadow: 0 -6px 20px rgba(10, 40, 120, .05) !important; }
+.tabbar a, .tabbar button { font-family: "Inter", sans-serif !important; text-transform: none !important; color: #97a3bd !important; }
+.tabbar .on { color: var(--primary) !important; }
+.tb-sheet { border-radius: 22px 22px 0 0 !important; border: 1px solid var(--line) !important; }
+.td-fab { box-shadow: 0 10px 24px rgba(10, 71, 255, .3) !important; }
+.footer { border-top: 1px solid var(--line) !important; }
+#cdock .cd-head { background: var(--primary) !important; }
+
+/* ---- Харанхуй горим ---- */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0a1020; --card: #121b33; --card-2: #17223d; --ink: #eef2fb; --muted: #93a0bf; --line: #22305a;
+  --primary: #2f6bff; --primary-2: #5aa2ff; --soft: #182a5c; --en: #5aa2ff; --accent: #5aa2ff;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .25), 0 10px 28px rgba(0, 0, 0, .25); color-scheme: dark;
+  --top-bg: rgba(10, 16, 32, .92); --ic-y: #3a2f0f; --ic-r: #3b1916; --ic-g: #12331f;
+} }
+:root[data-theme="dark"] {
+  --bg: #0a1020; --card: #121b33; --card-2: #17223d; --ink: #eef2fb; --muted: #93a0bf; --line: #22305a;
+  --primary: #2f6bff; --primary-2: #5aa2ff; --soft: #182a5c; --en: #5aa2ff; --accent: #5aa2ff;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .25), 0 10px 28px rgba(0, 0, 0, .25); color-scheme: dark;
+  --top-bg: rgba(10, 16, 32, .92); --ic-y: #3a2f0f; --ic-r: #3b1916; --ic-g: #12331f;
+}
+:root[data-theme="dark"] .track-sw button.on { background: var(--primary) !important; color: #fff !important; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .track-sw button.on { background: var(--primary) !important; color: #fff !important; } }
+:root[data-theme="dark"] .input, :root[data-theme="dark"] select, :root[data-theme="dark"] textarea { background: var(--card-2) !important; color: var(--ink) !important; border-color: var(--line) !important; }
+/* Утас: «Үргэлжлүүлэх» товчны ард контент харагдахгүй байх, сүүлийн карт товчны дээр гарч ирэх */
+@media (max-width: 800px) {
+  body.pg-dashboard #view { padding-bottom: 150px; }
+  .td-fab { box-shadow: 0 10px 24px rgba(10, 71, 255, .3), 0 0 0 10px var(--bg) !important; }
+}
+
+/* Сонгогдсон товч, таб, өөрийн зурвас: хар/цагааны оронд Lessonly цэнхэр */
+.seg button.on, .seg a.on, .tab.on, .pk-tabs button.on, .side-src button.on, .croom.on, .react.on, .icon-btn.on,
+.msg.mine .bubble-msg, .flashcard .back, .g-n, .pm-lv, .av-letter, .flag.en, .lv-badge.en, .bubble.en, .dlg-sp {
+  background: var(--primary) !important; color: #fff !important; border-color: var(--primary) !important; }
+.seg, .pk-tabs { border-radius: 12px; }
+.seg button, .seg a, .tab, .pk-tabs button { border-radius: 10px !important; }
+.btn.ghost:hover, .btn.audio:hover, .ibtn:hover { background: var(--soft) !important; color: var(--primary) !important; border-color: var(--primary) !important; }
+.toast { background: #0b1020 !important; color: #fff !important; border-radius: 14px !important; }
+.msg.for-me .bubble-msg { border-color: var(--primary) !important; }
+/* Системийн баяр хүргэлтийн зурвас */
+.bubble-msg.sys-b { border: 1px solid var(--line) !important; border-left: 4px solid #f5b301 !important; box-shadow: var(--shadow) !important; border-radius: 14px !important; }
+.mention-sug { border: 1px solid var(--line) !important; box-shadow: 0 12px 30px rgba(10, 40, 120, .12) !important; border-radius: 14px !important; background: var(--card) !important; }
+.bubble-msg { border-radius: 16px !important; }
