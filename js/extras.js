@@ -294,20 +294,20 @@
       document.getElementById("pcnt").textContent = ws.length + " үг";
       const date = new Date().toISOString().slice(0, 10).replace(/-/g, ".");
       const head = `<div class="pr-brand">
-          <img src="img/logo.png" alt="">
-          <div class="pr-bn"><b>LESSONLY</b><span>Хятад · Англи хэл сурах платформ</span></div>
+          <img class="pr-logo" src="img/lessonly.png" alt="Lessonly">
+          <div class="pr-bn"><span>Хятад · Англи хэл сурах платформ</span></div>
           <div class="pr-meta"><b>${esc(title())}</b><span>${ws.length} үг · ${date}</span></div>
         </div><div class="pr-rule"></div>`;
-      const wm = `<img class="pr-wm" src="img/logo.png" alt="" aria-hidden="true">`;
-      const foot = wm + `<div class="pr-foot"><span><img src="img/logo.png" alt=""> Lessonly · ${esc(location.host)}</span><span>${date}</span></div>`;
+      const wm = `<img class="pr-wm" src="img/mark.png" alt="" aria-hidden="true">`;
+      const foot = wm + `<div class="pr-foot"><span><img src="img/mark.png" alt=""> Lessonly · ${esc(location.host)}</span><span>${date}</span></div>`;
       area.className = `print-area sz-${opt.size}`;
       if (!ws.length) { area.innerHTML = `<p class="muted center">Үг алга.</p>`; return; }
       if (opt.fmt === "table" || opt.fmt === "test") {
         const test = opt.fmt === "test";
         area.innerHTML = foot + head + `<table class="pr-table"><thead><tr><th>#</th><th>Үг</th>${lang === "zh" && opt.py ? "<th>Пиньинь</th>" : ""}<th>${test ? "Утгыг бичнэ үү" : "Утга"}</th>${opt.ex && !test ? "<th>Жишээ</th>" : ""}</tr></thead><tbody>${ws.map((w, i) => `<tr>
           <td>${i + 1}</td><td class="pr-term ${lang}">${esc(w.term)}</td>${lang === "zh" && opt.py ? `<td>${test ? "" : esc(w.reading)}</td>` : ""}
-          <td>${test ? "" : opt.mn ? esc(w.meaning) : ""}</td>${opt.ex && !test ? `<td class="pr-ex">${esc(w.example || w.gloss || "")}</td>` : ""}</tr>`).join("")}</tbody></table>
-          ${test ? `<div class="pr-break"></div><div class="pr-brand small"><img src="img/logo.png" alt=""><div class="pr-bn"><b>LESSONLY</b><span>Хариу</span></div><div class="pr-meta"><b>${esc(title())}</b></div></div><div class="pr-rule"></div><ol class="pr-key">${ws.map((w) => `<li><b class="${lang}">${esc(w.term)}</b> ${lang === "zh" ? esc(w.reading) + " · " : ""}${esc(w.meaning)}</li>`).join("")}</ol>` : ""}`;
+          <td>${test ? "" : opt.mn ? esc(w.meaning) : ""}</td>${opt.ex && !test ? `<td class="pr-ex">${esc(w.example || w.gloss || "")}</td>` : ""}</tr>`).join("")}</tbody><tfoot><tr><td colspan="9"></td></tr></tfoot></table>
+          ${test ? `<div class="pr-break"></div><div class="pr-brand small"><img class="pr-logo" src="img/lessonly.png" alt="Lessonly"><div class="pr-bn"><span>Хариу</span></div><div class="pr-meta"><b>${esc(title())}</b></div></div><div class="pr-rule"></div><ol class="pr-key">${ws.map((w) => `<li><b class="${lang}">${esc(w.term)}</b> ${lang === "zh" ? esc(w.reading) + " · " : ""}${esc(w.meaning)}</li>`).join("")}</ol>` : ""}`;
       } else {
         // Хуудас бүр 12 карт: нүүр тал (үг), ар тал (утга) толин тусгал байрлалаар
         const per = 12, pages = [];
