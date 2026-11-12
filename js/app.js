@@ -1296,7 +1296,7 @@
     show(n) {
       if (!this.canPush() || Notification.permission !== "granted" || document.visibilityState === "visible") return;
       try {
-        const x = new Notification("Хичээл", { body: n.text, tag: n.id, icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23111'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' fill='white'%3E学%3C/text%3E%3C/svg%3E" });
+        const x = new Notification("Lessonly", { body: n.text, tag: n.id, icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23111'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' fill='white'%3E学%3C/text%3E%3C/svg%3E" });
         x.onclick = () => { window.focus(); if (n.link) location.hash = n.link.replace(/^#/, ""); x.close(); };
       } catch (e) { /* ignore */ }
     }

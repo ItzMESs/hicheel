@@ -1,4 +1,4 @@
-/* Хичээл — нэгдсэн API (Vercel serverless функц).
+/* Lessonly — нэгдсэн API (Vercel serverless функц).
    vercel.json дахь rewrite нь /api/<зам> бүрийг /api/index?path=<зам> руу чиглүүлнэ.
    Орчны хувьсагч: DATABASE_URL (Postgres), AUTH_SECRET (урт санамсаргүй мөр). */
 const crypto = require("crypto");
@@ -131,7 +131,7 @@ const isDataImage = (s, max) => typeof s === "string" && /^data:image\/(jpeg|png
 async function notify(userId, text, link, actorId) {
   try {
     const n = await db().notification.create({ data: { userId, text: str(text, 300), link: link || "", actorId: actorId || null } });
-    await sendPush(userId, { title: "Хичээл", body: n.text, link: n.link, tag: n.id });
+    await sendPush(userId, { title: "Lessonly", body: n.text, link: n.link, tag: n.id });
   } catch (e) { /* ignore */ }
 }
 async function areFriends(a, b) {
@@ -714,7 +714,7 @@ async function sendMail(to, subject, html) {
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: process.env.MAIL_FROM || "Хичээл <onboarding@resend.dev>", to: [to], subject, html })
+    body: JSON.stringify({ from: process.env.MAIL_FROM || "Lessonly <onboarding@resend.dev>", to: [to], subject, html })
   });
   if (!r.ok) {
     const txt = await r.text().catch(() => "");
@@ -736,7 +736,7 @@ on("POST", "auth/forgot", async (req, res, { body }) => {
       const token = crypto.randomBytes(32).toString("hex");
       await db().passwordReset.create({ data: { userId: user.id, tokenHash: sha(token), expiresAt: new Date(Date.now() + 3600e3) } });
       const link = `${origin(req)}/#/reset/${token}`;
-      await sendMail(email, "Хичээл — нууц үг сэргээх", `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;border:2px solid #0a0a0a">
+      await sendMail(email, "Lessonly — нууц үг сэргээх", `<div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;border:2px solid #0a0a0a">
         <h2 style="margin:0 0 12px">Нууц үг сэргээх</h2><p>Сайн байна уу, ${user.name.replace(/[<>&]/g, "")}!</p>
         <p>Доорх товч дээр дарж шинэ нууц үгээ тохируулна уу. Холбоос 1 цагийн дараа хүчингүй болно.</p>
         <p><a href="${link}" style="display:inline-block;background:#0a0a0a;color:#fff;padding:12px 20px;text-decoration:none;font-weight:bold">НУУЦ ҮГ СОЛИХ</a></p>
@@ -1074,7 +1074,7 @@ on("POST", "push/unsubscribe", async (req, res, { body }) => {
 });
 on("POST", "push/test", async (req) => {
   const me = await currentUser(req, true);
-  await sendPush(me.id, { title: "Хичээл", body: "🔔 Мэдэгдэл амжилттай ажиллаж байна!", link: "#/dashboard" });
+  await sendPush(me.id, { title: "Lessonly", body: "🔔 Мэдэгдэл амжилттай ажиллаж байна!", link: "#/dashboard" });
   return { ok: true };
 });
 

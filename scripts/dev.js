@@ -29,4 +29,4 @@ http.createServer((req, res) => {
     res.setHeader("Content-Type", TYPES[path.extname(file)] || "application/octet-stream");
     res.end(data);
   });
-}).listen(port, () => console.log(`Хичээл: http://localhost:${port}`));
+}).listen(port, () => console.log(`Lessonly: http://localhost:${port}`));

@@ -1,5 +1,5 @@
-/* Хичээл — service worker: офлайн кэш ба push мэдэгдэл */
-const CACHE = "hicheel-v43";
+/* Lessonly — service worker: офлайн кэш ба push мэдэгдэл */
+const CACHE = "hicheel-v44";
 const CORE = ["/", "/index.html", "/css/style.css?v=25", "/manifest.json", "/img/logo-zh.png", "/img/logo-zh-dark.png"];
 
 self.addEventListener("install", (e) => {
@@ -29,7 +29,7 @@ self.addEventListener("fetch", (e) => {
 self.addEventListener("push", (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (x) { d = { body: e.data && e.data.text() }; }
-  e.waitUntil(self.registration.showNotification(d.title || "Хичээл", {
+  e.waitUntil(self.registration.showNotification(d.title || "Lessonly", {
     body: d.body || "",
     icon: "/img/icon-192.png",
     badge: "/img/icon-64.png",

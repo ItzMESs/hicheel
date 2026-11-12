@@ -1766,3 +1766,9 @@ details.grammar[open] { border-left: 4px solid var(--primary); }
 .legal h3:first-child { margin-top: 0; }
 .legal ul { padding-left: 20px; }
 .del-box { border: 2px solid var(--bad); background: color-mix(in srgb, var(--bad) 6%, var(--card)); padding: 16px; margin: 16px 0; }
+
+/* ---- Lessonly лого: бүтэн нэртэй лого толгойд ---- */
+.logo-pic { width: auto !important; height: 34px !important; }
+.logo-pic img { width: auto !important; height: 100% !important; }
+.logo-txt { display: none !important; }
+@media (max-width: 800px) { .logo-pic { height: 28px !important; } }

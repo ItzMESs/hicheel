@@ -965,7 +965,7 @@
     if (!promo || promo.on === false || !plans.length) return;
     const best = plans.find((p) => p.langs === "all") || plans[0];
     const auto = `💎 «${best.name}» багц ердөө ${money(best.price)} — ${best.description || "бүх түвшний хичээл нээгдэнэ"}. Данс руу шилжүүлээд гүйлгээний утга дээр кодоо бичихэд л болно. Баярлалаа!`;
-    el.innerHTML = `<div class="chat-promo"><span class="cp-ic">📌</span><div class="cp-body"><b>Хичээл</b> ${esc(promo.text || auto)}</div><a class="btn small" href="#/pricing">Багц авах →</a></div>`;
+    el.innerHTML = `<div class="chat-promo"><span class="cp-ic">📌</span><div class="cp-body"><b>Lessonly</b> ${esc(promo.text || auto)}</div><a class="btn small" href="#/pricing">Багц авах →</a></div>`;
   };
 
   P.pricing = async function () {

@@ -295,11 +295,11 @@
       const date = new Date().toISOString().slice(0, 10).replace(/-/g, ".");
       const head = `<div class="pr-brand">
           <img src="img/logo.png" alt="">
-          <div class="pr-bn"><b>ХИЧЭЭЛ</b><span>Хятад · Англи хэл сурах платформ</span></div>
+          <div class="pr-bn"><b>LESSONLY</b><span>Хятад · Англи хэл сурах платформ</span></div>
           <div class="pr-meta"><b>${esc(title())}</b><span>${ws.length} үг · ${date}</span></div>
         </div><div class="pr-rule"></div>`;
       const wm = `<img class="pr-wm" src="img/logo.png" alt="" aria-hidden="true">`;
-      const foot = wm + `<div class="pr-foot"><span><img src="img/logo.png" alt=""> Хичээл · ${esc(location.host)}</span><span>${date}</span></div>`;
+      const foot = wm + `<div class="pr-foot"><span><img src="img/logo.png" alt=""> Lessonly · ${esc(location.host)}</span><span>${date}</span></div>`;
       area.className = `print-area sz-${opt.size}`;
       if (!ws.length) { area.innerHTML = `<p class="muted center">Үг алга.</p>`; return; }
       if (opt.fmt === "table" || opt.fmt === "test") {
@@ -307,7 +307,7 @@
         area.innerHTML = foot + head + `<table class="pr-table"><thead><tr><th>#</th><th>Үг</th>${lang === "zh" && opt.py ? "<th>Пиньинь</th>" : ""}<th>${test ? "Утгыг бичнэ үү" : "Утга"}</th>${opt.ex && !test ? "<th>Жишээ</th>" : ""}</tr></thead><tbody>${ws.map((w, i) => `<tr>
           <td>${i + 1}</td><td class="pr-term ${lang}">${esc(w.term)}</td>${lang === "zh" && opt.py ? `<td>${test ? "" : esc(w.reading)}</td>` : ""}
           <td>${test ? "" : opt.mn ? esc(w.meaning) : ""}</td>${opt.ex && !test ? `<td class="pr-ex">${esc(w.example || w.gloss || "")}</td>` : ""}</tr>`).join("")}</tbody></table>
-          ${test ? `<div class="pr-break"></div><div class="pr-brand small"><img src="img/logo.png" alt=""><div class="pr-bn"><b>ХИЧЭЭЛ</b><span>Хариу</span></div><div class="pr-meta"><b>${esc(title())}</b></div></div><div class="pr-rule"></div><ol class="pr-key">${ws.map((w) => `<li><b class="${lang}">${esc(w.term)}</b> ${lang === "zh" ? esc(w.reading) + " · " : ""}${esc(w.meaning)}</li>`).join("")}</ol>` : ""}`;
+          ${test ? `<div class="pr-break"></div><div class="pr-brand small"><img src="img/logo.png" alt=""><div class="pr-bn"><b>LESSONLY</b><span>Хариу</span></div><div class="pr-meta"><b>${esc(title())}</b></div></div><div class="pr-rule"></div><ol class="pr-key">${ws.map((w) => `<li><b class="${lang}">${esc(w.term)}</b> ${lang === "zh" ? esc(w.reading) + " · " : ""}${esc(w.meaning)}</li>`).join("")}</ol>` : ""}`;
       } else {
         // Хуудас бүр 12 карт: нүүр тал (үг), ар тал (утга) толин тусгал байрлалаар
         const per = 12, pages = [];
@@ -545,7 +545,7 @@
     const el = document.getElementById("foot-body");
     if (!el) return;
     const soc = Object.keys(ICON).filter((k) => site[k]);
-    el.innerHTML = `<p class="ft-line"><b>Хичээл</b> <span class="ft-dot">·</span> Хятад, англи хэлний мэдлэг дээшлүүлэх платформ</p>
+    el.innerHTML = `<p class="ft-line"><b>Lessonly</b> <span class="ft-dot">·</span> Хятад, англи хэлний мэдлэг дээшлүүлэх платформ</p>
       <p class="ft-copy">© ${new Date().getFullYear()} Бүх эрх хуулиар хамгаалагдсан.</p>
       ${soc.length ? `<div class="ft-soc">${soc.map((k) => `<a href="${esc(site[k])}" target="_blank" rel="noopener" title="${k[0].toUpperCase() + k.slice(1)}" aria-label="${k}"><svg viewBox="0 0 24 24" width="18" height="18">${ICON[k]}</svg></a>`).join("")}</div>` : ""}
       ${site.devName ? `<p class="ft-dev">Хөгжүүлэгч: ${site.devUrl ? `<a href="${esc(site.devUrl)}" target="_blank" rel="noopener">${esc(site.devName)}</a>` : `<span>${esc(site.devName)}</span>`}</p>` : ""}
@@ -566,8 +566,8 @@
   };
 
   P.terms = function () {
-    legal("📜 Үйлчилгээний нөхцөл", "Хичээл платформыг ашиглахын өмнө уншина уу", `
-      <h3>1. Ерөнхий</h3><p>«Хичээл» нь хятад (HSK) болон англи (IELTS) хэл сурахад зориулсан онлайн платформ юм. Бүртгүүлж, сайтыг ашигласнаар та энэхүү нөхцөлийг хүлээн зөвшөөрсөнд тооцогдоно.</p>
+    legal("📜 Үйлчилгээний нөхцөл", "Lessonly платформыг ашиглахын өмнө уншина уу", `
+      <h3>1. Ерөнхий</h3><p>«Lessonly» нь хятад (HSK) болон англи (IELTS) хэл сурахад зориулсан онлайн платформ юм. Бүртгүүлж, сайтыг ашигласнаар та энэхүү нөхцөлийг хүлээн зөвшөөрсөнд тооцогдоно.</p>
       <h3>2. Бүртгэл</h3><p>Та бүртгэлдээ үнэн зөв мэдээлэл оруулж, нууц үгээ бусдад дамжуулахгүй байх үүрэгтэй. Таны бүртгэлээр хийгдсэн үйлдлийг та өөрөө хариуцна.</p>
       <h3>3. Багц ба төлбөр</h3><p>HSK 1 болон IELTS A1 түвшин үнэгүй. Бусад хичээлийг багц худалдан авч үзнэ. Төлбөрийг дансаар шилжүүлэх ба админ шалгаж баталгаажуулсны дараа багц идэвхжинэ. Идэвхжсэн багцын хугацаа дуустал эрх хүчинтэй байна. Буцаан олголттой холбоотой асуудлаар ${contact()}-тай холбогдоно уу.</p>
       <h3>4. Хэрэглэгчийн агуулга</h3><p>Чат, пост, сэтгэгдэл, сторид та өөрөө хариуцлага хүлээнэ. Бусдыг доромжлох, заналхийлэх, спам, хууль бус болон насанд хүрээгүй хүнд зохисгүй агуулга хориглоно. Ийм агуулгыг админ анхааруулгагүйгээр устгаж, бүртгэлийг хааж болно.</p>

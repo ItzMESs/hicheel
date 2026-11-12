@@ -1,4 +1,6 @@
-# 📚 Хичээл — Хятад, Англи хэл сурах вэб сайт
+# 📚 Lessonly — Хятад, Англи хэл сурах вэб сайт
+
+Домэйн: https://lessonly.site
 
 Монгол хэл дээрх хятад (HSK) болон англи (IELTS) хэл сурах платформ.
 
@@ -89,7 +91,7 @@ Vercel → **Settings → Environment Variables** хэсэгт нэмээд **Re
 |---|---|---|
 | `ADMIN_EMAILS` | 🛡️ Админ самбар (`#/admin`) | Таслалаар тусгаарласан имэйлүүд, жишээ нь `me@gmail.com` |
 | `RESEND_API_KEY`, `MAIL_FROM` | 📧 Нууц үг сэргээх имэйл | [resend.com](https://resend.com)-оос түлхүүр авна. `MAIL_FROM` жишээ: `Хичээл <noreply@таны-домэйн>` |
-| `SITE_URL` | Имэйл доторх холбоос | Заавал биш, жишээ `https://hicheel-three.vercel.app` |
+| `SITE_URL` | Имэйл доторх холбоос | Заавал биш, жишээ `https://lessonly.site` |
 | `VAPID_SUBJECT` | 🔔 Push мэдэгдэл | Заавал биш (`mailto:...`). VAPID түлхүүр автоматаар үүсч өгөгдлийн санд хадгалагдана |
 
 ### 💎 Багц (төлбөртэй хичээл)
