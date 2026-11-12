@@ -804,24 +804,64 @@ on("DELETE", "stories/:id", async (req, res, { params }) => {
   return { ok: true };
 });
 
-/* --- Үгийн тулаан: 2–4 хүн нэгэн зэрэг, асуулт бүр бүх тоглогчид нэг зэрэг гарна ---
+/* --- Тулаан · VS: 2–4 хүн нэгэн зэрэг, асуулт бүр бүх тоглогчид нэг зэрэг гарна ---
    Төлөв нь хүсэлт ирэх бүрт цагаар нь тооцоологдоно (serverless тул арын процессгүй). */
-const DUEL = { N: 10, MAX: 4, Q_MS: 12000, REVEAL_MS: 3200, COUNT_MS: 4000 };
+const DUEL = { N: 10, MAX: 4, Q_MS: 12000, HINT_MS: 5000, REVEAL_MS: 3200, COUNT_MS: 4000 };
+// Тоглоом бүрийн асуултын төрөл: m утга сонгох, t үг сонгох, l сонсоод сонгох, b үнэн/худал, y пиньинь, w орчуулж бичих, p зураг → бичих
+const DUEL_GAMES = { choice: ["m", "m", "t"], pic: ["p"], listen: ["l"], type: ["w"], tf: ["b"], pinyin: ["y"], mix: null };
+const TYPED = new Set(["p", "w"]);
+const KIND_MS = { b: 8000, p: 15000, w: 15000 };
+let PIC_WORDS = null;
+// Бичсэн хариултыг харьцуулахад: том жижиг үсэг, зай, аялгууны тэмдэг, тоог үл тооно
+const normAns = (v) => String(v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/ü/g, "v").replace(/[\s'’\-.0-9]/g, "");
 let DUEL_WORDS = null;
 const duelWords = () => DUEL_WORDS || (DUEL_WORDS = require("./_content/duel.json"));
 const DUEL_FREE = { hsk2: ["1"], hsk3: ["1"], ielts: ["A1"] };
 const pickN = (arr, n) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, n); };
-function duelQuestions(course, level) {
-  const ws = (duelWords()[course] || {})[level] || [];
-  if (ws.length < 14) fail(400, "Энэ түвшинд асуулт хүрэлцэхгүй байна.");
-  return pickN(ws, DUEL.N).map((w, i) => {
-    const toTerm = i % 3 === 2; // гурав дахь асуулт бүр: утгаас нь үгийг олох
-    const key = toTerm ? 0 : 2;
-    const wrong = [];
-    for (const x of pickN(ws, 40)) { if (wrong.length >= 3) break; if (x[key] !== w[key] && x[2] !== w[2] && !wrong.includes(x[key])) wrong.push(x[key]); }
-    const o = pickN([w[key]].concat(wrong), 4);
-    return toTerm ? { k: "t", t: w[2], r: "", o, a: o.indexOf(w[key]) } : { k: "m", t: w[0], r: w[1], o, a: o.indexOf(w[key]) };
+// Зураг → бичих: emoji зураг гарна, тоглогч үгийг бичнэ (хятад: ханз эсвэл пиньинь, англи: үг)
+function picQuestions(lang, n) {
+  const all = PIC_WORDS || (PIC_WORDS = require("./_content/pic.json"));
+  return pickN(all, n).map(([emoji, zh, py, en, mn]) => {
+    const ok = lang === "zh" ? zh.concat(py) : en;
+    return { k: "p", t: emoji, h: mn, acc: [...new Set(ok.map(normAns))], show: lang === "zh" ? `${zh[0]} · ${py}` : en[0] };
   });
+}
+// w = [үг, дуудлага, монгол утга]
+function wordQuestion(kind, w, ws, lang) {
+  const wrong = (key) => {
+    const out = [];
+    for (const x of pickN(ws, 40)) { if (out.length >= 3) break; if (x[key] && x[key] !== w[key] && x[2] !== w[2] && !out.includes(x[key])) out.push(x[key]); }
+    const o = pickN([w[key]].concat(out), 4);
+    return { o, a: o.indexOf(w[key]) };
+  };
+  if (kind === "t") return { k: "t", t: w[2], r: "", ...wrong(0) };
+  if (kind === "l") return { k: "l", t: w[0], r: w[1], lang, ...wrong(2) };
+  if (kind === "y") return { k: "y", t: w[0], r: "", ...wrong(1) };
+  if (kind === "b") {
+    const truth = crypto.randomInt(2) === 0;
+    const other = pickN(ws.filter((x) => x[2] !== w[2]), 1)[0];
+    return { k: "b", t: w[0], r: w[1], c: truth || !other ? w[2] : other[2], o: ["✔ Үнэн", "✘ Худал"], a: truth || !other ? 0 : 1 };
+  }
+  if (kind === "w") {
+    const acc = lang === "zh" ? [w[0], w[1]] : [w[0]];
+    const h = lang === "zh" ? `${normAns(w[1]).charAt(0)}… · ${[...w[0]].length} ханз` : `${w[0].charAt(0)}${" _".repeat(Math.max(0, w[0].length - 1))}`;
+    return { k: "w", t: w[2], h, acc: [...new Set(acc.map(normAns))], show: lang === "zh" ? `${w[0]} · ${w[1]}` : w[0] };
+  }
+  return { k: "m", t: w[0], r: w[1], ...wrong(2) };
+}
+function duelQuestions(mode, course, level, lang) {
+  let kinds = DUEL_GAMES[mode];
+  if (mode === "pinyin" && lang !== "zh") fail(400, "Пиньинь тоглоом зөвхөн хятад хэлэнд.");
+  const mixKinds = ["m", "t", "l", "b", "w", "p"].concat(lang === "zh" ? ["y"] : []);
+  const plan = Array.from({ length: DUEL.N }, (_, i) => (kinds ? kinds[i % kinds.length] : mixKinds[crypto.randomInt(mixKinds.length)]));
+  const pics = picQuestions(lang, DUEL.N);
+  let ws = [];
+  if (plan.some((k) => k !== "p")) {
+    ws = ((duelWords()[course] || {})[level] || []).filter((w) => lang !== "zh" || w[1]);
+    if (ws.length < 14) fail(400, "Энэ түвшинд асуулт хүрэлцэхгүй байна.");
+  }
+  const picked = pickN(ws, DUEL.N);
+  return plan.map((k, i) => Object.assign(k === "p" ? pics[i] : wordQuestion(k, picked[i % picked.length], ws, lang), { ms: KIND_MS[k] || DUEL.Q_MS }));
 }
 const duelCode = () => Array.from({ length: 5 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[crypto.randomInt(32)]).join("");
 const duelInclude = { players: { include: { user: true }, orderBy: { joinedAt: "asc" } }, host: true };
@@ -830,7 +870,8 @@ async function duelRoom(code) {
   if (!r) fail(404, "Тулааны өрөө олдсонгүй.");
   return r;
 }
-const qEnd = (r) => (r.revealAt ? r.revealAt.getTime() : r.qAt.getTime() + DUEL.Q_MS);
+const qMs = (r) => ((r.questions || [])[r.qIdx] || {}).ms || DUEL.Q_MS;
+const qEnd = (r) => (r.revealAt ? r.revealAt.getTime() : r.qAt.getTime() + qMs(r));
 // Хугацаа өнгөрсөн бол дараагийн асуулт руу шилжүүлнэ (qIdx-ээр түгжиж давхар шилжилтээс сэргийлнэ)
 async function duelTick(r) {
   let guard = 0;
@@ -857,33 +898,40 @@ function duelOut(r, me) {
   if (r.status === "play") {
     phase = now < r.qAt.getTime() ? "count" : now < qEnd(r) ? "question" : "reveal";
     const src = qs[r.qIdx];
-    if (phase !== "count" && src) q = { idx: r.qIdx, k: src.k, t: src.t, r: src.r, o: src.o, a: phase === "reveal" ? src.a : undefined };
+    if (phase !== "count" && src) {
+      const rev = phase === "reveal";
+      q = TYPED.has(src.k)
+        ? { idx: r.qIdx, k: src.k, t: src.t, h: src.h, hintMs: DUEL.HINT_MS, show: rev ? src.show : undefined }
+        : { idx: r.qIdx, k: src.k, t: src.t, r: src.r, c: src.c, o: src.o, lang: src.lang, a: rev ? src.a : undefined };
+    }
   }
   const shownIdx = q ? q.idx : -1;
   const players = r.players.map((p) => {
     const ans = (p.answers || {})[shownIdx];
     return {
       user: publicUser(p.user), host: p.userId === r.hostId, me: p.userId === me.id, left: p.left, score: p.score, streak: p.streak,
-      answered: !!ans, last: phase === "reveal" || phase === "done" ? (ans ? { ok: ans.ok, pts: ans.pts, k: ans.k } : null) : undefined,
+      answered: !!ans, last: phase === "reveal" || phase === "done" ? (ans ? { ok: ans.ok, pts: ans.pts, k: ans.k, txt: ans.txt } : null) : undefined,
       correct: Object.values(p.answers || {}).filter((x) => x.ok).length
     };
   }).sort((x, y) => y.score - x.score);
   return {
     now, code: r.code, course: r.course, level: r.level, status: r.status, phase, n: qs.length, qIdx: r.qIdx,
-    qAt: r.qAt ? r.qAt.getTime() : null, qEnd: r.status === "play" ? qEnd(r) : null, qMs: DUEL.Q_MS, revealMs: DUEL.REVEAL_MS,
+    qAt: r.qAt ? r.qAt.getTime() : null, qEnd: r.status === "play" ? qEnd(r) : null, qMs: r.status === "play" ? qMs(r) : DUEL.Q_MS, mode: r.mode, revealMs: DUEL.REVEAL_MS,
     host: publicUser(r.host), isHost: r.hostId === me.id, joined: !!mine, nextCode: r.nextCode, max: DUEL.MAX,
     question: q, myAnswer: mine && q ? ((mine.answers || {})[q.idx] || null) : null, players
   };
 }
-async function duelCreate(me, course, level, invite) {
+async function duelCreate(me, course, level, invite, mode) {
   if (!DUEL_FREE[course]) fail(400, "Хичээл буруу.");
+  mode = Object.prototype.hasOwnProperty.call(DUEL_GAMES, mode) ? mode : "choice";
   const lang = course === "ielts" ? "en" : "zh";
-  if (!DUEL_FREE[course].includes(level) && !isAdmin(me) && !alive(lang === "zh" ? me.premiumZh : me.premiumEn)) fail(403, "Энэ түвшин багцад багтана. HSK 1 / IELTS A1 дээр үнэгүй тулалдана уу.");
+  // Зурагтай горимд түвшний үг ашиглахгүй тул багц шаардлагагүй
+  if (mode !== "pic" && !DUEL_FREE[course].includes(level) && !isAdmin(me) && !alive(lang === "zh" ? me.premiumZh : me.premiumEn)) fail(403, "Энэ түвшин багцад багтана. HSK 1 / IELTS A1 эсвэл «Зураг» горимоор үнэгүй тулалдана уу.");
   await limit("duelRoom", me.id, 3600, 30, "Цагт 30-аас олон өрөө үүсгэх боломжгүй.", "hostId");
-  const questions = duelQuestions(course, level);
+  const questions = duelQuestions(mode, course, level, lang);
   let room = null;
   for (let i = 0; i < 5 && !room; i++) {
-    try { room = await db().duelRoom.create({ data: { code: duelCode(), hostId: me.id, course, level, questions, players: { create: { userId: me.id } } } }); } catch (e) { if (e.code !== "P2002") throw e; }
+    try { room = await db().duelRoom.create({ data: { code: duelCode(), hostId: me.id, course, level, mode, questions, players: { create: { userId: me.id } } } }); } catch (e) { if (e.code !== "P2002") throw e; }
   }
   if (invite && invite.length) await duelInvite(me, room, invite);
   return room;
@@ -893,7 +941,7 @@ async function duelInvite(me, room, ids) {
   for (const id of [...new Set((Array.isArray(ids) ? ids : []).map((x) => str(x, 40)))].slice(0, 6)) {
     if (id === me.id || list.includes(id) || !(await areFriends(me.id, id))) continue;
     list.push(id);
-    await notify(id, `⚔️ ${me.name} таныг үгийн тулаанд урилаа! Код: ${room.code}`, `#/duels/${room.code}`, me.id);
+    await notify(id, `⚔️ ${me.name} таныг тулаанд урилаа! Код: ${room.code}`, `#/duels/${room.code}`, me.id);
   }
   await db().duelRoom.update({ where: { id: room.id }, data: { invited: list.slice(-20) } });
 }
@@ -904,13 +952,13 @@ on("GET", "duels", async (req) => {
     db().duelRoom.findMany({ where: { status: "lobby", createdAt: { gt: since }, invited: { array_contains: [me.id] }, players: { none: { userId: me.id } } }, include: duelInclude, orderBy: { createdAt: "desc" }, take: 10 }),
     db().duelRoom.findMany({ where: { players: { some: { userId: me.id } }, status: { in: ["lobby", "play", "done"] } }, include: duelInclude, orderBy: { createdAt: "desc" }, take: 15 })
   ]);
-  const brief = (r) => ({ code: r.code, course: r.course, level: r.level, status: r.status, createdAt: r.createdAt, host: publicUser(r.host),
+  const brief = (r) => ({ code: r.code, course: r.course, level: r.level, mode: r.mode, status: r.status, createdAt: r.createdAt, host: publicUser(r.host),
     players: r.players.map((p) => ({ user: publicUser(p.user), score: p.score, me: p.userId === me.id })).sort((a, b) => b.score - a.score) });
   return { invites: inv.filter((r) => r.players.length < DUEL.MAX).map(brief), rooms: mine.filter((r) => r.status !== "lobby" || r.createdAt > since).map(brief) };
 });
 on("POST", "duels", async (req, res, { body }) => {
   const me = await currentUser(req, true);
-  const room = await duelCreate(me, str(body.course, 10), str(body.level, 10), body.invite);
+  const room = await duelCreate(me, str(body.course, 10), str(body.level, 10), body.invite, str(body.mode, 10));
   return { code: room.code };
 });
 on("GET", "duels/:code", async (req, res, { params }) => {
@@ -964,12 +1012,13 @@ on("POST", "duels/:code/answer", async (req, res, { params, body }) => {
   const answers = Object.assign({}, p.answers || {});
   if (answers[qi]) return duelOut(r, me);
   const q = r.questions[qi];
-  const ok = k === q.a;
+  const txt = TYPED.has(q.k) ? str(body.text, 40) : undefined;
+  const ok = TYPED.has(q.k) ? !!txt && q.acc.includes(normAns(txt)) : k === q.a;
   const ms = now - r.qAt.getTime();
   const streak = ok ? p.streak + 1 : 0;
   // Зөв бол 500 + хурдны урамшуулал (≤500) + дараалсан зөвийн урамшуулал (≤200)
-  const pts = ok ? 500 + Math.round(500 * Math.max(0, 1 - ms / DUEL.Q_MS)) + Math.min(200, (streak - 1) * 50) : 0;
-  answers[qi] = { k, ok, pts, ms };
+  const pts = ok ? 500 + Math.round(500 * Math.max(0, 1 - ms / (q.ms || DUEL.Q_MS))) + Math.min(200, (streak - 1) * 50) : 0;
+  answers[qi] = TYPED.has(q.k) ? { k: -1, txt, ok, pts, ms } : { k, ok, pts, ms };
   const n = await db().duelPlayer.updateMany({ where: { id: p.id, answers: { equals: p.answers || {} } }, data: { answers, score: p.score + pts, streak } });
   if (!n.count) fail(409, "Дахин оролдоно уу.");
   return duelOut(await duelTick(await duelRoom(r.code)), me);
@@ -979,7 +1028,7 @@ on("POST", "duels/:code/again", async (req, res, { params }) => {
   const r = await duelRoom(params.code);
   if (r.hostId !== me.id || r.status !== "done") fail(403, "Зөвхөн өрөөний эзэн шинэ тоглолт эхлүүлнэ.");
   if (r.nextCode) return { code: r.nextCode };
-  const room = await duelCreate(me, r.course, r.level, []);
+  const room = await duelCreate(me, r.course, r.level, [], r.mode);
   await db().duelRoom.update({ where: { id: room.id }, data: { invited: r.players.map((p) => p.userId).filter((id) => id !== me.id) } });
   await db().duelRoom.update({ where: { id: r.id }, data: { nextCode: room.code } });
   return { code: room.code };

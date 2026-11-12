@@ -260,6 +260,7 @@ model DuelRoom {
   host      User         @relation("DuelRoomHost", fields: [hostId], references: [id], onDelete: Cascade)
   course    String
   level     String
+  mode      String       @default("choice") // choice | pic | mix
   questions Json // [{ t, r, o: [4], a, k }] — a (зөв хариулт) тоглогчдод зөвхөн тодруулах үед илгээгдэнэ
   invited   Json         @default("[]")
   status    String       @default("lobby") // lobby | play | done | closed

@@ -426,6 +426,17 @@
   const DQ_MARK = ["◆", "●", "▲", "■"];
   const courseLbl = (c, l) => (COURSES[c] ? `${COURSES[c].short} ${COURSES[c].levelLabel ? COURSES[c].levelLabel(l) : l}` : `${c} ${l}`);
   const medal = (i) => ["🥇", "🥈", "🥉", "4"][i] || i + 1;
+  // [id, дүрс, нэр, тайлбар, зөвхөн хятад]
+  const DUEL_MODES = [
+    ["choice", "🔤", "Үгийн утга", "Үг гарна — 4 хариултаас утгыг нь сонго"],
+    ["pic", "🖼️", "Зураг → бичих", "Зургийг хараад үгийг хамгийн түрүүнд бич", false, "Үнэгүй"],
+    ["listen", "🎧", "Сонсоод таах", "Үгийг сонсоод утгыг нь сонго"],
+    ["type", "✍️", "Орчуулж бичих", "Монгол утга гарна — үгийг бич"],
+    ["tf", "⚡", "Үнэн үү, худал уу", "Үг ба утга таарч байна уу? 8 секунд!"],
+    ["pinyin", "🀄", "Пиньинь таах", "Ханзны зөв дуудлагыг сонго", true],
+    ["mix", "🔀", "Холимог", "Бүх тоглоом холилдоно"]
+  ];
+  const modeLbl = (m) => { const x = DUEL_MODES.find((d) => d[0] === m) || DUEL_MODES[0]; return `${x[1]} ${x[2]}`; };
 
   P.duels = function (code) {
     if (A.needServer()) return;
@@ -436,16 +447,19 @@
   async function duelHome() {
     const withId = A.query && A.query.with;
     const locked = A.isLocked(A.pick.course, A.pick.level);
-    view().innerHTML = `${H("⚔️ Үгийн тулаан", "2–4 хүн нэгэн зэрэг өрсөлдөнө. Асуулт бүх хүнд зэрэг гарч, хурдан зөв хариулсан нь илүү оноо авна.")}
+    view().innerHTML = `${H("⚔️ Тулаан · VS", "Найзуудтайгаа 2–4 хүн нэгэн зэрэг тоглож өрсөлдөөрэй. Хурдан зөв хариулсан нь илүү оноо авна.")}
       <div class="split"><aside class="lvl-side">${A.picker()}</aside><section class="split-main">
         <div class="duel-hero card">
           <div class="dh-art">${[0, 1, 2, 3].map((i) => `<span class="${DQ_COLORS[i]}">${DQ_MARK[i]}</span>`).join("")}</div>
-          <div class="dh-txt"><b>Нэгэн зэрэг · 10 асуулт · 12 секунд</b>
+          <div class="dh-txt"><b>2–4 тоглогч · нэгэн зэрэг · 10 асуулт</b>
             <small>Зөв хариулт 500 оноо + хурдны урамшуулал 500 хүртэл + дараалсан зөвийн урамшуулал</small></div>
         </div>
+        <h2 class="section-title">1. Тоглоомоо сонго</h2>
+        <div class="dm-modes">${DUEL_MODES.filter((m) => !m[4] || A.track() === "zh").map((m, i) => `<label class="dm-mode ${i ? "" : "on"}"><input type="radio" name="dmode" value="${m[0]}" ${i ? "" : "checked"}><span class="dm-ic">${m[1]}</span><b>${m[2]}</b><small>${m[3]}</small>${m[5] ? `<span class="dm-free">${m[5]}</span>` : ""}</label>`).join("")}</div>
+        <h2 class="section-title">2. Найзуудаа урь</h2>
         <div class="grid duel-start">
           <div class="card"><h3>🏯 Өрөө үүсгэх</h3>
-            <p class="muted small">Түвшин: <b>${esc(courseLbl(A.pick.course, A.pick.level))}</b>${locked ? ` · 🔒 багцад багтана` : ""}. Зүүн талаас солино.</p>
+            <p class="muted small" id="dlvl">Түвшин: <b>${esc(courseLbl(A.pick.course, A.pick.level))}</b>${locked ? ` · 🔒 багцад багтана` : ""}. Зүүн талаас солино.</p>
             <div id="dfr" class="df-list"><p class="muted small">Найзууд ачаалж байна...</p></div>
             <button class="btn block" id="dnew" ${locked ? "disabled" : ""}>⚔️ Өрөө үүсгэх</button>
           </div>
@@ -459,6 +473,13 @@
       </section></div>`;
     A.bindPicker(P.duels);
     const picked = new Set(withId ? [withId] : []);
+    let mode = "choice";
+    document.querySelectorAll("[name=dmode]").forEach((r) => (r.onchange = () => {
+      mode = r.value;
+      document.querySelectorAll(".dm-mode").forEach((l) => l.classList.toggle("on", l.contains(r)));
+      document.getElementById("dnew").disabled = locked && mode !== "pic";
+      document.getElementById("dlvl").innerHTML = mode === "pic" ? `Хэл: <b>${A.track() === "zh" ? "Хятад (ханз эсвэл пиньинь бичнэ)" : "Англи"}</b> · бүх хүнд үнэгүй` : `Түвшин: <b>${esc(courseLbl(A.pick.course, A.pick.level))}</b>${locked ? ` · 🔒 багцад багтана` : ""}. Зүүн талаас солино.`;
+    }));
     Remote.call("GET", "friends").then((fr) => {
       const el = document.getElementById("dfr");
       if (!el) return;
@@ -473,7 +494,7 @@
     document.getElementById("dnew").onclick = async (e) => {
       e.target.disabled = true;
       try {
-        const r = await Remote.call("POST", "duels", { course: A.pick.course, level: A.pick.level, invite: [...picked] });
+        const r = await Remote.call("POST", "duels", { course: A.pick.course, level: A.pick.level, invite: [...picked], mode });
         location.hash = `#/duels/${r.code}`;
       } catch (err) { UI.toast(err.message, "warn"); e.target.disabled = false; }
     };
@@ -487,7 +508,7 @@
       const inv = document.getElementById("dinv"), list = document.getElementById("dlist");
       if (!list) return;
       inv.innerHTML = invites.length ? `<h2 class="section-title">📨 Танд ирсэн урилга</h2>` + invites.map((r) => `
-        <div class="duel-row card inv">${A.avatarHtml(r.host, 38)}<div class="grow"><b>${esc(r.host.name)}</b> <span class="muted small">таныг урьсан · ${esc(courseLbl(r.course, r.level))} · ${r.players.length}/4 хүн</span></div>
+        <div class="duel-row card inv">${A.avatarHtml(r.host, 38)}<div class="grow"><b>${esc(r.host.name)}</b> <span class="muted small">таныг урьсан · ${esc(modeLbl(r.mode))} · ${esc(courseLbl(r.course, r.level))} · ${r.players.length}/4 хүн</span></div>
           <a class="btn small" href="#/duels/${esc(r.code)}">⚔️ Нэгдэх</a></div>`).join("") : "";
       list.innerHTML = rooms.length ? rooms.map((r) => {
         const myIdx = r.players.findIndex((p) => p.me);
@@ -505,6 +526,7 @@
     const alive = () => document.body.contains(root);
     let st = null, off = 0, key = "", timer = null, sent = {}, rewarded = false, friends = null;
     const invited = new Set();
+    let spoken = -1;
     const sNow = () => Date.now() + off;
     const call = async (m, p, b) => { const r = await Remote.call(m, `duels/${code}${p}`, b); if (r && r.code) { off = r.now - Date.now(); } return r; };
 
@@ -550,17 +572,26 @@
         return;
       }
       const q = st.question;
-      const my = st.myAnswer;
+      if (q.k === "p" || q.k === "w") return picStage(q);
+      const lang = q.lang || (COURSES[st.course] ? COURSES[st.course].lang : "");
+      const hideTerm = q.k === "l" && st.phase === "question";
+      if (q.k === "l" && st.phase === "question" && spoken !== q.idx) { spoken = q.idx; setTimeout(() => A.Speech.speak(q.t, lang), 250); }
       root.innerHTML = `<div class="dq-layout">
         <div class="dq card ${st.phase}">
           <div class="dq-top"><span class="badge">⚔️ ${q.idx + 1}/${st.n}</span><div class="dq-timer"><i id="dtb"></i></div><b id="dtt" class="dq-sec"></b></div>
-          <div class="dq-prompt">${q.k === "m" ? `<div class="q-term ${COURSES[st.course] ? COURSES[st.course].lang : ""}">${esc(q.t)}</div>${q.r ? `<div class="q-sub">${esc(q.r)}</div>` : ""}<p class="muted small">Утга нь аль вэ?</p>` : `<p class="muted small">Энэ утгатай үг аль вэ?</p><div class="dq-mean">${esc(q.t)}</div>`}</div>
-          <div class="dq-opts">${q.o.map((o, i) => `<button class="dq-opt ${DQ_COLORS[i]} ${q.k === "t" && COURSES[st.course] ? COURSES[st.course].lang : ""}" data-k="${i}"><span class="dq-mk">${DQ_MARK[i]}</span><span>${esc(o)}</span></button>`).join("")}</div>
+          <div class="dq-prompt">${q.k === "t" ? `<p class="muted small">Энэ утгатай үг аль вэ?</p><div class="dq-mean">${esc(q.t)}</div>`
+            : q.k === "l" ? (hideTerm ? `<button class="dq-say" id="dsay" type="button">🔊</button><p class="muted small">Сонсоод утгыг нь сонго · дахин сонсох бол дар</p>` : `<div class="q-term ${lang}">${esc(q.t)}</div>${q.r ? `<div class="q-sub">${esc(q.r)}</div>` : ""}`)
+            : q.k === "b" ? `<div class="q-term ${lang}">${esc(q.t)}</div>${q.r ? `<div class="q-sub">${esc(q.r)}</div>` : ""}<div class="dq-claim">= «${esc(q.c)}» ?</div>`
+            : q.k === "y" ? `<div class="q-term zh">${esc(q.t)}</div><p class="muted small">Зөв пиньинь аль вэ?</p>`
+            : `<div class="q-term ${lang}">${esc(q.t)}</div>${q.r ? `<div class="q-sub">${esc(q.r)}</div>` : ""}<p class="muted small">Утга нь аль вэ?</p>`}</div>
+          <div class="dq-opts ${q.k === "b" ? "two" : ""}">${q.o.map((o, i) => `<button class="dq-opt ${q.k === "b" ? (i ? "d-red" : "d-green") : DQ_COLORS[i]} ${q.k === "t" ? lang : ""}" data-k="${i}">${q.k === "b" ? "" : `<span class="dq-mk">${DQ_MARK[i]}</span>`}<span>${esc(o)}</span></button>`).join("")}</div>
           <div class="dq-note" id="dnote"></div>
         </div>
         <aside class="dsb card"><h3>Оноо</h3><div id="dsb"></div></aside>
       </div>`;
       const opts = root.querySelectorAll(".dq-opt");
+      const say = document.getElementById("dsay");
+      if (say) say.onclick = () => A.Speech.speak(q.t, lang);
       const mark = () => {
         const mine = st.myAnswer ? st.myAnswer.k : sent[q.idx];
         opts.forEach((b) => { b.disabled = st.phase !== "question" || mine !== undefined; b.classList.toggle("picked", +b.dataset.k === mine); });
@@ -580,11 +611,47 @@
       }));
     }
 
+    // Зураг → бичих: хамгийн хурдан зөв бичсэн нь их оноо авна, буруу бол 0
+    function picStage(q) {
+      const zh = COURSES[st.course] && COURSES[st.course].lang === "zh";
+      root.innerHTML = `<div class="dq-layout">
+        <div class="dq card ${st.phase}">
+          <div class="dq-top"><span class="badge">${q.k === "w" ? "✍️" : "🖼️"} ${q.idx + 1}/${st.n}</span><div class="dq-timer"><i id="dtb"></i></div><b id="dtt" class="dq-sec"></b></div>
+          ${q.k === "w" ? `<p class="muted small center" style="margin:0">Энэ утгатай үгийг бич:</p><div class="dq-mean big">${esc(q.t)}</div>` : `<div class="dq-pic">${esc(q.t)}</div>`}
+          <p class="dq-hint" id="dhint">💡 Сэжүүр: <b>${esc(q.h)}</b></p>
+          ${st.phase === "reveal" ? `<div class="dq-show">Зөв хариулт: <b class="${zh ? "zh" : ""}">${esc(q.show)}</b></div>` : ""}
+          <form class="dq-type" id="dtype"><input class="input ${zh ? "zh" : ""}" name="t" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${zh ? "汉字 эсвэл pinyin…" : "Англиар бичнэ үү…"}"><button class="btn">Илгээх</button></form>
+          <div class="dq-note" id="dnote"></div>
+        </div>
+        <aside class="dsb card"><h3>Оноо</h3><div id="dsb"></div></aside>
+      </div>`;
+      const f = document.getElementById("dtype"), inp = f.t;
+      const mine = st.myAnswer ? st.myAnswer.txt : sent[q.idx];
+      const note = document.getElementById("dnote");
+      if (mine !== undefined) { inp.value = mine || ""; inp.disabled = true; f.querySelector("button").disabled = true; }
+      if (st.phase === "reveal") {
+        inp.disabled = true; f.querySelector("button").disabled = true;
+        const res = (st.players.find((p) => p.me) || {}).last;
+        f.classList.add(res && res.ok ? "ok" : "bad");
+        note.innerHTML = res && res.ok ? `<span class="tamga">ЗӨВ +${res.pts}</span>` : `<span class="tamga re">${res ? "БУРУУ" : "ХОЦОРЛОО"}</span>`;
+      } else if (mine !== undefined) note.innerHTML = `<span class="muted">✔ Илгээгдлээ — бусдыг хүлээж байна...</span>`;
+      else setTimeout(() => inp.focus(), 50);
+      f.onsubmit = async (e) => {
+        e.preventDefault();
+        const text = inp.value.trim();
+        if (!text || sent[q.idx] !== undefined || st.phase !== "question") return;
+        sent[q.idx] = text;
+        inp.disabled = true; f.querySelector("button").disabled = true;
+        note.innerHTML = `<span class="muted">✔ Илгээгдлээ — бусдыг хүлээж байна...</span>`;
+        try { st = await call("POST", "/answer", { q: q.idx, text }); draw(); } catch (err) { UI.toast(err.message, "warn"); }
+      };
+    }
+
     function lobby() {
       const seats = [0, 1, 2, 3].map((i) => st.players[i]);
       root.innerHTML = `<div class="dl card">
         <div class="dl-head"><div><small class="muted">Өрөөний код</small><div class="dl-code">${code.split("").map((c) => `<span>${esc(c)}</span>`).join("")}</div></div>
-          <div class="dl-info"><b>${esc(courseLbl(st.course, st.level))}</b><small class="muted">10 асуулт · 12 сек</small><button class="btn ghost small" id="dcopy">🔗 Холбоос хуулах</button></div></div>
+          <div class="dl-info"><b>${esc(modeLbl(st.mode))}</b><small>${esc(st.mode === "pic" ? (COURSES[st.course] && COURSES[st.course].lang === "en" ? "Англи үг" : "Хятад үг") : courseLbl(st.course, st.level))}</small><small class="muted">10 асуулт · 2–4 тоглогч</small><button class="btn ghost small" id="dcopy">🔗 Холбоос хуулах</button></div></div>
         <div class="dl-seats">${seats.map((p, i) => p ? `<div class="dl-seat on ${DQ_COLORS[i]}">${p.host ? `<span class="dl-crown">👑</span>` : ""}${A.avatarHtml(p.user, 64)}<b>${esc(p.user.name)}${p.me ? " (Та)" : ""}</b><small>${p.host ? "Өрөөний эзэн" : "Бэлэн"}</small></div>`
           : `<div class="dl-seat empty"><span class="dl-q">?</span><small>Хүлээж байна<i class="dots"></i></small></div>`).join("")}</div>
         ${st.isHost ? `<div id="dinvite" class="dl-inv"></div>
@@ -651,9 +718,10 @@
       el.querySelectorAll("[data-u]").forEach((r) => (before[r.dataset.u] = r.getBoundingClientRect().top));
       const top = Math.max(1, st.players[0] ? st.players[0].score : 1);
       el.innerHTML = st.players.map((p, i) => {
+        const typed = st.phase === "reveal" && p.last && p.last.txt ? `<small class="dsb-txt ${p.last.ok ? "ok" : "bad"}">«${esc(p.last.txt)}»</small>` : "";
         const tag = st.phase === "reveal" ? (p.last ? (p.last.ok ? `<em class="ok">+${p.last.pts}</em>` : `<em class="bad">✗</em>`) : `<em class="bad">—</em>`) : p.answered ? `<em class="ans">✔</em>` : `<em class="think">…</em>`;
         return `<div class="dsb-row ${p.me ? "me" : ""} ${p.left ? "left" : ""}" data-u="${esc(p.user.id)}"><span class="dsb-rk">${i + 1}</span>${A.avatarHtml(p.user, 30)}
-          <div class="dsb-b"><b>${esc(p.user.name)}${p.streak >= 2 ? ` <span title="Дараалан зөв">🔥${p.streak}</span>` : ""}</b><div class="mini-bar"><i style="width:${(p.score / top) * 100}%"></i></div></div>
+          <div class="dsb-b"><b>${esc(p.user.name)}${p.streak >= 2 ? ` <span title="Дараалан зөв">🔥${p.streak}</span>` : ""}</b><div class="mini-bar"><i style="width:${(p.score / top) * 100}%"></i></div>${typed}</div>
           <span class="dsb-sc">${p.score}</span>${tag}</div>`;
       }).join("");
       el.querySelectorAll("[data-u]").forEach((r) => {
@@ -679,6 +747,8 @@
       }
       const bar = document.getElementById("dtb"), t = document.getElementById("dtt");
       if (!bar) return;
+      const hint = document.getElementById("dhint");
+      if (hint && st.question) hint.classList.toggle("on", st.phase !== "question" || now >= st.qAt + (st.question.hintMs || 5000));
       const left = st.phase === "question" ? Math.max(0, st.qEnd - now) : 0;
       bar.style.width = (left / st.qMs) * 100 + "%";
       bar.classList.toggle("low", left < 4000);
