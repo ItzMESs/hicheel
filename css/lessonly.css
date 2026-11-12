@@ -190,3 +190,16 @@ svg.ic { display: block; flex: none; }
 .pm-stats b svg { color: var(--primary); }
 .btn svg.ic { display: inline-block; vertical-align: -3px; }
 label.btn { display: inline-flex !important; align-items: center; gap: 6px; }
+/* Унждаг цэс: гарчиг тод, тайлбар бүдэг */
+.ndrop .nd-item .nd-tx b { color: var(--ink) !important; font-weight: 700 !important; font-size: 14.5px !important; }
+.ndrop .nd-item .nd-tx small { color: var(--muted) !important; font-size: 12.5px !important; }
+.ndrop .nd-item .nd-ic { color: var(--ink) !important; }
+.ndrop .nd-item.on .nd-ic, .ndrop .nd-item:hover .nd-ic { color: #fff !important; }
+.ndrop .nd-item.on .nd-tx b, .ndrop .nd-item:hover .nd-tx b { color: var(--primary-2) !important; }
+/* Дүрсүүдийг тодруулах: зураас зузаан, өнгө тод */
+svg.ic { stroke-width: 2 !important; }
+.ng-ic, .nd-ic, .pm-tile > span, .pm-plan > span:first-child, .tb-grid > a > span, .tb-grid > button > span { color: var(--ink) !important; background: var(--soft) !important; border-color: transparent !important; }
+.ndrop .nd-item .nd-ic { color: var(--primary-2) !important; }
+.ndrop .nd-item.on .nd-ic, .ndrop .nd-item:hover .nd-ic, .top-nav .ng.on .ng-ic, .top-nav .ng-home.on .ng-ic { background: var(--primary) !important; color: #fff !important; }
+.tabbar .tb-row > a, .tabbar .tb-row > button { color: var(--muted) !important; }
+.icon-bar .ibtn { color: var(--ink) !important; }
