@@ -284,3 +284,7 @@ h2, h3, .section-title { font-weight: 600 !important; }
 .lb-pod { border: 1px solid var(--line) !important; box-shadow: none !important; }
 .lb-pod.me, .lb-pod:hover { border-color: var(--primary) !important; }
 .lb-bar { width: calc(100% + 24px) !important; margin: 16px -12px 0; }
+/* Профайлын цэсний доод мөр: 3 товч багтах, хажуу тийш гүйлгэхгүй */
+.pmenu { overflow-x: hidden !important; }
+.pm-foot { display: grid !important; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px !important; }
+.pm-foot > * { min-width: 0; padding: 9px 6px !important; font-size: 13px !important; white-space: nowrap; justify-content: center; }
