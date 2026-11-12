@@ -129,3 +129,26 @@ h1, h2, h3, .page-head h1, .section-title, .logo-txt, .eyebrow { font-family: "I
 .pmenu { border-radius: 18px !important; border: 1px solid var(--line) !important; box-shadow: 0 20px 40px rgba(10, 40, 120, .14) !important; }
 .pm-tile, .pm-level, .pm-plan, .pm-stats > span, .pm-foot button, .pm-admin { border-radius: 12px !important; }
 .pm-head .av, .pm-head .avatar { border-radius: 50% !important; }
+
+/* ---- Том дэлгэцийн засвар: дугуй зураг, хэлний сонгогч, гарчиг ---- */
+.av, .avatar, .av-letter, .profile-hero .av, .pf-av, .post-head .av, .composer .av { border-radius: 50% !important; }
+.av-letter { background: linear-gradient(135deg, #0a47ff, #3d8bff) !important; color: #fff !important; }
+.av-sys { background: #fff !important; padding: 3px; object-fit: contain !important; box-shadow: 0 0 0 1px var(--line); }
+.profile-hero .av, .profile-hero img.av { border: 3px solid var(--card) !important; box-shadow: 0 0 0 1px var(--line), var(--shadow) !important; }
+.profile-hero label, .profile-hero .av-edit, .profile-hero [class*="cam"] { border-radius: 50% !important; }
+h1, h2, h3, .profile-hero h1 { text-transform: none !important; }
+.track-sw button, .track-sw .tw { font: 600 13px "Inter", sans-serif !important; text-transform: none !important; letter-spacing: 0 !important; }
+.track-sw .flag, .track-sw button.on .flag { background: transparent !important; color: inherit !important; border: 0 !important; font-weight: 800; padding: 0 2px; }
+.track-sw button { padding: 7px 12px !important; gap: 6px; }
+.flag.en { background: var(--ink) !important; color: var(--bg) !important; border-color: transparent !important; }
+.react { border-radius: 99px !important; padding: 6px 12px !important; }
+.react.on { background: var(--soft) !important; color: var(--primary) !important; border: 1px solid var(--primary) !important; }
+.toast, .toast * { font-family: "Inter", sans-serif !important; text-transform: none !important; letter-spacing: 0 !important; font-weight: 700; }
+.toast.ok { background: #16a34a !important; } .toast.warn { background: #d97706 !important; }
+.btn.small, .btn.sm { text-transform: none !important; letter-spacing: 0 !important; }
+.chat-head { font-family: "Inter", sans-serif !important; text-transform: none !important; font-size: 15px !important; font-weight: 800 !important; }
+.chat-promo { border: 1px solid var(--line) !important; border-left: 4px solid #f5b301 !important; border-radius: 14px !important; background: var(--card-2) !important; }
+.av-sys { box-shadow: 0 0 0 1px var(--line) !important; border: 0 !important; }
+.chat-form .ibtn, .chat-form label, .chat-in label, .chat-in .icon-btn, .chat-input .icon-btn { border-radius: 12px !important; border: 1px solid var(--line) !important; }
+.track-sw .flag.en { background: transparent !important; color: inherit !important; }
+.croom { border-radius: 12px !important; }

@@ -740,7 +740,7 @@
   /* ---------- Аватар ---------- */
   function avatarHtml(u, size) {
     size = size || 40;
-    if (u && u.system) return `<img class="av av-sys" src="img/logo-zh.png" alt="Систем" style="width:${size}px;height:${size}px">`;
+    if (u && u.system) return `<img class="av av-sys" src="img/mark.png" alt="Систем" style="width:${size}px;height:${size}px">`;
     const url = u && (u.avatarUrl || u.avatar);
     const letter = esc(((u && u.name) || "?").slice(0, 1).toUpperCase());
     return url
@@ -1344,7 +1344,7 @@
     show(n) {
       if (!this.canPush() || Notification.permission !== "granted" || document.visibilityState === "visible") return;
       try {
-        const x = new Notification("Lessonly", { body: n.text, tag: n.id, icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%23111'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' fill='white'%3E学%3C/text%3E%3C/svg%3E" });
+        const x = new Notification("Lessonly", { body: n.text, tag: n.id, icon: "img/icon-192.png" });
         x.onclick = () => { window.focus(); if (n.link) location.hash = n.link.replace(/^#/, ""); x.close(); };
       } catch (e) { /* ignore */ }
     }
@@ -2110,7 +2110,7 @@
   });
   document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("burger").onclick = () => document.body.classList.toggle("menu-open");
-    view().innerHTML = `<div class="boot"><img class="boot-logo" src="img/logo-zh.png" alt=""><p class="muted">Ачаалж байна...</p></div>`;
+    view().innerHTML = `<div class="boot"><img class="boot-logo" src="img/mark.png" alt=""><p class="muted">Ачаалж байна...</p></div>`;
     A.track = track;
     A.Remote.init().finally(() => { route(); refreshBadges(); });
   });
